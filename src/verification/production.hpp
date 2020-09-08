@@ -21,9 +21,12 @@ namespace sgns::verification {
 
     enum class ExecutionStrategy {
       /// Genesis epoch is executed on the current node
-      GENESIS,
+      GENESIS,     
       /// Node needs to syncronize first
-      SYNC_FIRST
+      SYNC_FIRST,
+      /// Start on last epoch
+      START,
+      
     };
 
     /**

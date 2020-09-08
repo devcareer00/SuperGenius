@@ -24,6 +24,8 @@ namespace {
   const uint16_t def_p2p_port = 30363;
   const int def_verbosity = 2;
   const bool def_is_only_finalizing = false;
+
+  const bool def_is_already_synchronized = false;
 }  // namespace
 
 namespace sgns::application {
@@ -36,7 +38,8 @@ namespace sgns::application {
         rpc_ws_port_(def_rpc_ws_port),
         p2p_port_(def_p2p_port),
         verbosity_(static_cast<spdlog::level::level_enum>(def_verbosity)),
-        is_only_finalizing_(def_is_only_finalizing) {}
+        is_only_finalizing_(def_is_only_finalizing),
+        is_already_synchronized_(def_is_already_synchronized) {}
 
   AppConfigurationImpl::FilePtr AppConfigurationImpl::open_file(
       const std::string &filepath) {
