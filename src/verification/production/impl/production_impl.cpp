@@ -70,8 +70,8 @@ namespace sgns::verification {
         && epoch_storage_->addEpochDescriptor(1, init_epoch_desc).has_value();
 
     BOOST_ASSERT(init_epoch_desc_ok);
-    /* initialize HawkTracer library */
-    ht_init(0, 0);
+    // /* initialize HawkTracer library */
+    // ht_init(0, 0);
     app_state_manager_->atLaunch([this] { return start(); });
   }
 
