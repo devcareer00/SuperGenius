@@ -67,7 +67,7 @@ namespace sgns::application {
      * This option gives ability to continue block production at cold start.
      * @return true if need to force block production
      */
-    virtual bool is_already_synchronized() const = 0;
+    // virtual bool is_already_synchronized() const = 0;
   };
 
   using AppConfigPtr = std::shared_ptr<AppConfiguration>;

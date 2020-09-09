@@ -25,6 +25,7 @@ target_link_libraries(sgns_node
     block_producing_node_application
     validating_node_application
     app_config_impl
+    HawkTracer::hawktracer
     ${USER_ENV_LIBRARY}  # On windows platform , sr25519 library needs extra library userenv, so folllowing code is added
     )
 if(FORCE_MULTILE)

@@ -97,6 +97,12 @@ find_package(libsecp256k1 CONFIG REQUIRED)
 find_package(xxhash CONFIG REQUIRED)
 
 
+find_package(HawkTracer CONFIG REQUIRED)
+message("--${HawkTracer_INCLUDE_DIRS}--")     
+# 
+
+include_directories(${HawkTracer_INCLUDE_DIRS})
+
 
 option(TESTING "Build tests" ON)
 link_directories(

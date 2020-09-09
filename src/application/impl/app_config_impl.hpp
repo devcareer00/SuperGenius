@@ -122,7 +122,7 @@ namespace sgns::application {
     DECLARE_PROPERTY(spdlog::level::level_enum, verbosity);
     DECLARE_PROPERTY(bool, is_only_finalizing);
 
-    DECLARE_PROPERTY(bool, is_already_synchronized_);
+    // DECLARE_PROPERTY(bool, is_already_synchronized_);
   };
 
 }  // namespace sgns::application
