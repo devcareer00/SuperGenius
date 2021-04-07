@@ -81,7 +81,7 @@ include_directories(
   ${tsl_hat_trie_INCLUDE_DIR}
 )
 find_package(Boost.DI CONFIG REQUIRED)
-find_package(blocklattice CONFIG REQUIRED PATHS ${blocklattice_DIR})
+#find_package(blocklattice CONFIG REQUIRED PATHS ${blocklattice_DIR})
 find_package(OpenSSL REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(tsl_hat_trie CONFIG REQUIRED)
