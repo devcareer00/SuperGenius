@@ -96,7 +96,12 @@ find_package(binaryen CONFIG REQUIRED)
 find_package(libsecp256k1 CONFIG REQUIRED)
 find_package(xxhash CONFIG REQUIRED)
 
-
+# Getting go-lang workspace directory
+set(_GOAPP "go")
+set(_GOARGS "env" "GOPATH")
+# Execule go evn GOPATH, remove trailing whitespaces from the output and write it to _GOPATH variable
+execute_process(COMMAND ${_GOAPP} ${_GOARGS} OUTPUT_VARIABLE _GOPATH OUTPUT_STRIP_TRAILING_WHITESPACE)
+message("_GOPATH", ${_GOPATH})
 
 option(TESTING "Build tests" ON)
 link_directories(
