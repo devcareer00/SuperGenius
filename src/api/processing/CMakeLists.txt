@@ -2,8 +2,6 @@
 set(PROTO_SRC_DIR ${CMAKE_CURRENT_BINARY_DIR}/proto)
 file(MAKE_DIRECTORY ${PROTO_SRC_DIR})
 
-set(protobuf_generate_PROTOC_OUT_DIR ${PROTO_SRC_DIR})
-
 add_library(api_processing_server
     processing_server.cpp
     )
@@ -31,13 +29,16 @@ execute_process(COMMAND  ${GNOSTIC_APP} ${GNOSTIC_APP_ARGS}
     
 message("GNOSTIC_RESULT: " ${GNOSTIC_RESULT})
 
-#protobuf_generate(
-#    LANGUAGE cpp
-#    TARGET api_processing_server
-#    PROTOS ${PROTO_SRC_DIR}/SGProcessing_OpenAPI.proto
-#    )
+protobuf_generate(
+    LANGUAGE cpp
+    TARGET api_processing_server
+    PROTOS "${PROTO_SRC_DIR}/SGProcessing_OpenAPI.proto"
+    IMPORT_DIRS "${CMAKE_SOURCE_DIR}/gRPCForSuperGenius/proto-include" "${PROTOBUF_INCLUDE_DIR}" "${PROTO_SRC_DIR}"
+    PROTOC_OUT_DIR "${CMAKE_CURRENT_BINARY_DIR}"
+    OUT_VAR _PROTOC_RESULT
+    )
 
-#supergenius_install(api_processing_server)
+supergenius_install(api_processing_server)
 
 target_include_directories(api_processing_server PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 

@@ -64,9 +64,9 @@ set(_FINDPACKAGE_GTEST_CONFIG_DIR "${_THIRDPARTY_BUILD_DIR}/GTest/lib/cmake/GTes
 print(${_FINDPACKAGE_GTEST_CONFIG_DIR})
 
 # Set config of protobuf project 
-set(_FINDPACKAGE_PROTOBUF_CONFIG_DIR  "${_THIRDPARTY_BUILD_DIR}/grpc/build/third_party/protobuf/cmake")
-set(_FINDPACKAGE_PROTOBUF_INCLUDE_DIR "${_THIRDPARTY_BUILD_DIR}/grpc/build/third_party/protobuf/include/google/protobuf")
-set(_FINDPACKAGE_PROTOBUF_LIB_DIR "${_THIRDPARTY_BUILD_DIR}/grpc/build/third_party/protobuf/Release")
+set(_FINDPACKAGE_PROTOBUF_CONFIG_DIR  "${_THIRDPARTY_BUILD_DIR}/grpc/cmake")
+set(_FINDPACKAGE_PROTOBUF_INCLUDE_DIR "${_THIRDPARTY_BUILD_DIR}/grpc/include")
+set(_FINDPACKAGE_PROTOBUF_LIB_DIR "${_THIRDPARTY_BUILD_DIR}/grpc/lib")
 
 # if OPENSSL_ROOT_DIR is set, propagate that hint path to the external projects with OpenSSL dependency.
 set(_CMAKE_ARGS_OPENSSL_ROOT_DIR "")
@@ -242,5 +242,8 @@ ExternalProject_Add(SuperGenius
         -DWIN_SOCK_LIBRARY:STRING=wsock32 ws2_32
         -DFORCE_MULTILE:BOOL=TRUE
         -DMULTIPLE_OPTION:STRING="/FORCE:MULTIPLE"
+
+    #LOG_CONFIGURE ON
+    #LOG_BUILD ON
 #  DEPENDS blocklattice
 )
