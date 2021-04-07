@@ -33,12 +33,12 @@ protobuf_generate(
     LANGUAGE cpp
     TARGET api_processing_server
     PROTOS "${PROTO_SRC_DIR}/SGProcessing_OpenAPI.proto"
-    IMPORT_DIRS "${CMAKE_SOURCE_DIR}/gRPCForSuperGenius/proto-include" "${PROTOBUF_INCLUDE_DIR}" "${PROTO_SRC_DIR}"
+    IMPORT_DIRS "${CMAKE_SOURCE_DIR}/gRPCForSuperGenius/proto-include" "${PROTO_SRC_DIR}"
     PROTOC_OUT_DIR "${CMAKE_CURRENT_BINARY_DIR}"
     OUT_VAR _PROTOC_RESULT
     )
 
-supergenius_install(api_processing_server)
+#supergenius_install(api_processing_server)
 
 target_include_directories(api_processing_server PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 
