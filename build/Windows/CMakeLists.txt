@@ -195,6 +195,19 @@ set(_FINDPACKAGE_XXHASH_INCLUDE_DIR "${_THIRDPARTY_BUILD_DIR}/xxhash/include")
 set(_FINDPACKAGE_XXHASH_LIBRARY_DIR "${_THIRDPARTY_BUILD_DIR}/xxhash/lib")
 set(_FINDPACKAGE_XXHASH_DIR "${_THIRDPARTY_BUILD_DIR}/xxhash/lib/cmake/xxhash")
 
+# Build gRPCForSuperGenius
+ExternalProject_Add(gRPCForSuperGenius
+  PREFIX gRPCForSuperGenius
+  SOURCE_DIR "${CMAKE_SOURCE_DIR}/../../../SuperGenius/gRPCForSuperGenius"      
+  CMAKE_CACHE_ARGS                
+        -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_CURRENT_BINARY_DIR}/gRPCForSuperGenius
+        -DProtobuf_DIR:PATH=${_FINDPACKAGE_PROTOBUF_CONFIG_DIR}
+        -DProtobuf_INCLUDE_DIR:PATH=${_FINDPACKAGE_PROTOBUF_INCLUDE_DIR}
+        -DProtobuf_LIBRARIES:PATH=${_FINDPACKAGE_PROTOBUF_LIB_DIR}
+)
+
+set(_FINDPACKAGE_gRPCForSuperGenius_DIR "${CMAKE_CURRENT_BINARY_DIR}/gRPCForSuperGenius/lib/cmake")
+
 ExternalProject_Add(SuperGenius
   PREFIX SuperGenius
   SOURCE_DIR "${CMAKE_SOURCE_DIR}/../../../SuperGenius"      
@@ -238,12 +251,10 @@ ExternalProject_Add(SuperGenius
         -Dlibsecp256k1_DIR:PATH=${_FINDPACKAGE_SECP256K1_DIR}
         -Dlibsecp256k1_INCLUDE_DIR:PATH=${_FINDPACKAGE_SECP256K1_INCLUDE_DIR}
         -Dxxhash_DIR:PATH=${_FINDPACKAGE_XXHASH_DIR}
+         -DgRPCForSuperGenius_DIR:PATH=${_FINDPACKAGE_gRPCForSuperGenius_DIR}
         -DUSER_ENV_LIBRARY:STRING=userenv
         -DWIN_SOCK_LIBRARY:STRING=wsock32 ws2_32
         -DFORCE_MULTILE:BOOL=TRUE
         -DMULTIPLE_OPTION:STRING="/FORCE:MULTIPLE"
-
-    #LOG_CONFIGURE ON
-    #LOG_BUILD ON
-#  DEPENDS blocklattice
+    DEPENDS gRPCForSuperGenius
 )
