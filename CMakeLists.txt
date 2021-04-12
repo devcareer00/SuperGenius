@@ -95,6 +95,8 @@ find_package(RapidJSON CONFIG REQUIRED)
 find_package(binaryen CONFIG REQUIRED)
 find_package(libsecp256k1 CONFIG REQUIRED)
 find_package(xxhash CONFIG REQUIRED)
+find_package(absl CONFIG REQUIRED)
+find_package(gRPC CONFIG REQUIRED)
 find_package(gRPCForSuperGenius CONFIG REQUIRED)
 
 option(TESTING "Build tests" ON)

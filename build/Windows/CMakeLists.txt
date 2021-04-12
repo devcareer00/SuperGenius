@@ -68,6 +68,10 @@ set(_FINDPACKAGE_PROTOBUF_CONFIG_DIR  "${_THIRDPARTY_BUILD_DIR}/grpc/cmake")
 set(_FINDPACKAGE_PROTOBUF_INCLUDE_DIR "${_THIRDPARTY_BUILD_DIR}/grpc/include")
 set(_FINDPACKAGE_PROTOBUF_LIB_DIR "${_THIRDPARTY_BUILD_DIR}/grpc/lib")
 
+# Set config for grpc
+set(_FINDPACKAGE_gRPC_DIR "${_THIRDPARTY_BUILD_DIR}/grpc/lib/cmake/grpc")
+set(_FINDPACKAGE_absl_DIR "${_THIRDPARTY_BUILD_DIR}/grpc/lib/cmake/absl")
+
 # if OPENSSL_ROOT_DIR is set, propagate that hint path to the external projects with OpenSSL dependency.
 set(_CMAKE_ARGS_OPENSSL_ROOT_DIR "")
 if (OPENSSL_ROOT_DIR)
@@ -204,6 +208,8 @@ ExternalProject_Add(gRPCForSuperGenius
         -DProtobuf_DIR:PATH=${_FINDPACKAGE_PROTOBUF_CONFIG_DIR}
         -DProtobuf_INCLUDE_DIR:PATH=${_FINDPACKAGE_PROTOBUF_INCLUDE_DIR}
         -DProtobuf_LIBRARIES:PATH=${_FINDPACKAGE_PROTOBUF_LIB_DIR}
+        -DgRPC_DIR:PATH=${_FINDPACKAGE_gRPC_DIR}
+        -Dabsl_DIR:PATH=${_FINDPACKAGE_absl_DIR}
 )
 
 set(_FINDPACKAGE_gRPCForSuperGenius_DIR "${CMAKE_CURRENT_BINARY_DIR}/gRPCForSuperGenius/lib/cmake")
@@ -251,7 +257,9 @@ ExternalProject_Add(SuperGenius
         -Dlibsecp256k1_DIR:PATH=${_FINDPACKAGE_SECP256K1_DIR}
         -Dlibsecp256k1_INCLUDE_DIR:PATH=${_FINDPACKAGE_SECP256K1_INCLUDE_DIR}
         -Dxxhash_DIR:PATH=${_FINDPACKAGE_XXHASH_DIR}
-         -DgRPCForSuperGenius_DIR:PATH=${_FINDPACKAGE_gRPCForSuperGenius_DIR}
+        -DgRPC_DIR:PATH=${_FINDPACKAGE_gRPC_DIR}
+        -Dabsl_DIR:PATH=${_FINDPACKAGE_absl_DIR}
+        -DgRPCForSuperGenius_DIR:PATH=${_FINDPACKAGE_gRPCForSuperGenius_DIR}
         -DUSER_ENV_LIBRARY:STRING=userenv
         -DWIN_SOCK_LIBRARY:STRING=wsock32 ws2_32
         -DFORCE_MULTILE:BOOL=TRUE
