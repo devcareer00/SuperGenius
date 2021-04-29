@@ -61,33 +61,36 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/cmake/compile_option_by_platform/${CMAKE_
 endif()
 
 # add_compile_options(-zmuldefs)
-# BOOST library 
-set(Boost_USE_STATIC_LIBS ON) 
-set(Boost_USE_MULTITHREADED ON)  
-set(Boost_USE_STATIC_RUNTIME ON) 
+# BOOST library
+set(Boost_USE_STATIC_LIBS ON)
+set(Boost_USE_MULTITHREADED ON)
+set(Boost_USE_STATIC_RUNTIME ON)
 find_package(Boost REQUIRED COMPONENTS date_time filesystem random regex system thread log log_setup program_options) # header only libraries must not be added here
 
+set(Protobuf_USE_STATIC_LIBS ON)
+find_package(Protobuf CONFIG REQUIRED PATHS ${Protobuf_DIR})
 
 include_directories(
   # ${CMAKE_CURRENT_SOURCE_DIR}
   ${PROJECT_SOURCE_DIR}/src
-  ${CBOR_INCLUDE_DIR}  
-  ${leveldb_INCLUDE_DIR}
+  ${CBOR_INCLUDE_DIR}
+  ${RocksDB_INCLUDE_DIR}
   ${sr25519_INCLUDE_DIR}
   ${ed25519_INCLUDE_DIR}
   ${libsecp256k1_INCLUDE_DIR}
   ${binaryen_INCLUDE_DIR}
   ${binaryen_INCLUDE_DIR}/binaryen
   ${tsl_hat_trie_INCLUDE_DIR}
+  ${ipfs-lite-cpp_INCLUDE_DIR}
 )
+
 find_package(Boost.DI CONFIG REQUIRED)
-#find_package(blocklattice CONFIG REQUIRED PATHS ${blocklattice_DIR})
 find_package(OpenSSL REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(tsl_hat_trie CONFIG REQUIRED)
 find_package(libp2p CONFIG REQUIRED)
 find_package(Protobuf CONFIG REQUIRED)
-find_package(leveldb CONFIG REQUIRED)
+find_package(RocksDB CONFIG REQUIRED)
 find_package(ipfs-lite-cpp CONFIG REQUIRED)
 find_package(ed25519 CONFIG REQUIRED)
 find_package(sr25519 CONFIG REQUIRED)
@@ -111,6 +114,7 @@ add_subdirectory(node)
 
 if (TESTING)
   find_package(GTest CONFIG REQUIRED)
+  include_directories(${GTest_INCLUDE_DIR})
   enable_testing()
   add_subdirectory(test)
 endif ()
