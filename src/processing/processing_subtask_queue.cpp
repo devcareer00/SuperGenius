@@ -256,18 +256,23 @@ bool ProcessingSubTaskQueue::ProcessSubTaskQueueRequestMessage(
         return true;
     }
 
+    m_logger->debug("QUEUE_REQUEST_RECEIVED");
     m_dltQueueResponseTimeout.expires_from_now(m_queueResponseTimeout);
-    m_dltQueueResponseTimeout.async_wait(std::bind(&ProcessingSubTaskQueue::HandleQueueRequestTimeout, this));
+    m_dltQueueResponseTimeout.async_wait(std::bind(
+        &ProcessingSubTaskQueue::HandleQueueRequestTimeout, this, std::placeholders::_1));
 
     return false;
 }
 
-void ProcessingSubTaskQueue::HandleQueueRequestTimeout()
+void ProcessingSubTaskQueue::HandleQueueRequestTimeout(const boost::system::error_code& ec)
 {
-    std::lock_guard<std::mutex> guard(m_queueMutex);
-    m_logger->debug("QUEUE_REQUEST_TIMEOUT");
-    m_dltQueueResponseTimeout.expires_at(boost::posix_time::pos_infin);
-    RollbackOwnership();
+    if (ec != boost::asio::error::operation_aborted)
+    {
+        std::lock_guard<std::mutex> guard(m_queueMutex);
+        m_logger->debug("QUEUE_REQUEST_TIMEOUT");
+        m_dltQueueResponseTimeout.expires_at(boost::posix_time::pos_infin);
+        RollbackOwnership();
+    }
 }
 
 std::unique_ptr<SGProcessing::SubTaskQueue> ProcessingSubTaskQueue::GetQueueSnapshot() const

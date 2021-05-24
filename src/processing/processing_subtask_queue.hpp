@@ -78,7 +78,7 @@ private:
     bool UpdateQueue(SGProcessing::SubTaskQueue* queue);
 
     void ChangeOwnershipTo(const std::string& nodeId);
-    void HandleQueueRequestTimeout();
+    void HandleQueueRequestTimeout(const boost::system::error_code& ec);
 
     void PublishSubTaskQueue() const;
     bool HasOwnershipUnlocked() const;
