@@ -132,6 +132,11 @@ void ProcessingSubTaskQueue::ChangeOwnershipTo(const std::string& nodeId)
 
     LogQueue();
     PublishSubTaskQueue();
+
+    if (HasOwnershipUnlocked())
+    {
+        LockSubTask();
+    }
 }
 
 bool ProcessingSubTaskQueue::RollbackOwnership()
@@ -260,6 +265,7 @@ bool ProcessingSubTaskQueue::ProcessSubTaskQueueRequestMessage(
 void ProcessingSubTaskQueue::HandleQueueRequestTimeout()
 {
     std::lock_guard<std::mutex> guard(m_queueMutex);
+    m_logger->debug("QUEUE_REQUEST_TIMEOUT");
     m_dltQueueResponseTimeout.expires_at(boost::posix_time::pos_infin);
     RollbackOwnership();
 }

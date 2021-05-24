@@ -48,16 +48,6 @@ void ProcessingEngine::OnSubTaskGrabbed(boost::optional<const SGProcessing::SubT
         m_logger->debug("[GRABBED]. ({}).", subTask->results_channel());
         ProcessSubTask(*subTask);
     }
-    else
-    {
-        // No subtasks to grab, start clearing
-        //m_logger->debug("[QUEUE_ENDED]");
-        //auto lock = m_subTaskQueue->LockOwnership();
-        //if (lock)
-        //{
-        //    m_logger->debug("[QUEUE_CLEARING_STARTED]");
-        //}
-    }
 }
 
 void ProcessingEngine::ProcessSubTask(SGProcessing::SubTask subTask)

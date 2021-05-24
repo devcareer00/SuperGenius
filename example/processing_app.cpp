@@ -157,7 +157,7 @@ int main(int argc, char* argv[])
     loggerProcessingService->set_level(spdlog::level::trace);
 
     auto loggerProcessingQueue = libp2p::common::createLogger("ProcessingSubTaskQueue");
-    //loggerProcessingQueue->set_level(spdlog::level::trace);
+    loggerProcessingQueue->set_level(spdlog::level::debug);
     
 
     const std::string processingGridChannel = "GRID_CHANNEL_ID";
