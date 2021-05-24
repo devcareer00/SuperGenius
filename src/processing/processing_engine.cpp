@@ -85,8 +85,11 @@ void ProcessingEngine::OnResultChannelMessage(
         {           
             m_logger->debug("[RESULT_RECEIVED]. ({}).", result.ipfs_results_data_id());
             // Results accumulation
-            m_results.push_back(std::make_tuple(
-                message->topics[0], std::move(result)));
+            if (m_subTaskQueue)
+            {
+                m_subTaskQueue->AddSubTaskResult(message->topics[0], result);
+            }
+            m_results.push_back(std::make_tuple(message->topics[0], std::move(result)));
         }
     }
 }

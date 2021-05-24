@@ -88,12 +88,23 @@ void ProcessingSubTaskQueue::LockSubTask()
         }
 
         // No available subtasks found
-        while (!m_onSubTaskGrabbedCallbacks.empty())
+        if (!m_onSubTaskGrabbedCallbacks.empty())
         {
-            // Let the requester know that there are no available subtasks
-            m_onSubTaskGrabbedCallbacks.front()({});
-            // Reset the callback
-            m_onSubTaskGrabbedCallbacks.pop_front();
+            auto unlocked = UnlockExpiredSubTasks(std::chrono::milliseconds(10000));
+            if (unlocked)
+            {
+                LockSubTask();
+            }
+            else
+            {
+                while (!m_onSubTaskGrabbedCallbacks.empty())
+                {
+                    // Let the requester know that there are no available subtasks
+                    m_onSubTaskGrabbedCallbacks.front()({});
+                    // Reset the callback
+                    m_onSubTaskGrabbedCallbacks.pop_front();
+                }
+            }
         }
     }
 }
@@ -289,6 +300,41 @@ std::unique_ptr<SGProcessing::SubTaskQueue> ProcessingSubTaskQueue::GetQueueSnap
         queue->CopyFrom(*m_queue.get());
     }
     return std::move(queue);
+}
+
+void ProcessingSubTaskQueue::AddSubTaskResult(
+    const std::string& resultChannel, const SGProcessing::SubTaskResult& subTaskResult)
+{
+    std::lock_guard<std::mutex> guard(m_queueMutex);
+    SGProcessing::SubTaskResult result;
+    result.CopyFrom(subTaskResult);
+    m_results.insert(std::make_pair(resultChannel, std::move(result)));
+}
+
+bool ProcessingSubTaskQueue::UnlockExpiredSubTasks(std::chrono::milliseconds expirationTimeout)
+{
+    auto timestamp = std::chrono::system_clock::now();
+    auto normalizedExpirationTimeout = std::chrono::duration_cast<std::chrono::system_clock::duration>(expirationTimeout);
+
+    bool unlocked = false;
+    for (int itemIdx = 0; itemIdx < m_queue->items_size(); ++itemIdx)
+    {
+        auto item = m_queue->mutable_items(itemIdx);
+
+        // Check if a subtask is locked, expired and no result was obtained for it
+        // @todo replace the result channel with subtask id to identify a subtask that should be unlocked
+        if (!item->lock_node_id().empty()
+            && timestamp.time_since_epoch().count() > (item->lock_timestamp() + normalizedExpirationTimeout.count())
+            && m_results.find(item->subtask().results_channel()) == m_results.end())
+        {
+            // Unlock the item
+            item->set_lock_node_id("");
+            item->set_lock_timestamp(0);
+            unlocked = true;
+        }
+    }
+
+    return unlocked;
 }
 
 void ProcessingSubTaskQueue::LogQueue() const

@@ -71,6 +71,14 @@ public:
     * @return the queue snapshot
     */
     std::unique_ptr<SGProcessing::SubTaskQueue> GetQueueSnapshot() const;
+
+    /** Add a results for a processed subtask into the queue
+    * @param resultChannel - subtask identifier
+    * @param subTaskResult - subtask result
+    */
+    void AddSubTaskResult(
+        const std::string& resultChannel, const SGProcessing::SubTaskResult& subTaskResult);
+        
 private:
     /** Updates the local queue with a snapshot that have the most recent timestamp
     * @param queue - the queue snapshot
@@ -83,6 +91,7 @@ private:
     void PublishSubTaskQueue() const;
     bool HasOwnershipUnlocked() const;
     void LockSubTask();
+    bool UnlockExpiredSubTasks(std::chrono::milliseconds expirationTimeout);
     void LogQueue() const;
 
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSubTopic> m_queueChannel;
@@ -92,6 +101,8 @@ private:
     std::shared_ptr<SGProcessing::SubTaskQueue> m_queue;
     mutable std::mutex m_queueMutex;
     std::list<SubTaskGrabbedCallback> m_onSubTaskGrabbedCallbacks;
+
+    std::map<std::string, SGProcessing::SubTaskResult> m_results;
 
     boost::asio::deadline_timer m_dltQueueResponseTimeout;
     boost::posix_time::time_duration m_queueResponseTimeout;
