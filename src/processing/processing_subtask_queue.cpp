@@ -61,7 +61,7 @@ bool ProcessingSubTaskQueue::UpdateQueue(SGProcessing::SubTaskQueue* queue)
 void ProcessingSubTaskQueue::LockSubTask()
 {
     // The method has to be called in scoped lock of queue mutex
-    if (m_onSubTaskGrabbedCallback)
+    if (!m_onSubTaskGrabbedCallbacks.empty())
     {
         auto items = m_queue->mutable_items();
         for (int itemIdx = 0; itemIdx < items->size(); ++itemIdx)
@@ -75,22 +75,25 @@ void ProcessingSubTaskQueue::LockSubTask()
                 m_queue->set_last_update_timestamp(timestamp.time_since_epoch().count());
 
                 LogQueue();
-
                 PublishSubTaskQueue();
-                m_onSubTaskGrabbedCallback({ item->subtask() });
-                // Reset the callback
-                m_onSubTaskGrabbedCallback = SubTaskGrabbedCallback();
-                break;
+
+                m_onSubTaskGrabbedCallbacks.front()({ item->subtask() });
+                m_onSubTaskGrabbedCallbacks.pop_front();
+
+                if (m_onSubTaskGrabbedCallbacks.empty())
+                {
+                    break;
+                }
             }
         }
 
         // No available subtasks found
-        if (m_onSubTaskGrabbedCallback)
+        while (!m_onSubTaskGrabbedCallbacks.empty())
         {
             // Let the requester know that there are no available subtasks
-            m_onSubTaskGrabbedCallback({});
+            m_onSubTaskGrabbedCallbacks.front()({});
             // Reset the callback
-            m_onSubTaskGrabbedCallback = SubTaskGrabbedCallback();
+            m_onSubTaskGrabbedCallbacks.pop_front();
         }
     }
 }
@@ -98,7 +101,7 @@ void ProcessingSubTaskQueue::LockSubTask()
 void ProcessingSubTaskQueue::GrabSubTask(SubTaskGrabbedCallback onSubTaskGrabbedCallback)
 {
     std::lock_guard<std::mutex> guard(m_queueMutex);
-    m_onSubTaskGrabbedCallback = onSubTaskGrabbedCallback;
+    m_onSubTaskGrabbedCallbacks.push_back(std::move(onSubTaskGrabbedCallback));
     if (HasOwnershipUnlocked())
     {
         LockSubTask();
@@ -231,6 +234,7 @@ void ProcessingSubTaskQueue::PublishSubTaskQueue() const
     std::string nodeId = m_queue->owner_node_id();
     m_queueChannel->Publish(message.SerializeAsString());
     message.release_subtask_queue();
+    m_logger->debug("QUEUE_PUBLISHED");
 }
 
 bool ProcessingSubTaskQueue::ProcessSubTaskQueueMessage(SGProcessing::SubTaskQueue* queue)

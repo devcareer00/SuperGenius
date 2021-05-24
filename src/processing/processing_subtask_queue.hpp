@@ -91,7 +91,7 @@ private:
     std::shared_ptr<ProcessingCore> m_processingCore;
     std::shared_ptr<SGProcessing::SubTaskQueue> m_queue;
     mutable std::mutex m_queueMutex;
-    SubTaskGrabbedCallback m_onSubTaskGrabbedCallback;
+    std::list<SubTaskGrabbedCallback> m_onSubTaskGrabbedCallbacks;
 
     boost::asio::deadline_timer m_dltQueueResponseTimeout;
     boost::posix_time::time_duration m_queueResponseTimeout;
