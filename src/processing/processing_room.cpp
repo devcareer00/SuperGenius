@@ -2,6 +2,8 @@
 
 #include <libp2p/protocol/gossip/impl/peer_set.hpp>
 
+namespace sgns::processing
+{
 ////////////////////////////////////////////////////////////////////////////////
 ProcessingRoom::ProcessingRoom(
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSubTopic> processingChannel,
@@ -170,6 +172,6 @@ void ProcessingRoom::HandleAttachingTimeout()
     m_isLocalNodeAttachingToRemoteRoom = false;
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////
+}
 

@@ -1,5 +1,7 @@
 #include "processing_service.hpp"
 
+namespace sgns::processing
+{
 ProcessingServiceImpl::ProcessingServiceImpl(
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> gossipPubSub,
     size_t maximalNodesCount,
@@ -161,4 +163,5 @@ void ProcessingServiceImpl::HandleRequestTimeout()
             break;
         }
     }
+}
 }

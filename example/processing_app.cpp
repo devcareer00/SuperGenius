@@ -5,6 +5,8 @@
 #include <boost/format.hpp>
 #include <libp2p/multi/multibase_codec/multibase_codec_impl.hpp>
 
+using namespace sgns::processing;
+
 namespace
 {
     class ProcessingCoreImpl : public ProcessingCore

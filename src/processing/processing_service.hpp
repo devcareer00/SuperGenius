@@ -6,6 +6,8 @@
 
 #include <map>
 
+namespace sgns::processing
+{
 class ProcessingServiceImpl
 {
 public:
@@ -63,6 +65,6 @@ private:
     boost::posix_time::time_duration m_channelListRequestTimeout;
     libp2p::common::Logger m_logger = libp2p::common::createLogger("ProcessingService");
 };
-
+}
 
 #endif // GRPC_FOR_SUPERGENIUS_PROCESSING_SERVICE

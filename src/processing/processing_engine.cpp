@@ -1,5 +1,7 @@
 #include "processing_engine.hpp"
 
+namespace sgns::processing
+{
 ProcessingEngine::ProcessingEngine(
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> gossipPubSub,
     std::string nodeId,
@@ -109,4 +111,5 @@ std::shared_ptr<sgns::ipfs_pubsub::GossipPubSubTopic> ProcessingEngine::AddResul
     resultChannel->Subscribe(std::bind(&ProcessingEngine::OnResultChannelMessage, this, std::placeholders::_1));
     m_resultChannels[resultChannelId] = resultChannel;
     return resultChannel;
+}
 }

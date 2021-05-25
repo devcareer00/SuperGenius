@@ -1,5 +1,7 @@
 #include "processing_subtask_queue.hpp"
 
+namespace sgns::processing
+{
 ////////////////////////////////////////////////////////////////////////////////
 ProcessingSubTaskQueue::ProcessingSubTaskQueue(
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSubTopic> queueChannel,
@@ -356,6 +358,7 @@ void ProcessingSubTaskQueue::LogQueue() const
 
         m_logger->trace(ss.str());
     }
+}
 }
 
 ////////////////////////////////////////////////////////////////////////////////

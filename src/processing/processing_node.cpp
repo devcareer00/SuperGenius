@@ -2,6 +2,8 @@
 
 #include <libp2p/protocol/gossip/impl/peer_set.hpp>
 
+namespace sgns::processing
+{
 ////////////////////////////////////////////////////////////////////////////////
 ProcessingNode::ProcessingNode(
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> gossipPubSub,
@@ -164,3 +166,4 @@ const ProcessingRoom* ProcessingNode::GetRoom() const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+}

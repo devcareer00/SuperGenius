@@ -10,6 +10,8 @@
 
 #include <ipfs_pubsub/gossip_pubsub_topic.hpp>
 
+namespace sgns::processing
+{
 /**
 * A room of distributed processing nodes
 */
@@ -75,5 +77,7 @@ private:
     boost::posix_time::time_duration m_attachToRemoteRoomTimeout;
 
 };
+
+}
 
 #endif // GRPC_FOR_SUPERGENIUS_PROCESSING_ROOM

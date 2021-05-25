@@ -12,6 +12,8 @@
 
 #include <ipfs_pubsub/gossip_pubsub_topic.hpp>
 
+namespace sgns::processing
+{
 /** Distributed subtask queue implementation
 */
 class ProcessingSubTaskQueue
@@ -109,5 +111,6 @@ private:
 
     libp2p::common::Logger m_logger = libp2p::common::createLogger("ProcessingSubTaskQueue");
 };
+}
 
 #endif // GRPC_FOR_SUPERGENIUS_PROCESSING_TASK_QUEUE_HPP

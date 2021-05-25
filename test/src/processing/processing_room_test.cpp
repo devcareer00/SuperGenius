@@ -4,6 +4,8 @@
 
 #include <iostream>
 
+using namespace sgns::processing;
+
 namespace
 {
     class ProcessingCoreImpl : public ProcessingCore

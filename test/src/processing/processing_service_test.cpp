@@ -3,6 +3,8 @@
 
 #include <gtest/gtest.h>
 
+using namespace sgns::processing;
+
 namespace
 {
     class ProcessingCoreImpl : public ProcessingCore

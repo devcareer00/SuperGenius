@@ -11,6 +11,8 @@
 
 #include <ipfs_pubsub/gossip_pubsub_topic.hpp>
 
+namespace sgns::processing
+{
 /**
 * A node for distributed computation.
 * Allows to conduct a computation processing by multiple workers 
@@ -64,5 +66,6 @@ private:
     std::unique_ptr<ProcessingEngine> m_processingEngine;
     std::shared_ptr<ProcessingSubTaskQueue> m_subtaskQueue;
 };
+}
 
 #endif // GRPC_FOR_SUPERGENIUS_PROCESSING_NODE

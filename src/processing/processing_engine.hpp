@@ -11,6 +11,8 @@
 
 #include <ipfs_pubsub/gossip_pubsub_topic.hpp>
 
+namespace sgns::processing
+{
 /** Handles subtask processing and processing results accumulation
 */
 class ProcessingEngine
@@ -53,5 +55,6 @@ private:
 
     libp2p::common::Logger m_logger = libp2p::common::createLogger("ProcessingEngine");
 };
+}
 
 #endif // GRPC_FOR_SUPERGENIUS_PROCESSING_ENGINE_HPP
