@@ -43,4 +43,5 @@ target_link_libraries(processing_service
     p2p::p2p_inmem_protocol_repository
     p2p::p2p_gossip
     p2p::asio_scheduler
+    ${WIN_CRYPT_LIBRARY}
     )
