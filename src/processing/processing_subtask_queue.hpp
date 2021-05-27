@@ -3,9 +3,10 @@
 * @author creativeid00
 */
 
-#ifndef GRPC_FOR_SUPERGENIUS_PROCESSING_SUBTASK_QUEUE_HPP
-#define GRPC_FOR_SUPERGENIUS_PROCESSING_SUBTASK_QUEUE_HPP
+#ifndef SUPERGENIUS_PROCESSING_SUBTASK_QUEUE_HPP
+#define SUPERGENIUS_PROCESSING_SUBTASK_QUEUE_HPP
 
+#include "processing_shared_queue.hpp"
 #include "processing_core.hpp"
 
 #include "SGProcessing.pb.h"
@@ -47,11 +48,6 @@ public:
     */
     bool MoveOwnershipTo(const std::string& nodeId);
 
-    /** Rollbacks the queue ownership to the previous state
-    * @return true if the ownership is successfully rolled back
-    */
-    bool RollbackOwnership();
-
     /** Checks id the local processing node owns the queue
     * @return true is the lolca node owns the queue
     */
@@ -87,13 +83,9 @@ private:
     */
     bool UpdateQueue(SGProcessing::SubTaskQueue* queue);
 
-    void ChangeOwnershipTo(const std::string& nodeId);
     void HandleQueueRequestTimeout(const boost::system::error_code& ec);
-
     void PublishSubTaskQueue() const;
-    bool HasOwnershipUnlocked() const;
-    void LockSubTask();
-    bool UnlockExpiredSubTasks(std::chrono::milliseconds expirationTimeout);
+    void ProcessPendingSubTaskGrabbing();
     void LogQueue() const;
 
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSubTopic> m_queueChannel;
@@ -109,8 +101,10 @@ private:
     boost::asio::deadline_timer m_dltQueueResponseTimeout;
     boost::posix_time::time_duration m_queueResponseTimeout;
 
+    SharedQueue m_sharedQueue;
+
     libp2p::common::Logger m_logger = libp2p::common::createLogger("ProcessingSubTaskQueue");
 };
 }
 
-#endif // GRPC_FOR_SUPERGENIUS_PROCESSING_TASK_QUEUE_HPP
+#endif // SUPERGENIUS_PROCESSING_SUBTASK_QUEUE_HPP

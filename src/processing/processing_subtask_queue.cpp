@@ -3,6 +3,98 @@
 namespace sgns::processing
 {
 ////////////////////////////////////////////////////////////////////////////////
+namespace
+{
+    class SubTaskQueueDataView : public SharedQueueDataView
+    {
+    public:
+        SubTaskQueueDataView(
+            std::shared_ptr<SGProcessing::SubTaskQueue> queue,
+            const std::map<std::string, SGProcessing::SubTaskResult>& results);
+
+        const std::string& GetQueueOwnerNodeId() const override;
+        void SetQueueOwnerNodeId(const std::string& nodeId) const override;
+
+        std::chrono::system_clock::time_point GetQueueLastUpdateTimestamp() const override;
+        void SetQueueLastUpdateTimestamp(std::chrono::system_clock::time_point ts) const override;
+
+        const std::string& GetItemLockNodeId(size_t itemIdx) const override;
+        void SetItemLockNodeId(size_t itemIdx, const std::string& nodeId) const override;
+
+        std::chrono::system_clock::time_point GetItemLockTimestamp(size_t itemIdx) const override;
+        void SetItemLockTimestamp(size_t itemIdx, std::chrono::system_clock::time_point ts) const override;
+
+        bool IsExcluded(size_t itemIdx) const override;
+
+        size_t Size() const override;
+
+    private:
+        std::shared_ptr<SGProcessing::SubTaskQueue> m_queue;
+        const std::map<std::string, SGProcessing::SubTaskResult>& m_results;
+    };
+
+    SubTaskQueueDataView::SubTaskQueueDataView(
+        std::shared_ptr<SGProcessing::SubTaskQueue> queue,
+        const std::map<std::string, SGProcessing::SubTaskResult>& results)
+        : m_queue(queue)
+        , m_results(results)
+    {
+    }
+
+    const std::string& SubTaskQueueDataView::GetQueueOwnerNodeId() const
+    {
+        return m_queue->owner_node_id();
+    }
+
+    void SubTaskQueueDataView::SetQueueOwnerNodeId(const std::string& nodeId) const
+    {
+        m_queue->set_owner_node_id(nodeId);
+    }
+
+    std::chrono::system_clock::time_point SubTaskQueueDataView::GetQueueLastUpdateTimestamp() const
+    {
+        return std::chrono::system_clock::time_point(
+            std::chrono::system_clock::duration(m_queue->last_update_timestamp()));
+    }
+
+    void SubTaskQueueDataView::SetQueueLastUpdateTimestamp(std::chrono::system_clock::time_point ts) const
+    {
+        m_queue->set_last_update_timestamp(ts.time_since_epoch().count());
+    }
+
+    const std::string& SubTaskQueueDataView::GetItemLockNodeId(size_t itemIdx) const
+    {
+        return m_queue->items(itemIdx).lock_node_id();
+    }
+
+    void SubTaskQueueDataView::SetItemLockNodeId(size_t itemIdx, const std::string& nodeId) const
+    {
+        return m_queue->mutable_items(itemIdx)->set_lock_node_id(nodeId);
+    }
+
+    std::chrono::system_clock::time_point SubTaskQueueDataView::GetItemLockTimestamp(size_t itemIdx) const
+    {
+        return std::chrono::system_clock::time_point(
+            std::chrono::system_clock::duration(m_queue->items(itemIdx).lock_timestamp()));
+    }
+
+    void SubTaskQueueDataView::SetItemLockTimestamp(size_t itemIdx, std::chrono::system_clock::time_point ts) const
+    {
+        return m_queue->mutable_items(itemIdx)->set_lock_timestamp(ts.time_since_epoch().count());
+    }
+
+    bool SubTaskQueueDataView::IsExcluded(size_t itemIdx) const
+    {
+        return (m_results.find(m_queue->items(itemIdx).subtask().results_channel()) != m_results.end());
+    }
+
+    size_t SubTaskQueueDataView::Size() const
+    {
+        return m_queue->items_size();
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
 ProcessingSubTaskQueue::ProcessingSubTaskQueue(
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSubTopic> queueChannel,
     std::shared_ptr<boost::asio::io_context> context,
@@ -14,6 +106,7 @@ ProcessingSubTaskQueue::ProcessingSubTaskQueue(
     , m_processingCore(processingCore)
     , m_dltQueueResponseTimeout(*m_context.get())
     , m_queueResponseTimeout(boost::posix_time::seconds(5))
+    , m_sharedQueue(localNodeId)
 {
 }
 
@@ -34,79 +127,45 @@ void ProcessingSubTaskQueue::CreateQueue(const SGProcessing::Task& task)
         item->set_allocated_subtask(itSubTask->release());
     }
 
-    // Set queue owner
-    m_queue->set_owner_node_id(m_localNodeId);
-    m_queue->set_last_update_timestamp(timestamp.time_since_epoch().count());
-
+    m_sharedQueue.CreateQueue(std::make_shared<SubTaskQueueDataView>(m_queue, m_results));
     PublishSubTaskQueue();
 }
 
-bool ProcessingSubTaskQueue::UpdateQueue(SGProcessing::SubTaskQueue* queue)
+bool ProcessingSubTaskQueue::UpdateQueue(SGProcessing::SubTaskQueue* pQueue)
 {
-    if (queue)
+    if (pQueue)
     {
-        std::shared_ptr<SGProcessing::SubTaskQueue> pQueue(queue);
-        if (!m_queue
-            || (m_queue->last_update_timestamp() < queue->last_update_timestamp()))
+        std::shared_ptr<SGProcessing::SubTaskQueue> queue(pQueue);
+        if (m_sharedQueue.UpdateQueue(std::make_shared<SubTaskQueueDataView>(queue, m_results)))
         {
-            std::string nodeId = queue->owner_node_id();
-            m_queue.swap(pQueue);
-
+            m_queue.swap(queue);
             LogQueue();
-
             return true;
         }
     }
     return false;
 }
 
-void ProcessingSubTaskQueue::LockSubTask()
+void ProcessingSubTaskQueue::ProcessPendingSubTaskGrabbing()
 {
     // The method has to be called in scoped lock of queue mutex
-    if (!m_onSubTaskGrabbedCallbacks.empty())
+    while (!m_onSubTaskGrabbedCallbacks.empty())
     {
-        auto items = m_queue->mutable_items();
-        for (int itemIdx = 0; itemIdx < items->size(); ++itemIdx)
+        size_t itemIdx;
+        if (m_sharedQueue.GrabItem(itemIdx))
         {
-            if (items->Get(itemIdx).lock_node_id().empty())
-            {
-                auto timestamp = std::chrono::system_clock::now();
-                auto item = items->Mutable(itemIdx);
-                item->set_lock_node_id(m_localNodeId);
-                item->set_lock_timestamp(timestamp.time_since_epoch().count());
-                m_queue->set_last_update_timestamp(timestamp.time_since_epoch().count());
+            LogQueue();
+            PublishSubTaskQueue();
 
-                LogQueue();
-                PublishSubTaskQueue();
-
-                m_onSubTaskGrabbedCallbacks.front()({ item->subtask() });
-                m_onSubTaskGrabbedCallbacks.pop_front();
-
-                if (m_onSubTaskGrabbedCallbacks.empty())
-                {
-                    break;
-                }
-            }
+            m_onSubTaskGrabbedCallbacks.front()({ m_queue->items(itemIdx).subtask() });
+            m_onSubTaskGrabbedCallbacks.pop_front();
         }
-
-        // No available subtasks found
-        if (!m_onSubTaskGrabbedCallbacks.empty())
+        else
         {
-            auto unlocked = UnlockExpiredSubTasks(std::chrono::milliseconds(10000));
-            if (unlocked)
-            {
-                LockSubTask();
-            }
-            else
-            {
-                while (!m_onSubTaskGrabbedCallbacks.empty())
-                {
-                    // Let the requester know that there are no available subtasks
-                    m_onSubTaskGrabbedCallbacks.front()({});
-                    // Reset the callback
-                    m_onSubTaskGrabbedCallbacks.pop_front();
-                }
-            }
+            // Let the requester know that there are no available subtasks
+            m_onSubTaskGrabbedCallbacks.front()({});
+            // Reset the callback
+            m_onSubTaskGrabbedCallbacks.pop_front();
         }
     }
 }
@@ -115,9 +174,9 @@ void ProcessingSubTaskQueue::GrabSubTask(SubTaskGrabbedCallback onSubTaskGrabbed
 {
     std::lock_guard<std::mutex> guard(m_queueMutex);
     m_onSubTaskGrabbedCallbacks.push_back(std::move(onSubTaskGrabbedCallback));
-    if (HasOwnershipUnlocked())
+    if (m_sharedQueue.HasOwnership())
     {
-        LockSubTask();
+        ProcessPendingSubTaskGrabbing();
     }
     else
     {
@@ -132,119 +191,25 @@ void ProcessingSubTaskQueue::GrabSubTask(SubTaskGrabbedCallback onSubTaskGrabbed
 bool ProcessingSubTaskQueue::MoveOwnershipTo(const std::string& nodeId)
 {
     std::lock_guard<std::mutex> guard(m_queueMutex);
-    if (HasOwnershipUnlocked())
+    if (m_sharedQueue.MoveOwnershipTo(nodeId))
     {
-        ChangeOwnershipTo(nodeId);
+        LogQueue();
+        PublishSubTaskQueue();
         return true;
     }
     return false;
 }
 
-void ProcessingSubTaskQueue::ChangeOwnershipTo(const std::string& nodeId)
-{
-    auto timestamp = std::chrono::system_clock::now();
-    m_queue->set_last_update_timestamp(timestamp.time_since_epoch().count());
-    m_queue->set_owner_node_id(nodeId);
-
-    LogQueue();
-    PublishSubTaskQueue();
-
-    if (HasOwnershipUnlocked())
-    {
-        LockSubTask();
-    }
-}
-
-bool ProcessingSubTaskQueue::RollbackOwnership()
-{
-    if (HasOwnershipUnlocked())
-    {
-        // Do nothing. The node is already the queue owner
-        return true;
-    }
-
-    // Find the current queue owner
-    auto ownerNodeId = m_queue->owner_node_id();
-    int ownerNodeIdx = -1;
-    for (int itemIdx = 0; itemIdx < m_queue->items_size(); ++itemIdx)
-    {
-        if (m_queue->items(itemIdx).lock_node_id() == ownerNodeId)
-        {
-            ownerNodeIdx = itemIdx;
-            break;
-        }
-    }
-
-    if (ownerNodeIdx >= 0)
-    {
-        // Check if the local node is the previous queue owner
-        for (int idx = 1; idx < m_queue->items_size(); ++idx)
-        {
-            // Loop cyclically over queue items in backward direction starting from item[ownerNodeIdx - 1]
-            // and excluding the item[ownerNodeIdx]
-            int itemIdx = (m_queue->items_size() + ownerNodeIdx - idx) % m_queue->items_size();
-            if (!m_queue->items(itemIdx).lock_node_id().empty())
-            {
-                if (m_queue->items(itemIdx).lock_node_id() == m_localNodeId)
-                {
-                    // The local node is the previous queue owner
-                    ChangeOwnershipTo(m_localNodeId);
-                    return true;
-                }
-                else
-                {
-                    // Another node should take the ownership
-                    return false;
-                }
-            }
-        }
-    }
-    else
-    {
-        // The queue owner didn't lock any subtask
-        // Find the last locked item
-        for (int idx = 1; idx <= m_queue->items_size(); ++idx)
-        {
-            int itemIdx = (m_queue->items_size() - idx);
-            if (!m_queue->items(itemIdx).lock_node_id().empty())
-            {
-                if (m_queue->items(itemIdx).lock_node_id() == m_localNodeId)
-                {
-                    // The local node is the last locked item
-                    ChangeOwnershipTo(m_localNodeId);
-                    return true;
-                }
-                else
-                {
-                    // Another node should take the ownership
-                    return false;
-                }
-            }
-        }
-    }
-
-    // No locked items found
-    // Allow the local node to take the ownership
-    ChangeOwnershipTo(m_localNodeId);
-    return true;
-}
-
 bool ProcessingSubTaskQueue::HasOwnership() const
 {
     std::lock_guard<std::mutex> guard(m_queueMutex);
-    return HasOwnershipUnlocked();
-}
-
-bool ProcessingSubTaskQueue::HasOwnershipUnlocked() const
-{
-    return (m_queue && m_queue->owner_node_id() == m_localNodeId);
+    return m_sharedQueue.HasOwnership();
 }
 
 void ProcessingSubTaskQueue::PublishSubTaskQueue() const
 {
     SGProcessing::ProcessingChannelMessage message;
     message.set_allocated_subtask_queue(m_queue.get());
-    std::string nodeId = m_queue->owner_node_id();
     m_queueChannel->Publish(message.SerializeAsString());
     message.release_subtask_queue();
     m_logger->debug("QUEUE_PUBLISHED");
@@ -256,9 +221,9 @@ bool ProcessingSubTaskQueue::ProcessSubTaskQueueMessage(SGProcessing::SubTaskQue
     m_dltQueueResponseTimeout.expires_at(boost::posix_time::pos_infin);
 
     bool queueChanged = UpdateQueue(queue);
-    if (queueChanged && HasOwnershipUnlocked())
+    if (queueChanged && m_sharedQueue.HasOwnership())
     {
-        LockSubTask();
+        ProcessPendingSubTaskGrabbing();
     }
     return queueChanged;
 }
@@ -267,9 +232,10 @@ bool ProcessingSubTaskQueue::ProcessSubTaskQueueRequestMessage(
     const SGProcessing::SubTaskQueueRequest& request)
 {
     std::lock_guard<std::mutex> guard(m_queueMutex);
-    if (HasOwnershipUnlocked())
+    if (m_sharedQueue.MoveOwnershipTo(request.node_id()))
     {
-        ChangeOwnershipTo(request.node_id());
+        LogQueue();
+        PublishSubTaskQueue();
         return true;
     }
 
@@ -288,7 +254,16 @@ void ProcessingSubTaskQueue::HandleQueueRequestTimeout(const boost::system::erro
         std::lock_guard<std::mutex> guard(m_queueMutex);
         m_logger->debug("QUEUE_REQUEST_TIMEOUT");
         m_dltQueueResponseTimeout.expires_at(boost::posix_time::pos_infin);
-        RollbackOwnership();
+        if (m_sharedQueue.RollbackOwnership())
+        {
+            LogQueue();
+            PublishSubTaskQueue();
+
+            if (m_sharedQueue.HasOwnership())
+            {
+                ProcessPendingSubTaskGrabbing();
+            }
+        }
     }
 }
 
@@ -313,32 +288,6 @@ void ProcessingSubTaskQueue::AddSubTaskResult(
     m_results.insert(std::make_pair(resultChannel, std::move(result)));
 }
 
-bool ProcessingSubTaskQueue::UnlockExpiredSubTasks(std::chrono::milliseconds expirationTimeout)
-{
-    auto timestamp = std::chrono::system_clock::now();
-    auto normalizedExpirationTimeout = std::chrono::duration_cast<std::chrono::system_clock::duration>(expirationTimeout);
-
-    bool unlocked = false;
-    for (int itemIdx = 0; itemIdx < m_queue->items_size(); ++itemIdx)
-    {
-        auto item = m_queue->mutable_items(itemIdx);
-
-        // Check if a subtask is locked, expired and no result was obtained for it
-        // @todo replace the result channel with subtask id to identify a subtask that should be unlocked
-        if (!item->lock_node_id().empty()
-            && timestamp.time_since_epoch().count() > (item->lock_timestamp() + normalizedExpirationTimeout.count())
-            && m_results.find(item->subtask().results_channel()) == m_results.end())
-        {
-            // Unlock the item
-            item->set_lock_node_id("");
-            item->set_lock_timestamp(0);
-            unlocked = true;
-        }
-    }
-
-    return unlocked;
-}
-
 void ProcessingSubTaskQueue::LogQueue() const
 {
     if (m_logger->level() <= spdlog::level::trace)
@@ -352,7 +301,7 @@ void ProcessingSubTaskQueue::LogQueue() const
         {
             auto item = m_queue->items(itemIdx);
             ss << "{\"lock_node_id\":\"" << item.lock_node_id() << "\"";
-            ss << ",\"set_lock_timestamp\":" << item.lock_timestamp() << "},";
+            ss << ",\"lock_timestamp\":" << item.lock_timestamp() << "},";
         }
         ss << "]}";
 
