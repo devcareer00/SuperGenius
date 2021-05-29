@@ -51,11 +51,14 @@ public:
     */
     bool UpdateQueue(std::shared_ptr<SharedQueueDataView> queue);
 
+    bool UnlockExpiredItems(std::chrono::system_clock::duration expirationTimeout);
+
+    std::chrono::system_clock::time_point GetLastLockTimestamp() const;
+
 private:
     void ChangeOwnershipTo(const std::string& nodeId);
 
     bool LockItem(size_t& lockedItemIndex);
-    bool UnlockExpiredItems(std::chrono::milliseconds expirationTimeout);
 
     void LogQueue() const;
 

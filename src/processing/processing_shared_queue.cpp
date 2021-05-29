@@ -29,7 +29,6 @@ bool SharedQueue::UpdateQueue(std::shared_ptr<SharedQueueDataView> queue)
 
 bool SharedQueue::LockItem(size_t& lockedItemIndex)
 {
-    bool itemLocked = false;
     // The method has to be called in scoped lock of queue mutex
     for (int itemIdx = 0; itemIdx < m_queue->Size(); ++itemIdx)
     {
@@ -45,22 +44,11 @@ bool SharedQueue::LockItem(size_t& lockedItemIndex)
             LogQueue();
 
             lockedItemIndex = itemIdx;
-            itemLocked = true;
-            break;
+            return true;
         }
     }
 
-    // No available subtasks found
-    if (!itemLocked)
-    {
-        auto unlocked = UnlockExpiredItems(std::chrono::milliseconds(10000));
-        if (unlocked)
-        {
-            itemLocked = LockItem(lockedItemIndex);
-        }
-    }
-
-    return itemLocked;
+    return false;
 }
 
 bool SharedQueue::GrabItem(size_t& grabbedItemIndex)
@@ -170,27 +158,51 @@ bool SharedQueue::HasOwnership() const
     return (m_queue->GetQueueOwnerNodeId() == m_localNodeId);
 }
 
-bool SharedQueue::UnlockExpiredItems(std::chrono::milliseconds expirationTimeout)
+bool SharedQueue::UnlockExpiredItems(std::chrono::system_clock::duration expirationTimeout)
 {
-    auto timestamp = std::chrono::system_clock::now();
 
     bool unlocked = false;
-    for (int itemIdx = 0; itemIdx < m_queue->Size(); ++itemIdx)
+
+    if (HasOwnership())
     {
-        // Check if a subtask is locked, expired and no result was obtained for it
-        // @todo replace the result channel with subtask id to identify a subtask that should be unlocked
-        if (!m_queue->GetItemLockNodeId(itemIdx).empty()
-            && timestamp > (m_queue->GetItemLockTimestamp(itemIdx) + expirationTimeout)
-            && !m_queue->IsExcluded(itemIdx))
+        auto timestamp = std::chrono::system_clock::now();
+        for (int itemIdx = 0; itemIdx < m_queue->Size(); ++itemIdx)
         {
-            // Unlock the item
-            m_queue->SetItemLockNodeId(itemIdx, "");
-            m_queue->SetItemLockTimestamp(itemIdx, std::chrono::system_clock::time_point::min());
-            unlocked = true;
+            // Check if a subtask is locked, expired and no result was obtained for it
+            // @todo replace the result channel with subtask id to identify a subtask that should be unlocked
+            if (!m_queue->GetItemLockNodeId(itemIdx).empty()
+                && !m_queue->IsExcluded(itemIdx))
+            {
+                auto expirationTime = m_queue->GetItemLockTimestamp(itemIdx) + expirationTimeout;
+                if (timestamp > expirationTime)
+                {
+                    // Unlock the item
+                    m_queue->SetItemLockNodeId(itemIdx, "");
+                    m_queue->SetItemLockTimestamp(itemIdx, std::chrono::system_clock::time_point::min());
+                    unlocked = true;
+                }
+            }
         }
     }
 
     return unlocked;
+}
+
+std::chrono::system_clock::time_point SharedQueue::GetLastLockTimestamp() const
+{
+    std::chrono::system_clock::time_point lastLockTimestamp;
+
+    for (int itemIdx = 0; itemIdx < m_queue->Size(); ++itemIdx)
+    {
+        // Check if an item is locked and no result was obtained for it
+        if (!m_queue->GetItemLockNodeId(itemIdx).empty()
+            && !m_queue->IsExcluded(itemIdx))
+        {
+            lastLockTimestamp = std::max(lastLockTimestamp, m_queue->GetItemLockTimestamp(itemIdx));
+        }
+    }
+
+    return lastLockTimestamp;
 }
 
 void SharedQueue::LogQueue() const

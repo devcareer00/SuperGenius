@@ -107,8 +107,8 @@ ProcessingSubTaskQueue::ProcessingSubTaskQueue(
     , m_dltQueueResponseTimeout(*m_context.get())
     , m_queueResponseTimeout(boost::posix_time::seconds(5))
     , m_dltGrabSubTaskTimeout(*m_context.get())
-    , m_grabSubTaskTimeout(boost::posix_time::seconds(10))
     , m_sharedQueue(localNodeId)
+    , m_processingTimeout(std::chrono::seconds(10))
 {
 }
 
@@ -165,7 +165,12 @@ void ProcessingSubTaskQueue::ProcessPendingSubTaskGrabbing()
         }
         else
         {
-            break;
+            // No available subtasks found
+            auto unlocked = m_sharedQueue.UnlockExpiredItems(m_processingTimeout);
+            if (!unlocked)
+            {
+                break;
+            }
         }
     }
 
@@ -174,7 +179,20 @@ void ProcessingSubTaskQueue::ProcessPendingSubTaskGrabbing()
         if (m_results.size() < m_queue->items_size())
         {
             // Wait for subtasks are processed
-            m_dltGrabSubTaskTimeout.expires_from_now(m_grabSubTaskTimeout);
+            auto timestamp = std::chrono::system_clock::now();
+            auto lastLockTimestamp = m_sharedQueue.GetLastLockTimestamp();
+            auto lastExpirationTime = lastLockTimestamp + m_processingTimeout;
+
+            std::chrono::milliseconds grabSubTaskTimeout =
+                (lastExpirationTime > timestamp) 
+                ? std::chrono::duration_cast<std::chrono::milliseconds>(lastExpirationTime - timestamp)
+                : std::chrono::milliseconds(1);
+
+            m_logger->debug("GRAB_TIMEOUT {}ms", grabSubTaskTimeout.count());
+
+            m_dltGrabSubTaskTimeout.expires_from_now(
+                boost::posix_time::milliseconds(grabSubTaskTimeout.count()));
+
             m_dltGrabSubTaskTimeout.async_wait(std::bind(
                 &ProcessingSubTaskQueue::HandleGrabSubTaskTimeout, this, std::placeholders::_1));
         }
@@ -197,6 +215,7 @@ void ProcessingSubTaskQueue::HandleGrabSubTaskTimeout(const boost::system::error
     {
         std::lock_guard<std::mutex> guard(m_queueMutex);
         m_dltGrabSubTaskTimeout.expires_at(boost::posix_time::pos_infin);
+        m_logger->debug("HANDLE_GRAB_TIMEOUT");
         if (!m_onSubTaskGrabbedCallbacks.empty()
             && (m_results.size() < m_queue->items_size()))
         {
