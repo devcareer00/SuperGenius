@@ -86,6 +86,8 @@ private:
     void HandleQueueRequestTimeout(const boost::system::error_code& ec);
     void PublishSubTaskQueue() const;
     void ProcessPendingSubTaskGrabbing();
+    void GrabSubTasks();
+    void HandleGrabSubTaskTimeout(const boost::system::error_code& ec);
     void LogQueue() const;
 
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSubTopic> m_queueChannel;
@@ -100,6 +102,9 @@ private:
 
     boost::asio::deadline_timer m_dltQueueResponseTimeout;
     boost::posix_time::time_duration m_queueResponseTimeout;
+
+    boost::asio::deadline_timer m_dltGrabSubTaskTimeout;
+    boost::posix_time::time_duration m_grabSubTaskTimeout;
 
     SharedQueue m_sharedQueue;
 

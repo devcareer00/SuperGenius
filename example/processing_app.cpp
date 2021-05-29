@@ -78,6 +78,8 @@ namespace
         size_t subTaskProcessingTime = 0; // ms
         size_t roomSize = 0;
         size_t disconnect = 0;
+        size_t nSubTasks = 5;
+        size_t channelListRequestTimeout = 5000;
         // optional remote peer to connect to
         std::optional<std::string> remote;
     };
@@ -95,6 +97,8 @@ namespace
                 ("processingtime,p", po::value(&o.subTaskProcessingTime), "subtask processing time (ms)")
                 ("roomsize,s", po::value(&o.roomSize), "subtask processing time (ms)")
                 ("disconnect,d", po::value(&o.disconnect), "disconnect after (ms)")
+                ("nsubtasks,n", po::value(&o.nSubTasks), "number of subtasks that task is split to")
+                ("channellisttimeout,t", po::value(&o.channelListRequestTimeout), "chnnel list request timeout (ms)")
                 ("serviceindex,i", po::value(&o.serviceIndex), "index of the service in computational grid (has to be a unique value)");
 
             po::variables_map vm;
@@ -217,11 +221,11 @@ int main(int argc, char* argv[])
     }
 
     auto taskQueue = std::make_shared<ProcessingTaksQueueImpl>(tasks);
-    auto processingCore = std::make_shared<ProcessingCoreImpl>(5, options->subTaskProcessingTime);
+    auto processingCore = std::make_shared<ProcessingCoreImpl>(options->nSubTasks, options->subTaskProcessingTime);
     ProcessingServiceImpl processingService(pubs, maximalNodesCount, options->roomSize, taskQueue, processingCore);
 
     processingService.Listen(processingGridChannel);
-    processingService.SetChannelListRequestTimeout(boost::posix_time::seconds(5));
+    processingService.SetChannelListRequestTimeout(boost::posix_time::milliseconds(options->channelListRequestTimeout));
 
     processingService.SendChannelListRequest();
 

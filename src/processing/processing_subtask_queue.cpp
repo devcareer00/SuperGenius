@@ -106,6 +106,8 @@ ProcessingSubTaskQueue::ProcessingSubTaskQueue(
     , m_processingCore(processingCore)
     , m_dltQueueResponseTimeout(*m_context.get())
     , m_queueResponseTimeout(boost::posix_time::seconds(5))
+    , m_dltGrabSubTaskTimeout(*m_context.get())
+    , m_grabSubTaskTimeout(boost::posix_time::seconds(10))
     , m_sharedQueue(localNodeId)
 {
 }
@@ -149,6 +151,7 @@ bool ProcessingSubTaskQueue::UpdateQueue(SGProcessing::SubTaskQueue* pQueue)
 void ProcessingSubTaskQueue::ProcessPendingSubTaskGrabbing()
 {
     // The method has to be called in scoped lock of queue mutex
+    m_dltGrabSubTaskTimeout.expires_at(boost::posix_time::pos_infin);
     while (!m_onSubTaskGrabbedCallbacks.empty())
     {
         size_t itemIdx;
@@ -162,10 +165,42 @@ void ProcessingSubTaskQueue::ProcessPendingSubTaskGrabbing()
         }
         else
         {
-            // Let the requester know that there are no available subtasks
-            m_onSubTaskGrabbedCallbacks.front()({});
-            // Reset the callback
-            m_onSubTaskGrabbedCallbacks.pop_front();
+            break;
+        }
+    }
+
+    if (!m_onSubTaskGrabbedCallbacks.empty())
+    {
+        if (m_results.size() < m_queue->items_size())
+        {
+            // Wait for subtasks are processed
+            m_dltGrabSubTaskTimeout.expires_from_now(m_grabSubTaskTimeout);
+            m_dltGrabSubTaskTimeout.async_wait(std::bind(
+                &ProcessingSubTaskQueue::HandleGrabSubTaskTimeout, this, std::placeholders::_1));
+        }
+        else
+        {
+            while (!m_onSubTaskGrabbedCallbacks.empty())
+            {
+                // Let the requester know that there are no available subtasks
+                m_onSubTaskGrabbedCallbacks.front()({});
+                // Reset the callback
+                m_onSubTaskGrabbedCallbacks.pop_front();
+            }
+        }
+    }
+}
+
+void ProcessingSubTaskQueue::HandleGrabSubTaskTimeout(const boost::system::error_code& ec)
+{
+    if (ec != boost::asio::error::operation_aborted)
+    {
+        std::lock_guard<std::mutex> guard(m_queueMutex);
+        m_dltGrabSubTaskTimeout.expires_at(boost::posix_time::pos_infin);
+        if (!m_onSubTaskGrabbedCallbacks.empty()
+            && (m_results.size() < m_queue->items_size()))
+        {
+            GrabSubTasks();
         }
     }
 }
@@ -174,6 +209,11 @@ void ProcessingSubTaskQueue::GrabSubTask(SubTaskGrabbedCallback onSubTaskGrabbed
 {
     std::lock_guard<std::mutex> guard(m_queueMutex);
     m_onSubTaskGrabbedCallbacks.push_back(std::move(onSubTaskGrabbedCallback));
+    GrabSubTasks();
+}
+
+void ProcessingSubTaskQueue::GrabSubTasks()
+{
     if (m_sharedQueue.HasOwnership())
     {
         ProcessPendingSubTaskGrabbing();
