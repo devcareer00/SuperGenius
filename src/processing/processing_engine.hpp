@@ -32,7 +32,7 @@ public:
     void StopQueueProcessing();
     bool IsQueueProcessingStarted() const;
 
-    const std::vector<std::tuple<std::string, SGProcessing::SubTaskResult>>& GetResults() const;
+    std::vector<std::tuple<std::string, SGProcessing::SubTaskResult>> GetResults() const;
 
 private:
     void OnSubTaskGrabbed(boost::optional<const SGProcessing::SubTask&> subTask);
@@ -45,14 +45,16 @@ private:
     void OnResultChannelMessage(boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message);
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSubTopic> AddResultChannel(const std::string& resultChannelId);
 
-    std::shared_ptr<ProcessingCore> m_processingCore;
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> m_gossipPubSub;
     std::string m_nodeId;
+    std::shared_ptr<ProcessingCore> m_processingCore;
 
     std::shared_ptr<ProcessingSubTaskQueue> m_subTaskQueue;
     std::vector<std::tuple<std::string, SGProcessing::SubTaskResult>> m_results;
     std::map<std::string, std::shared_ptr<sgns::ipfs_pubsub::GossipPubSubTopic>> m_resultChannels;
 
+    mutable std::mutex m_mutexResults;
+    
     libp2p::common::Logger m_logger = libp2p::common::createLogger("ProcessingEngine");
 };
 }

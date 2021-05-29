@@ -6,9 +6,9 @@ ProcessingEngine::ProcessingEngine(
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> gossipPubSub,
     std::string nodeId,
     std::shared_ptr<ProcessingCore> processingCore)
-    : m_processingCore(processingCore)
+    : m_gossipPubSub(gossipPubSub)
     , m_nodeId(std::move(nodeId))
-    , m_gossipPubSub(gossipPubSub)
+    , m_processingCore(processingCore)
 {
 }
 
@@ -72,8 +72,9 @@ void ProcessingEngine::ProcessSubTask(SGProcessing::SubTask subTask)
     thread.detach();
 }
 
-const std::vector<std::tuple<std::string, SGProcessing::SubTaskResult>>& ProcessingEngine::GetResults() const
+std::vector<std::tuple<std::string, SGProcessing::SubTaskResult>> ProcessingEngine::GetResults() const
 {
+    std::lock_guard<std::mutex> guard(m_mutexResults);
     return m_results;
 }
 
@@ -91,7 +92,8 @@ void ProcessingEngine::OnResultChannelMessage(
             {
                 m_subTaskQueue->AddSubTaskResult(message->topics[0], result);
             }
-            m_results.push_back(std::make_tuple(message->topics[0], std::move(result)));
+           std::lock_guard<std::mutex> guard(m_mutexResults);
+           m_results.push_back(std::make_tuple(message->topics[0], std::move(result)));
         }
     }
 }
