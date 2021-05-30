@@ -21,11 +21,11 @@ void ProcessingEngine::StartQueueProcessing(std::shared_ptr<ProcessingSubTaskQue
 
     m_subTaskQueue = subTaskQueue;
     auto queue = m_subTaskQueue->GetQueueSnapshot();
-    if (queue->items_size() > 0)
+    if (queue->subtasks_size() > 0)
     {
-        for (size_t subTaskIdx = 0; subTaskIdx < queue->items_size(); ++subTaskIdx)
+        for (size_t subTaskIdx = 0; subTaskIdx < queue->subtasks_size(); ++subTaskIdx)
         {
-            const auto& subTask = queue->items(subTaskIdx).subtask();
+            const auto& subTask = queue->subtasks(subTaskIdx);
             AddResultChannel(subTask.results_channel());
         }
 

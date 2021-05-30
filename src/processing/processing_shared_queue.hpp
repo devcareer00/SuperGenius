@@ -6,7 +6,7 @@
 #ifndef SUPERGENIUS_PROCESSING_SHARED_QUEUE_HPP
 #define SUPERGENIUS_PROCESSING_SHARED_QUEUE_HPP
 
-#include "processing_shared_queue_data_view.hpp"
+#include "SGProcessing.pb.h"
 #include <libp2p/common/logger.hpp>
 
 namespace sgns::processing
@@ -24,7 +24,7 @@ public:
     /** Create a subtask queue by splitting the task to subtasks using the processing code
     * @param task - task that should be split into subtasks
     */
-    void CreateQueue(std::shared_ptr<SharedQueueDataView> queue);
+    void CreateQueue(SGProcessing::ProcessingQueue* queue);
 
     /** Asynchronous getting of a subtask from the queue
     * @param onSubTaskGrabbedCallback a callback that is called when a grapped iosubtask is locked by the local node
@@ -49,11 +49,22 @@ public:
     /** Updates the local queue with a snapshot that have the most recent timestamp
     * @param queue - the queue snapshot
     */
-    bool UpdateQueue(std::shared_ptr<SharedQueueDataView> queue);
-
+    bool UpdateQueue(SGProcessing::ProcessingQueue* queue);
+    
+    /** Unlocks expired queue items
+    * @param expirationTimeout - timeout applied to detect expired items
+    * @return true if at least one item was unlocked
+    */
     bool UnlockExpiredItems(std::chrono::system_clock::duration expirationTimeout);
 
+    /** Returns the most recent item lock timestamp
+    */
     std::chrono::system_clock::time_point GetLastLockTimestamp() const;
+
+    /** Sets indices of valid queue items.
+    * Invalid items are considered as deleted.
+    */
+    void SetValidItemIndices(std::vector<int>&& indices);
 
 private:
     void ChangeOwnershipTo(const std::string& nodeId);
@@ -63,7 +74,9 @@ private:
     void LogQueue() const;
 
     std::string m_localNodeId;
-    std::shared_ptr<SharedQueueDataView> m_queue;
+    SGProcessing::ProcessingQueue* m_queue;
+
+    std::vector<int> m_validItemIndices;
 
     libp2p::common::Logger m_logger = libp2p::common::createLogger("ProcessingSharedQueue");
 };

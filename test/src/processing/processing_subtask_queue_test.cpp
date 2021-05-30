@@ -82,10 +82,10 @@ TEST(ProcessingSubTaskQueueTest, QueueCreating)
     pubs1->Stop();
 
     ASSERT_EQ(1, queueSnapshotSet.size());
-    EXPECT_EQ(nodeId, queueSnapshotSet[0].owner_node_id());
-    ASSERT_EQ(2, queueSnapshotSet[0].items_size());
-    EXPECT_EQ("", queueSnapshotSet[0].items(0).lock_node_id());
-    EXPECT_EQ("", queueSnapshotSet[0].items(1).lock_node_id());
+    EXPECT_EQ(nodeId, queueSnapshotSet[0].processing_queue().owner_node_id());
+    ASSERT_EQ(2, queueSnapshotSet[0].processing_queue().items_size());
+    EXPECT_EQ("", queueSnapshotSet[0].processing_queue().items(0).lock_node_id());
+    EXPECT_EQ("", queueSnapshotSet[0].processing_queue().items(1).lock_node_id());
 }
 
 /**
@@ -144,11 +144,11 @@ TEST(ProcessingSubTaskQueueTest, QueueOwnershipTransfer)
     pubs1->Stop();
 
     ASSERT_EQ(2, queueSnapshotSet.size());
-    EXPECT_EQ(nodeId2, queueSnapshotSet[1].owner_node_id());
-    ASSERT_EQ(2, queueSnapshotSet[0].items_size());
+    EXPECT_EQ(nodeId2, queueSnapshotSet[1].processing_queue().owner_node_id());
+    ASSERT_EQ(2, queueSnapshotSet[0].processing_queue().items_size());
     // The subtask is not locked by the new owner yet
-    EXPECT_EQ("", queueSnapshotSet[0].items(0).lock_node_id());
-    EXPECT_EQ("", queueSnapshotSet[0].items(1).lock_node_id());
+    EXPECT_EQ("", queueSnapshotSet[0].processing_queue().items(0).lock_node_id());
+    EXPECT_EQ("", queueSnapshotSet[0].processing_queue().items(1).lock_node_id());
 }
 
 /**
@@ -211,12 +211,12 @@ TEST(ProcessingSubTaskQueueTest, GrabSubTaskWithoutOwnershipTransferring)
     pubs1->Stop();
 
     ASSERT_EQ(2, queueSnapshotSet.size());
-    EXPECT_EQ(nodeId, queueSnapshotSet[1].owner_node_id());
-    ASSERT_EQ(2, queueSnapshotSet[1].items_size());
+    EXPECT_EQ(nodeId, queueSnapshotSet[1].processing_queue().owner_node_id());
+    ASSERT_EQ(2, queueSnapshotSet[1].processing_queue().items_size());
 
     // The subtask is locked the queue owner
-    EXPECT_EQ(nodeId, queueSnapshotSet[1].items(0).lock_node_id());
-    EXPECT_EQ("", queueSnapshotSet[1].items(1).lock_node_id());
+    EXPECT_EQ(nodeId, queueSnapshotSet[1].processing_queue().items(0).lock_node_id());
+    EXPECT_EQ("", queueSnapshotSet[1].processing_queue().items(1).lock_node_id());
 }
 
 /**
@@ -311,12 +311,12 @@ TEST(ProcessingSubTaskQueueTest, GrabSubTaskWithOwnershipTransferring)
     ASSERT_EQ(3, queueSnapshotSet2.size());
 
     // Ownership is transferred to node2
-    ASSERT_EQ(2, queueSnapshotSet2[2].items_size());
-    EXPECT_EQ(nodeId2, queueSnapshotSet2[2].owner_node_id());
+    ASSERT_EQ(2, queueSnapshotSet2[2].processing_queue().items_size());
+    EXPECT_EQ(nodeId2, queueSnapshotSet2[2].processing_queue().owner_node_id());
 
     // The subtask is locked by node2
-    EXPECT_EQ(nodeId2, queueSnapshotSet2[2].items(0).lock_node_id());
-    EXPECT_EQ("", queueSnapshotSet2[2].items(1).lock_node_id());
+    EXPECT_EQ(nodeId2, queueSnapshotSet2[2].processing_queue().items(0).lock_node_id());
+    EXPECT_EQ("", queueSnapshotSet2[2].processing_queue().items(1).lock_node_id());
 }
 
 

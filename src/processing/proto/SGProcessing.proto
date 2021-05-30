@@ -36,18 +36,24 @@ message ProcessingChunk
     uint32 n_subchunks = 7; // number of chunks to process  
 }
 
-message SubTaskQueueItem
+message ProcessingQueueItem
 {
-    SubTask subtask = 1;
-    int64 lock_timestamp = 2;
-    string lock_node_id = 3;
+    int64 lock_timestamp = 1;
+    string lock_node_id = 2;
+}
+
+
+message ProcessingQueue
+{
+    repeated ProcessingQueueItem items = 1;
+    int64 last_update_timestamp = 2;
+    string owner_node_id = 3;
 }
 
 message SubTaskQueue
 {
-    repeated SubTaskQueueItem items = 1;
-    int64 last_update_timestamp = 2;
-    string owner_node_id = 3;
+    ProcessingQueue processing_queue = 1;
+    repeated SubTask subtasks = 2;
 }
 
 message SubTaskQueueRequest

@@ -72,10 +72,10 @@ TEST(ProcessingEngineTest, SubscribtionToResultChannel)
     ProcessingEngine engine(pubs1, nodeId, processingCore);
 
     auto queue = std::make_unique<SGProcessing::SubTaskQueue>();
-    queue->set_owner_node_id("DIFFERENT_NODE_ID");
+    queue->mutable_processing_queue()->set_owner_node_id("DIFFERENT_NODE_ID");
 
-    auto item = queue->add_items();
-    auto subTask = item->mutable_subtask();
+    auto item = queue->mutable_processing_queue()->add_items();
+    auto subTask = queue->add_subtasks();
     subTask->set_results_channel("RESULT_CHANNEL_ID");
 
     auto processingQueue = std::make_shared<ProcessingSubTaskQueue>(
@@ -122,15 +122,15 @@ TEST(ProcessingEngineTest, SubTaskProcessing)
 
     auto queue = std::make_unique<SGProcessing::SubTaskQueue>();
     // Local queue wrapped owns the queue
-    queue->set_owner_node_id(nodeId);
+    queue->mutable_processing_queue()->set_owner_node_id(nodeId);
     {
-        auto item = queue->add_items();
-        auto subTask = item->mutable_subtask();
+        auto item = queue->mutable_processing_queue()->add_items();
+        auto subTask = queue->add_subtasks();
         subTask->set_results_channel("RESULT_CHANNEL_ID1");
     }
     {
-        auto item = queue->add_items();
-        auto subTask = item->mutable_subtask();
+        auto item = queue->mutable_processing_queue()->add_items();
+        auto subTask = queue->add_subtasks();
         subTask->set_results_channel("RESULT_CHANNEL_ID2");
     }
 
@@ -175,15 +175,15 @@ TEST(ProcessingEngineTest, SharedSubTaskProcessing)
 
     auto queue = std::make_unique<SGProcessing::SubTaskQueue>();
     // Local queue wrapped owns the queue
-    queue->set_owner_node_id(nodeId1);
+    queue->mutable_processing_queue()->set_owner_node_id(nodeId1);
     {
-        auto item = queue->add_items();
-        auto subTask = item->mutable_subtask();
+        auto item = queue->mutable_processing_queue()->add_items();
+        auto subTask = queue->add_subtasks();
         subTask->set_results_channel("RESULT_CHANNEL_ID1");
     }
     {
-        auto item = queue->add_items();
-        auto subTask = item->mutable_subtask();
+        auto item = queue->mutable_processing_queue()->add_items();
+        auto subTask = queue->add_subtasks();
         subTask->set_results_channel("RESULT_CHANNEL_ID2");
     }
 

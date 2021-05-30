@@ -1,26 +1,31 @@
 #include "processing_shared_queue.hpp"
 
+#include <numeric>
+
 namespace sgns::processing
 {
 ////////////////////////////////////////////////////////////////////////////////
 SharedQueue::SharedQueue(
     const std::string& localNodeId)
     : m_localNodeId(localNodeId)
+    , m_queue(nullptr)
 {
 }
 
-void SharedQueue::CreateQueue(std::shared_ptr<SharedQueueDataView> queue)
+void SharedQueue::CreateQueue(SGProcessing::ProcessingQueue* queue)
 {
-    m_queue = std::move(queue);
+    m_queue = queue;
+    m_validItemIndices = std::vector<int>(m_queue->items_size());
+    std::iota(m_validItemIndices.begin(), m_validItemIndices.end(), 0);
     ChangeOwnershipTo(m_localNodeId);
 }
 
-bool SharedQueue::UpdateQueue(std::shared_ptr<SharedQueueDataView> queue)
+bool SharedQueue::UpdateQueue(SGProcessing::ProcessingQueue* queue)
 {
     if (!m_queue
-        || (m_queue->GetQueueLastUpdateTimestamp() < queue->GetQueueLastUpdateTimestamp()))
+        || (m_queue->last_update_timestamp() < queue->last_update_timestamp()))
     {
-        m_queue.swap(queue);
+        m_queue = queue;
         LogQueue();
         return true;
     }
@@ -30,16 +35,16 @@ bool SharedQueue::UpdateQueue(std::shared_ptr<SharedQueueDataView> queue)
 bool SharedQueue::LockItem(size_t& lockedItemIndex)
 {
     // The method has to be called in scoped lock of queue mutex
-    for (int itemIdx = 0; itemIdx < m_queue->Size(); ++itemIdx)
+    for (auto itemIdx : m_validItemIndices)
     {
-        if (!m_queue->IsExcluded(itemIdx) && m_queue->GetItemLockNodeId(itemIdx).empty())
+        if (m_queue->items(itemIdx).lock_node_id().empty())
         {
             auto timestamp = std::chrono::system_clock::now();
 
-            m_queue->SetItemLockNodeId(itemIdx, m_localNodeId);
-            m_queue->SetItemLockTimestamp(itemIdx, timestamp);
+            m_queue->mutable_items(itemIdx)->set_lock_node_id(m_localNodeId);
+            m_queue->mutable_items(itemIdx)->set_lock_timestamp(timestamp.time_since_epoch().count());
 
-            m_queue->SetQueueLastUpdateTimestamp(timestamp);
+            m_queue->set_last_update_timestamp(timestamp.time_since_epoch().count());
 
             LogQueue();
 
@@ -74,8 +79,8 @@ bool SharedQueue::MoveOwnershipTo(const std::string& nodeId)
 void SharedQueue::ChangeOwnershipTo(const std::string& nodeId)
 {
     auto timestamp = std::chrono::system_clock::now();
-    m_queue->SetQueueOwnerNodeId(nodeId);
-    m_queue->SetQueueLastUpdateTimestamp(timestamp);
+    m_queue->set_owner_node_id(nodeId);
+    m_queue->set_last_update_timestamp(timestamp.time_since_epoch().count());
     LogQueue();
 }
 
@@ -88,11 +93,11 @@ bool SharedQueue::RollbackOwnership()
     }
 
     // Find the current queue owner
-    auto ownerNodeId = m_queue->GetQueueOwnerNodeId();
+    auto ownerNodeId = m_queue->owner_node_id();
     int ownerNodeIdx = -1;
-    for (int itemIdx = 0; itemIdx < m_queue->Size(); ++itemIdx)
+    for (int itemIdx = 0; itemIdx < m_queue->items_size(); ++itemIdx)
     {
-        if (m_queue->GetItemLockNodeId(itemIdx) == ownerNodeId)
+        if (m_queue->items(itemIdx).lock_node_id() == ownerNodeId)
         {
             ownerNodeIdx = itemIdx;
             break;
@@ -102,14 +107,14 @@ bool SharedQueue::RollbackOwnership()
     if (ownerNodeIdx >= 0)
     {
         // Check if the local node is the previous queue owner
-        for (int idx = 1; idx < m_queue->Size(); ++idx)
+        for (int idx = 1; idx < m_queue->items_size(); ++idx)
         {
             // Loop cyclically over queue items in backward direction starting from item[ownerNodeIdx - 1]
             // and excluding the item[ownerNodeIdx]
-            int itemIdx = (m_queue->Size() + ownerNodeIdx - idx) % m_queue->Size();
-            if (!m_queue->GetItemLockNodeId(itemIdx).empty())
+            int itemIdx = (m_queue->items_size() + ownerNodeIdx - idx) % m_queue->items_size();
+            if (!m_queue->items(itemIdx).lock_node_id().empty())
             {
-                if (m_queue->GetItemLockNodeId(itemIdx) == m_localNodeId)
+                if (m_queue->items(itemIdx).lock_node_id() == m_localNodeId)
                 {
                     // The local node is the previous queue owner
                     ChangeOwnershipTo(m_localNodeId);
@@ -127,12 +132,12 @@ bool SharedQueue::RollbackOwnership()
     {
         // The queue owner didn't lock any subtask
         // Find the last locked item
-        for (int idx = 1; idx <= m_queue->Size(); ++idx)
+        for (int idx = 1; idx <= m_queue->items_size(); ++idx)
         {
-            int itemIdx = (m_queue->Size() - idx);
-            if (!m_queue->GetItemLockNodeId(itemIdx).empty())
+            int itemIdx = (m_queue->items_size() - idx);
+            if (!m_queue->items(itemIdx).lock_node_id().empty())
             {
-                if (m_queue->GetItemLockNodeId(itemIdx) == m_localNodeId)
+                if (m_queue->items(itemIdx).lock_node_id() == m_localNodeId)
                 {
                     // The local node is the last locked item
                     ChangeOwnershipTo(m_localNodeId);
@@ -155,7 +160,7 @@ bool SharedQueue::RollbackOwnership()
 
 bool SharedQueue::HasOwnership() const
 {
-    return (m_queue->GetQueueOwnerNodeId() == m_localNodeId);
+    return (m_queue && m_queue->owner_node_id() == m_localNodeId);
 }
 
 bool SharedQueue::UnlockExpiredItems(std::chrono::system_clock::duration expirationTimeout)
@@ -166,22 +171,28 @@ bool SharedQueue::UnlockExpiredItems(std::chrono::system_clock::duration expirat
     if (HasOwnership())
     {
         auto timestamp = std::chrono::system_clock::now();
-        for (int itemIdx = 0; itemIdx < m_queue->Size(); ++itemIdx)
+        for (auto itemIdx : m_validItemIndices)
         {
             // Check if a subtask is locked, expired and no result was obtained for it
             // @todo replace the result channel with subtask id to identify a subtask that should be unlocked
-            if (!m_queue->GetItemLockNodeId(itemIdx).empty()
-                && !m_queue->IsExcluded(itemIdx))
+            if (!m_queue->items(itemIdx).lock_node_id().empty())
             {
-                auto expirationTime = m_queue->GetItemLockTimestamp(itemIdx) + expirationTimeout;
+                auto expirationTime = 
+                    std::chrono::system_clock::time_point(
+                        std::chrono::system_clock::duration(m_queue->items(itemIdx).lock_timestamp())) + expirationTimeout;
                 if (timestamp > expirationTime)
                 {
                     // Unlock the item
-                    m_queue->SetItemLockNodeId(itemIdx, "");
-                    m_queue->SetItemLockTimestamp(itemIdx, std::chrono::system_clock::time_point::min());
+                    m_queue->mutable_items(itemIdx)->set_lock_node_id("");
+                    m_queue->mutable_items(itemIdx)->set_lock_timestamp(0);
                     unlocked = true;
                 }
             }
+        }
+
+        if (unlocked)
+        {
+            m_queue->set_last_update_timestamp(timestamp.time_since_epoch().count());
         }
     }
 
@@ -192,17 +203,23 @@ std::chrono::system_clock::time_point SharedQueue::GetLastLockTimestamp() const
 {
     std::chrono::system_clock::time_point lastLockTimestamp;
 
-    for (int itemIdx = 0; itemIdx < m_queue->Size(); ++itemIdx)
+    for (auto itemIdx : m_validItemIndices)
     {
         // Check if an item is locked and no result was obtained for it
-        if (!m_queue->GetItemLockNodeId(itemIdx).empty()
-            && !m_queue->IsExcluded(itemIdx))
+        if (!m_queue->items(itemIdx).lock_node_id().empty())
         {
-            lastLockTimestamp = std::max(lastLockTimestamp, m_queue->GetItemLockTimestamp(itemIdx));
+            lastLockTimestamp = std::max(lastLockTimestamp, 
+                std::chrono::system_clock::time_point(
+                    std::chrono::system_clock::duration(m_queue->items(itemIdx).lock_timestamp())));
         }
     }
 
     return lastLockTimestamp;
+}
+
+void SharedQueue::SetValidItemIndices(std::vector<int>&& indices)
+{
+    m_validItemIndices = std::move(indices);
 }
 
 void SharedQueue::LogQueue() const
@@ -211,14 +228,13 @@ void SharedQueue::LogQueue() const
     {
         std::stringstream ss;
         ss << "{";
-        ss << "\"owner_node_id\":\"" << m_queue->GetQueueOwnerNodeId() << "\"";
-        ss << "," << "\"last_update_timestamp\":" << m_queue->GetQueueLastUpdateTimestamp().time_since_epoch().count();
+        ss << "\"owner_node_id\":\"" << m_queue->owner_node_id() << "\"";
+        ss << "," << "\"last_update_timestamp\":" << m_queue->last_update_timestamp();
         ss << "," << "\"items\":[";
-        for (int itemIdx = 0; itemIdx < m_queue->Size(); ++itemIdx)
+        for (int itemIdx = 0; itemIdx < m_queue->items_size(); ++itemIdx)
         {
-            ss << "{\"lock_node_id\":\"" << m_queue->GetItemLockNodeId(itemIdx) << "\"";
-            ss << ",\"lock_timestamp\":" << m_queue->GetItemLockTimestamp(itemIdx).time_since_epoch().count();
-            ss << ",\"is_excluded\":" << m_queue->IsExcluded(itemIdx);
+            ss << "{\"lock_node_id\":\"" << m_queue->items(itemIdx).lock_node_id() << "\"";
+            ss << ",\"lock_timestamp\":" << m_queue->items(itemIdx).lock_timestamp();
             ss << "},";
         }
         ss << "]}";

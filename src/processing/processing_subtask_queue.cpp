@@ -3,98 +3,6 @@
 namespace sgns::processing
 {
 ////////////////////////////////////////////////////////////////////////////////
-namespace
-{
-    class SubTaskQueueDataView : public SharedQueueDataView
-    {
-    public:
-        SubTaskQueueDataView(
-            std::shared_ptr<SGProcessing::SubTaskQueue> queue,
-            const std::map<std::string, SGProcessing::SubTaskResult>& results);
-
-        const std::string& GetQueueOwnerNodeId() const override;
-        void SetQueueOwnerNodeId(const std::string& nodeId) const override;
-
-        std::chrono::system_clock::time_point GetQueueLastUpdateTimestamp() const override;
-        void SetQueueLastUpdateTimestamp(std::chrono::system_clock::time_point ts) const override;
-
-        const std::string& GetItemLockNodeId(size_t itemIdx) const override;
-        void SetItemLockNodeId(size_t itemIdx, const std::string& nodeId) const override;
-
-        std::chrono::system_clock::time_point GetItemLockTimestamp(size_t itemIdx) const override;
-        void SetItemLockTimestamp(size_t itemIdx, std::chrono::system_clock::time_point ts) const override;
-
-        bool IsExcluded(size_t itemIdx) const override;
-
-        size_t Size() const override;
-
-    private:
-        std::shared_ptr<SGProcessing::SubTaskQueue> m_queue;
-        const std::map<std::string, SGProcessing::SubTaskResult>& m_results;
-    };
-
-    SubTaskQueueDataView::SubTaskQueueDataView(
-        std::shared_ptr<SGProcessing::SubTaskQueue> queue,
-        const std::map<std::string, SGProcessing::SubTaskResult>& results)
-        : m_queue(queue)
-        , m_results(results)
-    {
-    }
-
-    const std::string& SubTaskQueueDataView::GetQueueOwnerNodeId() const
-    {
-        return m_queue->owner_node_id();
-    }
-
-    void SubTaskQueueDataView::SetQueueOwnerNodeId(const std::string& nodeId) const
-    {
-        m_queue->set_owner_node_id(nodeId);
-    }
-
-    std::chrono::system_clock::time_point SubTaskQueueDataView::GetQueueLastUpdateTimestamp() const
-    {
-        return std::chrono::system_clock::time_point(
-            std::chrono::system_clock::duration(m_queue->last_update_timestamp()));
-    }
-
-    void SubTaskQueueDataView::SetQueueLastUpdateTimestamp(std::chrono::system_clock::time_point ts) const
-    {
-        m_queue->set_last_update_timestamp(ts.time_since_epoch().count());
-    }
-
-    const std::string& SubTaskQueueDataView::GetItemLockNodeId(size_t itemIdx) const
-    {
-        return m_queue->items(itemIdx).lock_node_id();
-    }
-
-    void SubTaskQueueDataView::SetItemLockNodeId(size_t itemIdx, const std::string& nodeId) const
-    {
-        return m_queue->mutable_items(itemIdx)->set_lock_node_id(nodeId);
-    }
-
-    std::chrono::system_clock::time_point SubTaskQueueDataView::GetItemLockTimestamp(size_t itemIdx) const
-    {
-        return std::chrono::system_clock::time_point(
-            std::chrono::system_clock::duration(m_queue->items(itemIdx).lock_timestamp()));
-    }
-
-    void SubTaskQueueDataView::SetItemLockTimestamp(size_t itemIdx, std::chrono::system_clock::time_point ts) const
-    {
-        return m_queue->mutable_items(itemIdx)->set_lock_timestamp(ts.time_since_epoch().count());
-    }
-
-    bool SubTaskQueueDataView::IsExcluded(size_t itemIdx) const
-    {
-        return (m_results.find(m_queue->items(itemIdx).subtask().results_channel()) != m_results.end());
-    }
-
-    size_t SubTaskQueueDataView::Size() const
-    {
-        return m_queue->items_size();
-    }
-}
-
-////////////////////////////////////////////////////////////////////////////////
 ProcessingSubTaskQueue::ProcessingSubTaskQueue(
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSubTopic> queueChannel,
     std::shared_ptr<boost::asio::io_context> context,
@@ -123,13 +31,15 @@ void ProcessingSubTaskQueue::CreateQueue(const SGProcessing::Task& task)
 
     std::lock_guard<std::mutex> guard(m_queueMutex);
     m_queue = std::make_shared<SGProcessing::SubTaskQueue>();
+    auto queuSubTasks = m_queue->mutable_subtasks();
+    auto processingQueue = m_queue->mutable_processing_queue();
     for (auto itSubTask = subTasks.begin(); itSubTask != subTasks.end(); ++itSubTask)
     {
-        auto item = m_queue->add_items();
-        item->set_allocated_subtask(itSubTask->release());
+        queuSubTasks->AddAllocated(itSubTask->release());
+        processingQueue->add_items();
     }
 
-    m_sharedQueue.CreateQueue(std::make_shared<SubTaskQueueDataView>(m_queue, m_results));
+    m_sharedQueue.CreateQueue(processingQueue);
     PublishSubTaskQueue();
 }
 
@@ -138,9 +48,19 @@ bool ProcessingSubTaskQueue::UpdateQueue(SGProcessing::SubTaskQueue* pQueue)
     if (pQueue)
     {
         std::shared_ptr<SGProcessing::SubTaskQueue> queue(pQueue);
-        if (m_sharedQueue.UpdateQueue(std::make_shared<SubTaskQueueDataView>(queue, m_results)))
+        if (m_sharedQueue.UpdateQueue(queue->mutable_processing_queue()))
         {
             m_queue.swap(queue);
+            std::vector<int> validItemIndices;
+            for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks_size(); ++subTaskIdx)
+            {
+                const auto& subTask = m_queue->subtasks(subTaskIdx);
+                if (m_results.find(subTask.results_channel()) == m_results.end())
+                {
+                    validItemIndices.push_back(subTaskIdx);
+                }
+            }
+            m_sharedQueue.SetValidItemIndices(std::move(validItemIndices));
             LogQueue();
             return true;
         }
@@ -160,7 +80,7 @@ void ProcessingSubTaskQueue::ProcessPendingSubTaskGrabbing()
             LogQueue();
             PublishSubTaskQueue();
 
-            m_onSubTaskGrabbedCallbacks.front()({ m_queue->items(itemIdx).subtask() });
+            m_onSubTaskGrabbedCallbacks.front()({ m_queue->subtasks(itemIdx) });
             m_onSubTaskGrabbedCallbacks.pop_front();
         }
         else
@@ -176,7 +96,7 @@ void ProcessingSubTaskQueue::ProcessPendingSubTaskGrabbing()
 
     if (!m_onSubTaskGrabbedCallbacks.empty())
     {
-        if (m_results.size() < m_queue->items_size())
+        if (m_results.size() < m_queue->processing_queue().items_size())
         {
             // Wait for subtasks are processed
             auto timestamp = std::chrono::system_clock::now();
@@ -217,7 +137,7 @@ void ProcessingSubTaskQueue::HandleGrabSubTaskTimeout(const boost::system::error
         m_dltGrabSubTaskTimeout.expires_at(boost::posix_time::pos_infin);
         m_logger->debug("HANDLE_GRAB_TIMEOUT");
         if (!m_onSubTaskGrabbedCallbacks.empty()
-            && (m_results.size() < m_queue->items_size()))
+            && (m_results.size() < m_queue->processing_queue().items_size()))
         {
             GrabSubTasks();
         }
@@ -345,6 +265,17 @@ void ProcessingSubTaskQueue::AddSubTaskResult(
     SGProcessing::SubTaskResult result;
     result.CopyFrom(subTaskResult);
     m_results.insert(std::make_pair(resultChannel, std::move(result)));
+
+    std::vector<int> validItemIndices;
+    for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks_size(); ++subTaskIdx)
+    {
+        const auto& subTask = m_queue->subtasks(subTaskIdx);
+        if (m_results.find(subTask.results_channel()) == m_results.end())
+        {
+            validItemIndices.push_back(subTaskIdx);
+        }
+    }
+    m_sharedQueue.SetValidItemIndices(std::move(validItemIndices));
 }
 
 void ProcessingSubTaskQueue::LogQueue() const
@@ -353,12 +284,12 @@ void ProcessingSubTaskQueue::LogQueue() const
     {
         std::stringstream ss;
         ss << "{";
-        ss << "\"owner_node_id\":\"" << m_queue->owner_node_id() << "\"";
-        ss << "," << "\"last_update_timestamp\":" << m_queue->last_update_timestamp();
+        ss << "\"owner_node_id\":\"" << m_queue->processing_queue().owner_node_id() << "\"";
+        ss << "," << "\"last_update_timestamp\":" << m_queue->processing_queue().last_update_timestamp();
         ss << "," << "\"items\":[";
-        for (int itemIdx = 0; itemIdx < m_queue->items_size(); ++itemIdx)
+        for (int itemIdx = 0; itemIdx < m_queue->processing_queue().items_size(); ++itemIdx)
         {
-            auto item = m_queue->items(itemIdx);
+            auto item = m_queue->processing_queue().items(itemIdx);
             ss << "{\"lock_node_id\":\"" << item.lock_node_id() << "\"";
             ss << ",\"lock_timestamp\":" << item.lock_timestamp() << "},";
         }
