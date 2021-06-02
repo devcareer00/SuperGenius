@@ -81,19 +81,6 @@ target_link_libraries(graphsync_dagsyncer
 	ipfs-lite-cpp::ipfs_merkledag_service
     )
 
-add_executable(globaldb globaldb.cpp)
-target_link_libraries(globaldb 
-    crdt_datastore
-    graphsync_dagsyncer
-    ipfs-pubsub
-    ipfs-lite-cpp::ipfs_datastore_rocksdb
-    p2p::p2p_peer_address
-    Boost::filesystem
-    Boost::program_options
-    p2p::p2p_protocol_echo
-    ${WIN_CRYPT_LIBRARY}
-    )
-
 add_executable(echoClient echo_client.cpp)
 target_link_libraries(echoClient 
     Boost::Boost.DI

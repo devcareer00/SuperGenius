@@ -1,1 +1,2 @@
 add_subdirectory(processing_room)
+add_subdirectory(crdt_globaldb)
