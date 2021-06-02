@@ -1,2 +1,3 @@
 add_subdirectory(processing_room)
+add_subdirectory(echo_client)
 add_subdirectory(crdt_globaldb)
