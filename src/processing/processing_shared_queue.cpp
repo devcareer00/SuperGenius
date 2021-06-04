@@ -1,6 +1,7 @@
 #include "processing_shared_queue.hpp"
 
 #include <numeric>
+#include <sstream>
 
 namespace sgns::processing
 {
