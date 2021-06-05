@@ -1,10 +1,9 @@
-add_library(crtd_globaldb 
+add_library(crdt_globaldb 
     globaldb.cpp
     pubsub_broadcaster.cpp
     )
 
-target_include_directories(crtd_globaldb PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-target_link_libraries(crtd_globaldb
+target_link_libraries(crdt_globaldb
     crdt_datastore
     graphsync_dagsyncer
     ipfs-pubsub
