@@ -1,8 +1,7 @@
-set(PROTO_SRC_DIR ${CMAKE_CURRENT_BINARY_DIR}/proto)
-
-add_executable(crtd_globaldb_app globaldb_app.cpp)
-target_link_libraries(crtd_globaldb_app 
-    crdt_datastore
+add_executable(crdt_globaldb_app globaldb_app.cpp)
+target_link_libraries(crdt_globaldb_app 
+    crdt_globaldb
+    #crdt_datastore
     graphsync_dagsyncer
     ipfs-pubsub
     ipfs-lite-cpp::ipfs_datastore_rocksdb

@@ -3,8 +3,6 @@
 set(PROTO_SRC_DIR ${CMAKE_CURRENT_BINARY_DIR}/proto)
 file(MAKE_DIRECTORY ${PROTO_SRC_DIR})
 
-set(protobuf_generate_PROTOC_OUT_DIR ${PROTO_SRC_DIR})
-
 add_library(hierarchical_key 
     hierarchical_key.hpp
     impl/hierarchical_key.cpp
@@ -30,7 +28,10 @@ target_link_libraries(crdt_set
 protobuf_generate(
     LANGUAGE cpp
     TARGET crdt_set
-    PROTOS proto/delta.proto)
+    PROTOS ${CMAKE_CURRENT_SOURCE_DIR}/proto/delta.proto
+    IMPORT_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/proto"
+    PROTOC_OUT_DIR ${PROTO_SRC_DIR}
+    )
 supergenius_install(crdt_set)
 
 
@@ -64,7 +65,10 @@ target_link_libraries(crdt_datastore
 protobuf_generate(
     LANGUAGE cpp
     TARGET crdt_datastore
-    PROTOS proto/bcast.proto)
+    PROTOS ${CMAKE_CURRENT_SOURCE_DIR}/proto/bcast.proto
+    IMPORT_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/proto"
+    PROTOC_OUT_DIR ${PROTO_SRC_DIR}
+    )
 supergenius_install(crdt_datastore)
 
 
@@ -81,5 +85,4 @@ target_link_libraries(graphsync_dagsyncer
     ipfs-lite-cpp::ipfs_merkledag_service
     )
 
-
-
+add_subdirectory(globaldb)
