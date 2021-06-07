@@ -251,6 +251,7 @@ outcome::result<void> GlobalDB::Start(std::shared_ptr<CrdtOptions> crdtOptions)
 
     // Create pubsub gossip node
     m_pubsub = std::make_shared<GossipPubSub>(keyPairResult.value());
+    m_pubsub->Start(m_pubsubListeningPort, m_pubsubBootstrapPeers);
     auto gossipPubSubTopic = std::make_shared <GossipPubSubTopic>(m_pubsub, m_pubsubChannel);
     auto broadcaster = std::make_shared<PubSubBroadcaster>(gossipPubSubTopic);
     broadcaster->SetLogger(logger);
