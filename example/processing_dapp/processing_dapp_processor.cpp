@@ -258,7 +258,11 @@ int main(int argc, char* argv[])
 
     auto io = std::make_shared<boost::asio::io_context>();
     auto taskQueue = std::make_shared<ProcessingTaksQueueImpl>(
-        io, "CRDT.Datastore.TEST", "CRDT.Datastore.TEST.Channel", 40001, pubsubBootstrapPeers);
+        io, 
+        (boost::format("CRDT.Datastore.TEST.%d") %  options->serviceIndex).str(), 
+        "CRDT.Datastore.TEST.Channel", 
+        40001, 
+        pubsubBootstrapPeers);
 
     auto processingCore = std::make_shared<ProcessingCoreImpl>(options->nSubTasks, options->subTaskProcessingTime);
     ProcessingServiceImpl processingService(pubs, maximalNodesCount, options->roomSize, taskQueue, processingCore);
