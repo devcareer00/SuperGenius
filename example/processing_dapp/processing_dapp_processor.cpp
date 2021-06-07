@@ -78,31 +78,35 @@ namespace
 
         bool PopTask(SGProcessing::Task& task) override
         {
+            m_logger->info("POP_TASK");
+
             auto queryKeyValues = m_dataStore->QueryKeyValues("");
             if (queryKeyValues.has_failure())
             {
-                std::cout << "Unable list keys from CRDT datastore" << std::endl;
+                m_logger->info("Unable list keys from CRDT datastore");
                 return false;
             }
 
             auto keysPrefix = m_dataStore->GetKeysPrefix();
             if (keysPrefix.has_failure())
             {
-                std::cout << "Unable to get key prefix from CRDT datastore" << std::endl;
+                m_logger->info("Unable to get key prefix from CRDT datastore");
                 return false;
             }
 
             auto valueSuffix = m_dataStore->GetValueSuffix();
             if (valueSuffix.has_failure())
             {
-                std::cout << "Unable to get value suffix from CRDT datastore" << std::endl;
+                m_logger->info("Unable to get value suffix from CRDT datastore");
                 return false;
             }
 
             if (queryKeyValues.has_value())
             {
+                m_logger->info("TASK_QUEUE_SIZE: {}", queryKeyValues.value().size());
                 for (auto element : queryKeyValues.value())
                 {
+                    m_logger->info(element.first);
                     // @todo Check if the task is not locked
                     if (task.ParseFromArray(element.second.data(), element.second.size()))
                     {
@@ -116,6 +120,8 @@ namespace
     private:
         std::unique_ptr<sgns::crdt::GlobalDB> m_globalDB;
         std::shared_ptr<sgns::crdt::CrdtDatastore> m_dataStore;
+
+        sgns::base::Logger m_logger = sgns::base::createLogger("ProcessingTaksQueueImpl");
     };
 
     // cmd line options
