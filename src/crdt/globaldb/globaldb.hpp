@@ -17,22 +17,19 @@ public:
     GlobalDB(
         std::shared_ptr<boost::asio::io_context> context,
         std::string strDatabasePath, 
-        std::string pubsubChannel,
-        int pubsubListeningPort,
-        std::vector<std::string> pubsubBootstrapPeers
-        );
+        std::string pubsubChannel);
 
-    outcome::result<void> Start(std::shared_ptr<CrdtOptions> crdtOptions);
+    outcome::result<void> Start(
+        std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> pubSub,
+        std::shared_ptr<CrdtOptions> crdtOptions);
 
-    std::shared_ptr<ipfs_pubsub::GossipPubSub> GetGossipPubSub() const;
+    outcome::result<libp2p::crypto::KeyPair> GetKeyPair() const;
     std::shared_ptr<CrdtDatastore> GetDatastore() const;
 
 private:
     std::shared_ptr<boost::asio::io_context> m_context;
     std::string m_strDatabasePath;
-    size_t m_pubsubListeningPort;
     std::string m_pubsubChannel;
-    std::vector<std::string> m_pubsubBootstrapPeers;
 
     std::shared_ptr<ipfs_pubsub::GossipPubSub> m_pubsub;
     std::shared_ptr<CrdtDatastore> m_crdtDatastore;

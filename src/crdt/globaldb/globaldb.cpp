@@ -146,25 +146,21 @@ outcome::result<KeyPair> GetKeypair(
 GlobalDB::GlobalDB(
     std::shared_ptr<boost::asio::io_context> context,
     std::string strDatabasePath,
-    std::string pubsubChannel,
-    int pubsubListeningPort,
-    std::vector<std::string> pubsubBootstrapPeers)
+    std::string pubsubChannel)
     : m_context(std::move(context))
     , m_strDatabasePath(std::move(strDatabasePath))
     , m_pubsubChannel(std::move(pubsubChannel))
-    , m_pubsubListeningPort(std::move(pubsubListeningPort))
-    , m_pubsubBootstrapPeers(std::move(pubsubBootstrapPeers))
 {
 }
 
-outcome::result<void> GlobalDB::Start(std::shared_ptr<CrdtOptions> crdtOptions)
+outcome::result<void> GlobalDB::Start(
+    std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> pubSub,
+    std::shared_ptr<CrdtOptions> crdtOptions)
 {
     boost::filesystem::path databasePath = m_strDatabasePath;
 
-    auto strDatabasePathAbsolute = boost::filesystem::absolute(databasePath).string();
-
     std::shared_ptr<RocksDB> dataStore = nullptr;
-
+    auto strDatabasePathAbsolute = boost::filesystem::absolute(databasePath).string();
     // Create new database
     m_logger->info("Opening database " + strDatabasePathAbsolute);
     RocksDB::Options options;
@@ -179,42 +175,6 @@ outcome::result<void> GlobalDB::Start(std::shared_ptr<CrdtOptions> crdtOptions)
         m_logger->error("Unable to open database: " + std::string(e.what()));
         return outcome::failure(boost::system::error_code{});
     }
-
-    boost::filesystem::path keyPath = strDatabasePathAbsolute + "/key";
-    m_logger->info("Path to keypairs " + keyPath.string());
-    std::shared_ptr<KeyMarshaller> keyMarshaller = nullptr;
-    auto keyPairResult = GetKeypair(keyPath, keyMarshaller, m_logger);
-    if (keyPairResult.has_failure())
-    {
-        m_logger->error("Unable to get key pair");
-        return outcome::failure(boost::system::error_code{});
-    }
-
-    PrivateKey privateKey = keyPairResult.value().privateKey;
-    PublicKey publicKey = keyPairResult.value().publicKey;
-
-    if (keyMarshaller == nullptr)
-    {
-        m_logger->error("Unable to marshal keys, keyMarshaller is NULL");
-        return outcome::failure(boost::system::error_code{});
-    }
-
-    auto protobufKeyResult = keyMarshaller->marshal(publicKey);
-    if (protobufKeyResult.has_failure())
-    {
-        m_logger->error("Unable to marshal public key");
-        return outcome::failure(boost::system::error_code{});
-    }
-
-    auto peerIDResult = PeerId::fromPublicKey(protobufKeyResult.value());
-    if (peerIDResult.has_failure())
-    {
-        m_logger->error("Unable to get peer ID from public key");
-        return outcome::failure(boost::system::error_code{});
-    }
-
-    auto peerID = peerIDResult.value();
-    m_logger->info("Peer ID from public key: " + peerID.toBase58());
 
     // injector creates and ties dependent objects
     auto injector = libp2p::injector::makeHostInjector<BOOST_DI_CFG>(
@@ -251,8 +211,6 @@ outcome::result<void> GlobalDB::Start(std::shared_ptr<CrdtOptions> crdtOptions)
     }
 
     // Create pubsub gossip node
-    m_pubsub = std::make_shared<GossipPubSub>(keyPairResult.value());
-    m_pubsub->Start(m_pubsubListeningPort, m_pubsubBootstrapPeers);
     auto gossipPubSubTopic = std::make_shared <GossipPubSubTopic>(m_pubsub, m_pubsubChannel);
     auto broadcaster = std::make_shared<PubSubBroadcaster>(gossipPubSubTopic);
     broadcaster->SetLogger(m_logger);
@@ -286,13 +244,50 @@ outcome::result<void> GlobalDB::Start(std::shared_ptr<CrdtOptions> crdtOptions)
     return outcome::success();
 }
 
-std::shared_ptr<ipfs_pubsub::GossipPubSub> GlobalDB::GetGossipPubSub() const
-{
-    return m_pubsub;
-}
-
 std::shared_ptr<CrdtDatastore> GlobalDB::GetDatastore() const
 {
     return m_crdtDatastore;
+}
+
+outcome::result<libp2p::crypto::KeyPair> GlobalDB::GetKeyPair() const
+{
+    auto strDatabasePathAbsolute = boost::filesystem::absolute(m_strDatabasePath).string();
+    boost::filesystem::path keyPath = strDatabasePathAbsolute + "/key";
+    m_logger->info("Path to keypairs " + keyPath.string());
+    std::shared_ptr<KeyMarshaller> keyMarshaller = nullptr;
+    auto keyPairResult = GetKeypair(keyPath, keyMarshaller, m_logger);
+    if (keyPairResult.has_failure())
+    {
+        m_logger->error("Unable to get key pair");
+        return outcome::failure(boost::system::error_code{});
+    }
+
+    PrivateKey privateKey = keyPairResult.value().privateKey;
+    PublicKey publicKey = keyPairResult.value().publicKey;
+
+    if (keyMarshaller == nullptr)
+{
+        m_logger->error("Unable to marshal keys, keyMarshaller is NULL");
+        return outcome::failure(boost::system::error_code{});
+    }
+
+    auto protobufKeyResult = keyMarshaller->marshal(publicKey);
+    if (protobufKeyResult.has_failure())
+    {
+        m_logger->error("Unable to marshal public key");
+        return outcome::failure(boost::system::error_code{});
+}
+
+    auto peerIDResult = PeerId::fromPublicKey(protobufKeyResult.value());
+    if (peerIDResult.has_failure())
+{
+        m_logger->error("Unable to get peer ID from public key");
+        return outcome::failure(boost::system::error_code{});
+    }
+
+    auto peerID = peerIDResult.value();
+    m_logger->info("Peer ID from public key: " + peerID.toBase58());
+
+    return outcome::success(keyPairResult.value());
 }
 }

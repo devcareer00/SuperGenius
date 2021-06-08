@@ -50,30 +50,9 @@ namespace
     {
     public:
         ProcessingTaksQueueImpl(
-            std::shared_ptr<boost::asio::io_context> io,
-            std::string databasePath,
-            std::string globalDBPubsubChannel,
-            int pubsubListeningPort,
-            std::vector<std::string> pubsubBootstrapPeers)
+            std::shared_ptr<sgns::crdt::CrdtDatastore> dataStore)
+            : m_dataStore(dataStore)
         {
-            m_globalDB.reset(
-                new sgns::crdt::GlobalDB(
-                    io,
-                    databasePath,
-                    globalDBPubsubChannel,
-                    pubsubListeningPort,
-                    pubsubBootstrapPeers));
-
-            auto crdtOptions = sgns::crdt::CrdtOptions::DefaultOptions();
-            //crdtOptions->logger = logger;
-            // Bind PutHook function pointer for notification purposes
-            //crdtOptions->putHookFunc = std::bind(&PutHook, std::placeholders::_1, std::placeholders::_2, logger);
-            // Bind DeleteHook function pointer for notification purposes
-            //crdtOptions->deleteHookFunc = std::bind(&DeleteHook, std::placeholders::_1, logger);
-
-            m_globalDB->Start(crdtOptions);
-
-            m_dataStore = m_globalDB->GetDatastore();
         }
 
         bool PopTask(SGProcessing::Task& task) override
@@ -118,7 +97,6 @@ namespace
         };
 
     private:
-        std::unique_ptr<sgns::crdt::GlobalDB> m_globalDB;
         std::shared_ptr<sgns::crdt::CrdtDatastore> m_dataStore;
 
         sgns::base::Logger m_logger = sgns::base::createLogger("ProcessingTaksQueueImpl");
@@ -217,7 +195,6 @@ int main(int argc, char* argv[])
     auto loggerProcessingQueue = libp2p::common::createLogger("ProcessingSubTaskQueue");
     loggerProcessingQueue->set_level(spdlog::level::debug);
     
-
     const std::string processingGridChannel = "GRID_CHANNEL_ID";
 
     auto pubs = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();
@@ -257,12 +234,21 @@ int main(int argc, char* argv[])
     }
 
     auto io = std::make_shared<boost::asio::io_context>();
-    auto taskQueue = std::make_shared<ProcessingTaksQueueImpl>(
+    sgns::crdt::GlobalDB globalDB(
         io, 
         (boost::format("CRDT.Datastore.TEST.%d") %  options->serviceIndex).str(), 
-        "CRDT.Datastore.TEST.Channel", 
-        40001, 
-        pubsubBootstrapPeers);
+        "CRDT.Datastore.TEST.Channel");
+
+    auto crdtOptions = sgns::crdt::CrdtOptions::DefaultOptions();
+    globalDB.Start(pubs, crdtOptions);
+
+    auto dataStore = globalDB.GetDatastore();
+    if (!dataStore)
+    {
+        // @todo log error
+        return 1;
+    }
+    auto taskQueue = std::make_shared<ProcessingTaksQueueImpl>(dataStore);
 
     auto processingCore = std::make_shared<ProcessingCoreImpl>(options->nSubTasks, options->subTaskProcessingTime);
     ProcessingServiceImpl processingService(pubs, maximalNodesCount, options->roomSize, taskQueue, processingCore);

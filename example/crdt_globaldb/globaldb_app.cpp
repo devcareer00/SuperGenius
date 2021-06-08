@@ -85,12 +85,10 @@ int main(int argc, char** argv)
       pubsubBootstrapPeers.push_back(multiAddress);
   }
 
-  sgns::crdt::GlobalDB globalDB(
-      io,
-      strDatabasePath,
-      topicName,
-      pubsubListeningPort,
-      pubsubBootstrapPeers);
+  sgns::crdt::GlobalDB globalDB(io, strDatabasePath, topicName);
+  
+  auto pubsub = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>(globalDB.GetKeyPair().value());
+  pubsub->Start(pubsubListeningPort, pubsubBootstrapPeers);
     
   auto crdtOptions = sgns::crdt::CrdtOptions::DefaultOptions();
   crdtOptions->logger = logger;
@@ -99,9 +97,9 @@ int main(int argc, char** argv)
   // Bind DeleteHook function pointer for notification purposes
   crdtOptions->deleteHookFunc = std::bind(&DeleteHook, std::placeholders::_1, logger);
    
-  globalDB.Start(crdtOptions);
+  globalDB.Start(pubsub, crdtOptions);
 
-  auto gossipPubSubTopic = std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(globalDB.GetGossipPubSub(), topicName);
+  auto gossipPubSubTopic = std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubsub, topicName);
   gossipPubSubTopic->Subscribe(subscriptionCallback);
 
   auto crdtDatastore = globalDB.GetDatastore();

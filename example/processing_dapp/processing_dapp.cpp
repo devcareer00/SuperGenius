@@ -103,12 +103,16 @@ int main(int argc, char* argv[])
     tasks.push_back(std::move(task));
 
     auto io = std::make_shared<boost::asio::io_context>();
+
     sgns::crdt::GlobalDB globalDB(
-        io, "CRDT.Datastore.TEST", "CRDT.Datastore.TEST.Channel", 40001, pubsubBootstrapPeers);
+        io, "CRDT.Datastore.TEST", "CRDT.Datastore.TEST.Channel");
+
+    auto pubsub = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>(globalDB.GetKeyPair().value());
+    pubsub->Start(40001, pubsubBootstrapPeers);
 
     auto crdtOptions = sgns::crdt::CrdtOptions::DefaultOptions();
 
-    globalDB.Start(crdtOptions);
+    globalDB.Start(pubsub, crdtOptions);
     auto dataStore = globalDB.GetDatastore();
 
     for (auto& task : tasks)
