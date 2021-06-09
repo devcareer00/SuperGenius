@@ -11,9 +11,13 @@ PubSubBroadcaster::PubSubBroadcaster(const std::shared_ptr<GossipPubSubTopic>& p
         {
             if (message)
             {
-                std::string message(reinterpret_cast<const char*>(message->data.data()), message->data.size());
-                std::scoped_lock lock(mutex_);
-                listOfMessages_.push(std::move(message));
+                std::string cid(reinterpret_cast<const char*>(message->data.data()), message->data.size());
+                auto peerId = libp2p::peer::PeerId::fromBytes(message->from);
+                if (peerId.has_value())
+                {
+                    std::scoped_lock lock(mutex_);
+                    listOfMessages_.push(std::make_tuple(std::move(peerId.value()), std::move(cid)));
+                }
             }
         });
     }

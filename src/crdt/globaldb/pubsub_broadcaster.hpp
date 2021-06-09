@@ -30,7 +30,7 @@ public:
         outcome::result<base::Buffer> Next() override;
 private:
     std::shared_ptr<GossipPubSubTopic> gossipPubSubTopic_;
-    std::queue<std::string> listOfMessages_;
+    std::queue<std::tuple<libp2p::peer::PeerId, std::string>> listOfMessages_;
     sgns::base::Logger logger_ = nullptr;
     std::mutex mutex_;
 };
