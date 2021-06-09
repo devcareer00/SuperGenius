@@ -48,7 +48,7 @@ outcome::result<base::Buffer> PubSubBroadcaster::Next()
         return outcome::failure(boost::system::error_code{});
     }
 
-    std::string strBuffer = listOfMessages_.front();
+    std::string strBuffer = std::get<1>(listOfMessages_.front());
     listOfMessages_.pop();
 
     base::Buffer buffer;
