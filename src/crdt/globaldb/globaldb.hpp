@@ -31,7 +31,6 @@ private:
     std::string m_strDatabasePath;
     std::string m_pubsubChannel;
 
-    std::shared_ptr<ipfs_pubsub::GossipPubSub> m_pubsub;
     std::shared_ptr<CrdtDatastore> m_crdtDatastore;
 
     sgns::base::Logger m_logger = sgns::base::createLogger("GlobalDB");

@@ -211,7 +211,7 @@ outcome::result<void> GlobalDB::Start(
     }
 
     // Create pubsub gossip node
-    auto gossipPubSubTopic = std::make_shared <GossipPubSubTopic>(m_pubsub, m_pubsubChannel);
+    auto gossipPubSubTopic = std::make_shared <GossipPubSubTopic>(pubSub, m_pubsubChannel);
     auto broadcaster = std::make_shared<PubSubBroadcaster>(gossipPubSubTopic);
     broadcaster->SetLogger(m_logger);
 
