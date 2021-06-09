@@ -12,6 +12,7 @@ PubSubBroadcaster::PubSubBroadcaster(const std::shared_ptr<GossipPubSubTopic>& p
             if (message)
             {
                 std::string message(reinterpret_cast<const char*>(message->data.data()), message->data.size());
+                std::scoped_lock lock(mutex_);
                 listOfMessages_.push(std::move(message));
             }
         });
@@ -36,6 +37,7 @@ outcome::result<void> PubSubBroadcaster::Broadcast(const base::Buffer& buff)
 
 outcome::result<base::Buffer> PubSubBroadcaster::Next()
 {
+    std::scoped_lock lock(mutex_);
     if (listOfMessages_.empty())
     {
         //Broadcaster::ErrorCode::ErrNoMoreBroadcast

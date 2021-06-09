@@ -32,6 +32,7 @@ private:
     std::shared_ptr<GossipPubSubTopic> gossipPubSubTopic_;
     std::queue<std::string> listOfMessages_;
     sgns::base::Logger logger_ = nullptr;
+    std::mutex mutex_;
 };
 }
 
