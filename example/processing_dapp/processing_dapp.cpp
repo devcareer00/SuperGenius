@@ -138,8 +138,6 @@ int main(int argc, char* argv[])
         }
     }
 
-    dataStore->PublishDelta();
-
     // Gracefully shutdown on signal
     boost::asio::signal_set signals(*pubs->GetAsioContext(), SIGINT, SIGTERM);
     signals.async_wait(
