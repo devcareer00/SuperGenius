@@ -238,6 +238,7 @@ int main(int argc, char* argv[])
         io, 
         (boost::format("CRDT.Datastore.TEST.%d") %  options->serviceIndex).str(), 
         "CRDT.Datastore.TEST.Channel");
+    std::thread iothread([io]() { io->run(); });
 
     auto crdtOptions = sgns::crdt::CrdtOptions::DefaultOptions();
     globalDB.Start(pubs, crdtOptions);

@@ -107,6 +107,8 @@ int main(int argc, char* argv[])
     sgns::crdt::GlobalDB globalDB(
         io, "CRDT.Datastore.TEST", "CRDT.Datastore.TEST.Channel");
 
+    std::thread iothread([io]() { io->run(); });
+
     auto pubsub = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>(globalDB.GetKeyPair().value());
     pubsub->Start(40001, pubsubBootstrapPeers);
 
