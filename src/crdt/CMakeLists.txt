@@ -72,12 +72,12 @@ protobuf_generate(
 supergenius_install(crdt_datastore)
 
 
-add_library(graphsync_dagsyncer 
+add_library(crdt_graphsync_dagsyncer 
     dagsyncer.hpp 
     graphsync_dagsyncer.hpp 
     impl/graphsync_dagsyncer.cpp
     )
-target_link_libraries(graphsync_dagsyncer
+target_link_libraries(crdt_graphsync_dagsyncer
     Boost::boost
     ipfs-lite-cpp::graphsync
     ipfs-lite-cpp::buffer

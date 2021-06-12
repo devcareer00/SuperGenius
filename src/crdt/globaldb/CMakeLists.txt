@@ -5,7 +5,7 @@ add_library(crdt_globaldb
 
 target_link_libraries(crdt_globaldb
     crdt_datastore
-    graphsync_dagsyncer
+    crdt_graphsync_dagsyncer
     ipfs-pubsub
     ipfs-lite-cpp::ipfs_datastore_rocksdb
     p2p::p2p_peer_address
