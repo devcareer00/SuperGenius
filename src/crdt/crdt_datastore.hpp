@@ -172,6 +172,12 @@ namespace sgns::crdt
     */
     outcome::result<void> PrintDAG();
 
+    /** DecodeBroadcast decodes CRDT broadcast data
+    * @param buff Buffer data to decode
+    * @return vector of CIDs or outcome::failure on error
+    */
+    outcome::result<std::vector<CID>> DecodeBroadcast(const Buffer& buff);
+
   protected:
 
     /** DAG jobs structure used by DAG worker threads to send new jobs
@@ -239,11 +245,6 @@ namespace sgns::crdt
     */
     outcome::result<void> Broadcast(const std::vector<CID>& cids);
 
-    /** DecodeBroadcast decodes CRDT broadcast data
-    * @param buff Buffer data to decode 
-    * @return vector of CIDs or outcome::failure on error
-    */
-    outcome::result<std::vector<CID>> DecodeBroadcast(const Buffer& buff);
 
     /** EncodeBroadcast encodes list of CIDs to CRDT broadcast data
     * @param heads list of CIDs
