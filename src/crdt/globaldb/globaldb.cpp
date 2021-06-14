@@ -1,5 +1,6 @@
 #include <crdt/globaldb/globaldb.hpp>
 #include <crdt/globaldb/pubsub_broadcaster.hpp>
+#include <crdt/globaldb/pubsub_broadcaster_ext.hpp>
 
 #include <crdt/crdt_datastore.hpp>
 #include <crdt/graphsync_dagsyncer.hpp>
@@ -196,8 +197,8 @@ outcome::result<void> GlobalDB::Start(
     auto ipfsDataStore = std::make_shared<RocksdbDatastore>(ipfsDBResult.value());
 
     // @todo Check if the port should be the object parameter
-    auto listen_to = libp2p::multi::Multiaddress::create("/ip4/127.0.0.1/tcp/40000").value();
     auto dagSyncerHost = injector.create<std::shared_ptr<libp2p::Host>>();
+    auto listen_to = libp2p::multi::Multiaddress::create("/ip4/127.0.0.1/tcp/40000/ipfs/" + dagSyncerHost->getId().toBase58()).value();
     auto scheduler = std::make_shared<libp2p::protocol::AsioScheduler>(*io, libp2p::protocol::SchedulerConfig{});
     auto graphsync = std::make_shared<GraphsyncImpl>(dagSyncerHost, std::move(scheduler));
     auto dagSyncer = std::make_shared<GraphsyncDAGSyncer>(ipfsDataStore, graphsync, dagSyncerHost);
@@ -212,7 +213,8 @@ outcome::result<void> GlobalDB::Start(
 
     // Create pubsub gossip node
     auto gossipPubSubTopic = std::make_shared <GossipPubSubTopic>(pubSub, m_pubsubChannel);
-    auto broadcaster = std::make_shared<PubSubBroadcaster>(gossipPubSubTopic);
+    //auto broadcaster = std::make_shared<PubSubBroadcaster>(gossipPubSubTopic);
+    auto broadcaster = std::make_shared<PubSubBroadcasterExt>(gossipPubSubTopic, dagSyncer, dagSyncerHost->getId());
     broadcaster->SetLogger(m_logger);
 
     m_crdtDatastore = std::make_shared<CrdtDatastore>(

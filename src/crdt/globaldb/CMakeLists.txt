@@ -1,6 +1,7 @@
 add_library(crdt_globaldb 
     globaldb.cpp
     pubsub_broadcaster.cpp
+    pubsub_broadcaster_ext.cpp
     )
 
 target_link_libraries(crdt_globaldb
