@@ -1,7 +1,21 @@
+set(PROTO_SRC_DIR ${CMAKE_CURRENT_BINARY_DIR}/proto)
+
+file(MAKE_DIRECTORY ${PROTO_SRC_DIR})
+
 add_library(crdt_globaldb 
     globaldb.cpp
     pubsub_broadcaster.cpp
     pubsub_broadcaster_ext.cpp
+    )
+
+target_include_directories(crdt_globaldb PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+
+protobuf_generate(
+    LANGUAGE cpp
+    TARGET crdt_globaldb
+    PROTOS ${CMAKE_CURRENT_SOURCE_DIR}/proto/broadcast.proto
+    IMPORT_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/proto"
+    PROTOC_OUT_DIR ${PROTO_SRC_DIR}
     )
 
 target_link_libraries(crdt_globaldb

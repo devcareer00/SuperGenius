@@ -826,6 +826,7 @@ namespace sgns::crdt
 
     if (this->dagSyncer_ != nullptr)
     {
+      // @todo Check if dagSyncer should add the node hash to DHT
       auto dagSyncerResult = this->dagSyncer_->addNode(node);
       if (dagSyncerResult.has_failure())
       {

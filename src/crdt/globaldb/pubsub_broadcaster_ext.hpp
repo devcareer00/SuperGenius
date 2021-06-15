@@ -19,7 +19,7 @@ public:
     PubSubBroadcasterExt(
         std::shared_ptr<GossipPubSubTopic> pubSubTopic,
         std::shared_ptr<sgns::crdt::GraphsyncDAGSyncer> dagSyncer,
-        libp2p::peer::PeerId localId);
+        libp2p::multi::Multiaddress dagSyncerMultiaddress);
 
     void SetLogger(const sgns::base::Logger& logger);
     void SetCrdtDataStore(CrdtDatastore* dataStore);
@@ -40,7 +40,7 @@ private:
     std::shared_ptr<GossipPubSubTopic> gossipPubSubTopic_;
     std::shared_ptr<sgns::crdt::GraphsyncDAGSyncer> dagSyncer_;
     CrdtDatastore* dataStore_;
-    libp2p::peer::PeerId localPeerId_;
+    libp2p::multi::Multiaddress dagSyncerMultiaddress_;
     std::queue<std::tuple<libp2p::peer::PeerId, std::string>> messageQueue_;
     sgns::base::Logger logger_ = nullptr;
     std::mutex mutex_;

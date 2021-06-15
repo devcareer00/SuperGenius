@@ -214,7 +214,7 @@ outcome::result<void> GlobalDB::Start(
     // Create pubsub gossip node
     auto gossipPubSubTopic = std::make_shared <GossipPubSubTopic>(pubSub, m_pubsubChannel);
     //auto broadcaster = std::make_shared<PubSubBroadcaster>(gossipPubSubTopic);
-    auto broadcaster = std::make_shared<PubSubBroadcasterExt>(gossipPubSubTopic, dagSyncer, dagSyncerHost->getId());
+    auto broadcaster = std::make_shared<PubSubBroadcasterExt>(gossipPubSubTopic, dagSyncer, listen_to);
     broadcaster->SetLogger(m_logger);
 
     m_crdtDatastore = std::make_shared<CrdtDatastore>(
