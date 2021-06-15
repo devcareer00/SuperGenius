@@ -73,6 +73,7 @@ void PubSubBroadcasterExt::OnMessage(boost::optional<const GossipPubSub::Message
                             auto hb = dagSyncer_->HasBlock(cid);
                             if (!hb.has_failure() && !hb.value())
                             {
+                                m_logger->debug("Request node {} from {}", cid.toString(), pi.value().addresses[0].getStringAddress());
                                 dagSyncer_->RequestNode(pi.value().id, pi.value().addresses[0], cid);
                             }
                         }

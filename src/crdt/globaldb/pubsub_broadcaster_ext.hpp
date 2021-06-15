@@ -44,6 +44,8 @@ private:
     std::queue<std::tuple<libp2p::peer::PeerId, std::string>> messageQueue_;
     sgns::base::Logger logger_ = nullptr;
     std::mutex mutex_;
+
+    sgns::base::Logger m_logger = sgns::base::createLogger("PubSubBroadcasterExt");
 };
 }
 
