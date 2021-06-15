@@ -161,14 +161,14 @@ outcome::result<void> GlobalDB::Start(
     boost::filesystem::path databasePath = m_strDatabasePath;
 
     std::shared_ptr<RocksDB> dataStore = nullptr;
-    auto strDatabasePathAbsolute = boost::filesystem::absolute(databasePath).string();
+    auto databasePathAbsolute = boost::filesystem::absolute(databasePath).string();
     // Create new database
-    m_logger->info("Opening database " + strDatabasePathAbsolute);
+    m_logger->info("Opening database " + databasePathAbsolute);
     RocksDB::Options options;
     options.create_if_missing = true;  // intentionally
     try
     {
-        auto dataStoreResult = RocksDB::create(boost::filesystem::absolute(databasePath).string(), options);
+        auto dataStoreResult = RocksDB::create(databasePathAbsolute, options);
         dataStore = dataStoreResult.value();
     }
     catch (std::exception& e)
@@ -177,9 +177,12 @@ outcome::result<void> GlobalDB::Start(
         return outcome::failure(boost::system::error_code{});
     }
 
+    boost::filesystem::path keyPath = databasePathAbsolute + "/key";
+    auto keyPair = GetKeyPair(keyPath);
     // injector creates and ties dependent objects
     auto injector = libp2p::injector::makeHostInjector<BOOST_DI_CFG>(
-        boost::di::bind<boost::asio::io_context>.to(m_context)[boost::di::override]);
+        boost::di::bind<boost::asio::io_context>.to(m_context)[boost::di::override],
+        boost::di::bind<libp2p::crypto::KeyPair>.to(keyPair.value())[boost::di::override]);
 
     // create asio context
     auto io = injector.create<std::shared_ptr<boost::asio::io_context>>();
@@ -198,7 +201,10 @@ outcome::result<void> GlobalDB::Start(
 
     // @todo Check if the port should be the object parameter
     auto dagSyncerHost = injector.create<std::shared_ptr<libp2p::Host>>();
+
     auto listen_to = libp2p::multi::Multiaddress::create("/ip4/127.0.0.1/tcp/40000/ipfs/" + dagSyncerHost->getId().toBase58()).value();
+    m_logger->debug(listen_to.getStringAddress());
+
     auto scheduler = std::make_shared<libp2p::protocol::AsioScheduler>(*io, libp2p::protocol::SchedulerConfig{});
     auto graphsync = std::make_shared<GraphsyncImpl>(dagSyncerHost, std::move(scheduler));
     auto dagSyncer = std::make_shared<GraphsyncDAGSyncer>(ipfsDataStore, graphsync, dagSyncerHost);
@@ -251,10 +257,8 @@ std::shared_ptr<CrdtDatastore> GlobalDB::GetDatastore() const
     return m_crdtDatastore;
 }
 
-outcome::result<libp2p::crypto::KeyPair> GlobalDB::GetKeyPair() const
+outcome::result<libp2p::crypto::KeyPair> GlobalDB::GetKeyPair(const boost::filesystem::path& keyPath) const
 {
-    auto strDatabasePathAbsolute = boost::filesystem::absolute(m_strDatabasePath).string();
-    boost::filesystem::path keyPath = strDatabasePathAbsolute + "/key";
     m_logger->info("Path to keypairs " + keyPath.string());
     std::shared_ptr<KeyMarshaller> keyMarshaller = nullptr;
     auto keyPairResult = GetKeypair(keyPath, keyMarshaller, m_logger);

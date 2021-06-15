@@ -87,7 +87,7 @@ int main(int argc, char** argv)
 
   sgns::crdt::GlobalDB globalDB(io, strDatabasePath, topicName);
   
-  auto pubsub = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>(globalDB.GetKeyPair().value());
+  auto pubsub = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>(globalDB.GetKeyPair(strDatabasePath + "/pubsub").value());
   pubsub->Start(pubsubListeningPort, pubsubBootstrapPeers);
     
   auto crdtOptions = sgns::crdt::CrdtOptions::DefaultOptions();
