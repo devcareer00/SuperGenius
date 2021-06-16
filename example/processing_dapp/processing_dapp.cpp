@@ -74,6 +74,14 @@ int main(int argc, char* argv[])
     auto loggerProcessingQueue = libp2p::common::createLogger("ProcessingSubTaskQueue");
     loggerProcessingQueue->set_level(spdlog::level::debug);
     
+    auto loggerGlobalDB = libp2p::common::createLogger("GlobalDB");
+    loggerGlobalDB->set_level(spdlog::level::debug);
+
+    auto loggerDAGSyncer = libp2p::common::createLogger("GraphsyncDAGSyncer");
+    loggerDAGSyncer->set_level(spdlog::level::trace);
+
+    auto loggerBroadcaster = libp2p::common::createLogger("PubSubBroadcasterExt");
+    loggerBroadcaster->set_level(spdlog::level::debug);
 
     const std::string processingGridChannel = "GRID_CHANNEL_ID";
 

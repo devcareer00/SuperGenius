@@ -102,6 +102,7 @@ outcome::result<void> PubSubBroadcasterExt::Broadcast(const base::Buffer& buff)
         return outcome::failure(boost::system::error_code{});
     }
 
+    m_logger->debug("CIDs broadcasted");
     sgns::crdt::broadcasting::BroadcastMessage bmsg;
     auto multiaddress = dagSyncerMultiaddress_.getStringAddress();
     bmsg.set_multiaddress(std::string(multiaddress.begin(), multiaddress.end()));
