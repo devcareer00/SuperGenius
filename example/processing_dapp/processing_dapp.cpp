@@ -109,7 +109,7 @@ int main(int argc, char* argv[])
 
     std::thread iothread([io]() { io->run(); });
 
-    auto pubsub = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>(globalDB.GetKeyPair().value());
+    auto pubsub = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>(globalDB.GetKeyPair("CRDT.Datastore.TEST/pubsub").value());
     pubsub->Start(40001, pubsubBootstrapPeers);
 
     auto crdtOptions = sgns::crdt::CrdtOptions::DefaultOptions();
