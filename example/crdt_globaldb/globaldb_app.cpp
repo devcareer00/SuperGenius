@@ -9,6 +9,7 @@
 #include <boost/random.hpp>
 
 #include <crdt/globaldb/globaldb.hpp>
+#include <crdt/globaldb/keypair_file_storage.hpp>
 
 using Buffer = sgns::base::Buffer;
 using HierarchicalKey = sgns::crdt::HierarchicalKey;
@@ -87,7 +88,8 @@ int main(int argc, char** argv)
 
   sgns::crdt::GlobalDB globalDB(io, strDatabasePath, topicName);
   
-  auto pubsub = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>(globalDB.GetKeyPair(strDatabasePath + "/pubsub").value());
+  auto pubsub = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>(
+      sgns::crdt::KeyPairFileStorage(strDatabasePath + "/pubsub").GetKeyPair().value());
   pubsub->Start(pubsubListeningPort, pubsubBootstrapPeers);
     
   auto crdtOptions = sgns::crdt::CrdtOptions::DefaultOptions();

@@ -1,11 +1,14 @@
 #include "SGProcessing.pb.h"
 
-#include <libp2p/multi/multibase_codec/multibase_codec_impl.hpp>
 #include <crdt/globaldb/globaldb.hpp>
+#include <crdt/globaldb/keypair_file_storage.hpp>
 
-#include <iostream>
+#include <libp2p/multi/multibase_codec/multibase_codec_impl.hpp>
+
 #include <boost/program_options.hpp>
 #include <boost/format.hpp>
+
+#include <iostream>
 
 namespace
 {  
@@ -115,7 +118,8 @@ int main(int argc, char* argv[])
     sgns::crdt::GlobalDB globalDB(
         io, "CRDT.Datastore.TEST", "CRDT.Datastore.TEST.Channel");
 
-    auto pubsub = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>(globalDB.GetKeyPair("CRDT.Datastore.TEST/pubsub").value());
+    auto pubsub = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>(
+        sgns::crdt::KeyPairFileStorage("CRDT.Datastore.TEST/pubsub").GetKeyPair().value());
     pubsub->Start(40001, pubsubBootstrapPeers);
 
     auto crdtOptions = sgns::crdt::CrdtOptions::DefaultOptions();

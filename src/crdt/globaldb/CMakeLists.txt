@@ -6,6 +6,7 @@ add_library(crdt_globaldb
     globaldb.cpp
     pubsub_broadcaster.cpp
     pubsub_broadcaster_ext.cpp
+    keypair_file_storage.cpp
     )
 
 target_include_directories(crdt_globaldb PUBLIC ${CMAKE_CURRENT_BINARY_DIR})

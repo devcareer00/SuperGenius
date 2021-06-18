@@ -24,7 +24,6 @@ public:
         std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> pubSub,
         std::shared_ptr<CrdtOptions> crdtOptions);
 
-    outcome::result<libp2p::crypto::KeyPair> GetKeyPair(const boost::filesystem::path& keyPath) const;
     std::shared_ptr<CrdtDatastore> GetDatastore() const;
 
 private:
