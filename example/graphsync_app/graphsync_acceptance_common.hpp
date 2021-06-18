@@ -13,6 +13,9 @@ void runEventLoop(const std::shared_ptr<boost::asio::io_context>& io,
 std::pair<std::shared_ptr<sgns::ipfs_lite::ipfs::graphsync::Graphsync>, std::shared_ptr<libp2p::Host>>
 createNodeObjects(std::shared_ptr<boost::asio::io_context> io);
 
+std::pair<std::shared_ptr<sgns::ipfs_lite::ipfs::graphsync::Graphsync>, std::shared_ptr<libp2p::Host>>
+createNodeObjects(std::shared_ptr<boost::asio::io_context> io, libp2p::crypto::KeyPair keyPair);
+
 inline std::ostream& operator << (std::ostream& os, const sgns::CID& cid) {
     os << cid.toString().value();
     return os;

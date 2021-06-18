@@ -1,6 +1,7 @@
 #include <common/logger.hpp>
 #include "graphsync_acceptance_common.hpp"
 #include <boost/program_options.hpp>
+#include <libp2p/multi/multibase_codec/multibase_codec_impl.hpp>
 
 #include <iostream>
 
@@ -24,12 +25,17 @@ public:
     Node(std::shared_ptr<boost::asio::io_context> io,
         std::shared_ptr<sgns::ipfs_lite::ipfs::graphsync::MerkleDagBridge> data_service,
         sgns::ipfs_lite::ipfs::graphsync::Graphsync::BlockCallback cb,
-        size_t n_responses_expected)
+        size_t n_responses_expected,
+        std::optional<libp2p::crypto::KeyPair> keyPair)
         : io_(std::move(io)),
         data_service_(std::move(data_service)),
         block_cb_(std::move(cb)),
-        n_responses_expected_(n_responses_expected) {
-        std::tie(graphsync_, host_) = createNodeObjects(io_);
+        n_responses_expected_(n_responses_expected) 
+    {
+        if (keyPair)
+            std::tie(graphsync_, host_) = createNodeObjects(io_, keyPair.value());
+        else
+            std::tie(graphsync_, host_) = createNodeObjects(io_);
     }
 
     // stops graphsync and host, otherwise they can interact with further tests!
@@ -200,10 +206,19 @@ void RunIpfsServer()
         server_data->addData(s);
     }
 
-    Node server(io_server, server_data, server_cb, 0);
+    std::string publicKey = "z5b3BTS9wEgJxi9E8NHH6DT8Pj9xTmxBRgTaRUpBVox9a";
+    std::string privateKey = "zGRXH26ag4k9jxTGXp2cg8n31CEkR2HN1SbHaKjaHnFTu";
+
+    libp2p::crypto::KeyPair keyPair;
+    auto codec = libp2p::multi::MultibaseCodecImpl();
+    keyPair.publicKey = { libp2p::crypto::PublicKey::Type::Ed25519, codec.decode(publicKey).value() };
+    keyPair.privateKey = { libp2p::crypto::PublicKey::Type::Ed25519, codec.decode(privateKey).value() };
+
+    Node server(io_server, server_data, server_cb, 0, keyPair);
 
     auto listen_to =
         libp2p::multi::Multiaddress::create("/ip4/127.0.0.1/tcp/40000/ipfs/" + server.getId().toBase58()).value();
+    logger->debug(listen_to.getStringAddress());
 
     // starting all the stuff asynchronously
     server.listen(listen_to);
@@ -216,7 +231,7 @@ void RunIpfsServer()
     server.stop();
 }
 
-void RunIpfsClient() {
+void RunIpfsClient(std::string remote) {
     Node::requests_sent = 0;
     Node::responses_received = 0;
 
@@ -239,16 +254,15 @@ void RunIpfsClient() {
         client_data->addExpected(s);
     }
 
-    Node client(io_client, client_data, client_cb, 3);
+    Node client(io_client, client_data, client_cb, 3, std::nullopt);
 
     auto listen_to =
         libp2p::multi::Multiaddress::create("/ip4/127.0.0.1/tcp/40000/ipfs/" + client.getId().toBase58()).value();
     client.listen(listen_to);
 
-    std::string lt(listen_to.getStringAddress().begin(), listen_to.getStringAddress().end());
-    io_client->post([&, lt]() {
+    io_client->post([&, remote]() {
         // server listens
-        auto pi = PeerInfoFromString(lt);
+        auto pi = PeerInfoFromString(remote);
         auto peer = pi.value().id;
         bool use_address = true;
 
@@ -350,7 +364,7 @@ void testManyNodesExchange(size_t N, size_t n_data) {
             }
         };
 
-        auto& n = nodes.emplace_back(io, p.data_service, cb, 0);
+        auto& n = nodes.emplace_back(io, p.data_service, cb, 0, std::nullopt);
 
         // peer IDs are known only at this point
         p.peer = n.getId();
@@ -477,12 +491,19 @@ int main(int argc, char* argv[]) {
     {
         return 1;
     }
-    logger = sgns::common::createLogger("test");
+    logger = sgns::common::createLogger("graphsync_app");
     logger->set_level(spdlog::level::trace);
     sgns::common::createLogger("graphsync")->set_level(spdlog::level::trace);
 
     if (options->mode == "client")
-        RunIpfsClient();
+    {
+        if (!options->remote)
+        {
+            std::cerr << "--remote parameter must be specified for the 'client' mode";
+            return 1;
+        }
+        RunIpfsClient(options->remote.value());
+    }
     else
         RunIpfsServer();
     return 0;

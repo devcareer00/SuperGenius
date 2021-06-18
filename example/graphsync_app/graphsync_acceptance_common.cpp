@@ -25,14 +25,35 @@ void runEventLoop(const std::shared_ptr<boost::asio::io_context>& io,
 }
 
 std::pair<std::shared_ptr<sgns::ipfs_lite::ipfs::graphsync::Graphsync>, std::shared_ptr<libp2p::Host>>
-createNodeObjects(std::shared_ptr<boost::asio::io_context> io) {
-
+createNodeObjects(std::shared_ptr<boost::asio::io_context> io)
+{
     // [boost::di::override] allows for creating multiple hosts for testing
     // purposes
-    auto injector =
+    auto injector = 
         libp2p::injector::makeHostInjector<boost::di::extension::shared_config>(
-            boost::di::bind<boost::asio::io_context>.to(
-                io)[boost::di::override]);
+            boost::di::bind<boost::asio::io_context>.to(io)[boost::di::override]);
+
+
+    std::pair<std::shared_ptr<sgns::ipfs_lite::ipfs::graphsync::Graphsync>, std::shared_ptr<libp2p::Host>>
+        objects;
+    objects.second = injector.template create<std::shared_ptr<libp2p::Host>>();
+    auto scheduler = std::make_shared<libp2p::protocol::AsioScheduler>(
+        *io, libp2p::protocol::SchedulerConfig{});
+    objects.first =
+        std::make_shared<sgns::ipfs_lite::ipfs::graphsync::GraphsyncImpl>(objects.second, std::move(scheduler));
+    return objects;
+}
+
+std::pair<std::shared_ptr<sgns::ipfs_lite::ipfs::graphsync::Graphsync>, std::shared_ptr<libp2p::Host>>
+createNodeObjects(std::shared_ptr<boost::asio::io_context> io, libp2p::crypto::KeyPair keyPair)
+{
+    // [boost::di::override] allows for creating multiple hosts for testing
+    // purposes
+    auto injector = 
+        libp2p::injector::makeHostInjector<boost::di::extension::shared_config>(
+            boost::di::bind<boost::asio::io_context>.to(io)[boost::di::override],
+            boost::di::bind<libp2p::crypto::KeyPair>.to(std::move(keyPair))[boost::di::override]);
+
 
     std::pair<std::shared_ptr<sgns::ipfs_lite::ipfs::graphsync::Graphsync>, std::shared_ptr<libp2p::Host>>
         objects;
