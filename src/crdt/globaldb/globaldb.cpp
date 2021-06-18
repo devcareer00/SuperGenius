@@ -16,6 +16,8 @@
 #include <libp2p/protocol/common/asio/asio_scheduler.hpp>
 #include <libp2p/common/literals.hpp>
 
+#include <boost/format.hpp>
+
 namespace sgns::crdt
 {
 using RocksDB = sgns::storage::rocksdb;
@@ -32,20 +34,20 @@ using GossipPubSubTopic = sgns::ipfs_pubsub::GossipPubSubTopic;
 
 GlobalDB::GlobalDB(
     std::shared_ptr<boost::asio::io_context> context,
-    std::string strDatabasePath,
+    std::string databasePath,
+    int dagSyncPort,
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSubTopic> broadcastChannel)
     : m_context(std::move(context))
-    , m_strDatabasePath(std::move(strDatabasePath))
+    , m_databasePath(std::move(databasePath))
+    , m_dagSyncPort(dagSyncPort)
     , m_broadcastChannel(std::move(broadcastChannel))
 {
 }
 
 outcome::result<void> GlobalDB::Init(std::shared_ptr<CrdtOptions> crdtOptions)
 {
-    boost::filesystem::path databasePath = m_strDatabasePath;
-
     std::shared_ptr<RocksDB> dataStore = nullptr;
-    auto databasePathAbsolute = boost::filesystem::absolute(databasePath).string();
+    auto databasePathAbsolute = boost::filesystem::absolute(m_databasePath).string();
 
     // Create new database
     m_logger->info("Opening database " + databasePathAbsolute);
@@ -85,10 +87,10 @@ outcome::result<void> GlobalDB::Init(std::shared_ptr<CrdtOptions> crdtOptions)
 
     auto ipfsDataStore = std::make_shared<RocksdbDatastore>(ipfsDBResult.value());
 
-    // @todo Check if the port should be the object parameter
     auto dagSyncerHost = injector.create<std::shared_ptr<libp2p::Host>>();
 
-    auto listen_to = libp2p::multi::Multiaddress::create("/ip4/127.0.0.1/tcp/40000/ipfs/" + dagSyncerHost->getId().toBase58()).value();
+    auto listen_to = libp2p::multi::Multiaddress::create(
+        (boost::format("/ip4/127.0.0.1/tcp/%d/ipfs/%s") % m_dagSyncPort % dagSyncerHost->getId().toBase58()).str()).value();
     m_logger->debug(listen_to.getStringAddress());
 
     auto scheduler = std::make_shared<libp2p::protocol::AsioScheduler>(*io, libp2p::protocol::SchedulerConfig{});

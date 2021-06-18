@@ -17,7 +17,8 @@ class GlobalDB
 public:
     GlobalDB(
         std::shared_ptr<boost::asio::io_context> context,
-        std::string strDatabasePath,
+        std::string databasePath,
+        int dagSyncPort,
         std::shared_ptr<sgns::ipfs_pubsub::GossipPubSubTopic> broadcastChannel);
 
     outcome::result<void> Init(std::shared_ptr<CrdtOptions> crdtOptions);
@@ -26,7 +27,8 @@ public:
 
 private:
     std::shared_ptr<boost::asio::io_context> m_context;
-    std::string m_strDatabasePath;
+    std::string m_databasePath;
+    int m_dagSyncPort;
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSubTopic> m_broadcastChannel;
 
     std::shared_ptr<CrdtDatastore> m_crdtDatastore;

@@ -115,7 +115,7 @@ int main(int argc, char* argv[])
 
     auto io = std::make_shared<boost::asio::io_context>();
     sgns::crdt::GlobalDB globalDB(
-        io, "CRDT.Datastore.TEST", 
+        io, "CRDT.Datastore.TEST", 40000,
         std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubs, "CRDT.Datastore.TEST.Channel"));
 
 
