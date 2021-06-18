@@ -247,10 +247,10 @@ int main(int argc, char* argv[])
         io, 
         (boost::format("CRDT.Datastore.TEST.%d") %  options->serviceIndex).str(), 
         "CRDT.Datastore.TEST.Channel");
-    std::thread iothread([io]() { io->run(); });
 
     auto crdtOptions = sgns::crdt::CrdtOptions::DefaultOptions();
     globalDB.Start(pubs, crdtOptions);
+    std::thread iothread([io]() { io->run(); });
 
     auto dataStore = globalDB.GetDatastore();
     if (!dataStore)
@@ -271,12 +271,14 @@ int main(int argc, char* argv[])
     // Gracefully shutdown on signal
     boost::asio::signal_set signals(*pubs->GetAsioContext(), SIGINT, SIGTERM);
     signals.async_wait(
-        [&pubs](const boost::system::error_code&, int)
+        [&pubs, &io](const boost::system::error_code&, int)
         {
             pubs->Stop();
+            io->stop();
         });
 
     pubs->Wait();
+    iothread.join();
 
     return 0;
 }

@@ -115,14 +115,15 @@ int main(int argc, char* argv[])
     sgns::crdt::GlobalDB globalDB(
         io, "CRDT.Datastore.TEST", "CRDT.Datastore.TEST.Channel");
 
-    std::thread iothread([io]() { io->run(); });
-
     auto pubsub = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>(globalDB.GetKeyPair("CRDT.Datastore.TEST/pubsub").value());
     pubsub->Start(40001, pubsubBootstrapPeers);
 
     auto crdtOptions = sgns::crdt::CrdtOptions::DefaultOptions();
 
     globalDB.Start(pubsub, crdtOptions);
+
+    std::thread iothread([io]() { io->run(); });
+
     auto dataStore = globalDB.GetDatastore();
 
     for (auto& task : tasks)
@@ -151,12 +152,14 @@ int main(int argc, char* argv[])
     // Gracefully shutdown on signal
     boost::asio::signal_set signals(*pubs->GetAsioContext(), SIGINT, SIGTERM);
     signals.async_wait(
-        [&pubs](const boost::system::error_code&, int)
+        [&pubs, &io](const boost::system::error_code&, int)
         {
             pubs->Stop();
+            io->stop();
         });
 
     pubs->Wait();
+    iothread.join();
 
     return 0;
 }
