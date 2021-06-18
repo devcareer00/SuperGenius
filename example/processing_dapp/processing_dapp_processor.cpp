@@ -1,10 +1,13 @@
-#include "processing/processing_service.hpp"
+#include <processing/processing_service.hpp>
+#include <crdt/globaldb/keypair_file_storage.hpp>
+#include <crdt/globaldb/globaldb.hpp>
 
-#include <iostream>
+#include <libp2p/multi/multibase_codec/multibase_codec_impl.hpp>
+
 #include <boost/program_options.hpp>
 #include <boost/format.hpp>
-#include <libp2p/multi/multibase_codec/multibase_codec_impl.hpp>
-#include <crdt/globaldb/globaldb.hpp>
+
+#include <iostream>
 
 using namespace sgns::processing;
 
@@ -206,27 +209,15 @@ int main(int argc, char* argv[])
     
     const std::string processingGridChannel = "GRID_CHANNEL_ID";
 
-    auto pubs = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();
-
-    if (options->serviceIndex == 1)
-    {
-        std::string publicKey = "z5b3BTS9wEgJxi9E8NHH6DT8Pj9xTmxBRgTaRUpBVox9a";
-        std::string privateKey = "zGRXH26ag4k9jxTGXp2cg8n31CEkR2HN1SbHaKjaHnFTu";
-
-        libp2p::crypto::KeyPair keyPair;
-        auto codec = libp2p::multi::MultibaseCodecImpl();
-        keyPair.publicKey = { libp2p::crypto::PublicKey::Type::Ed25519, codec.decode(publicKey).value() };
-        keyPair.privateKey = { libp2p::crypto::PublicKey::Type::Ed25519, codec.decode(privateKey).value() };
-
-        pubs = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>(keyPair);
-    }
+    auto pubsubKeyPath = (boost::format("CRDT.Datastore.TEST/pubs_processor.%d") % options->serviceIndex).str();
+    auto pubs = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>(
+        sgns::crdt::KeyPairFileStorage(pubsubKeyPath).GetKeyPair().value());
 
     std::vector<std::string> pubsubBootstrapPeers;
     if (options->remote)
     {
         pubsubBootstrapPeers = std::move(std::vector({ *options->remote }));
     }
-
     pubs->Start(40001, pubsubBootstrapPeers);
 
     const size_t maximalNodesCount = 1;
@@ -249,7 +240,7 @@ int main(int argc, char* argv[])
         std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubs, "CRDT.Datastore.TEST.Channel"));
 
     auto crdtOptions = sgns::crdt::CrdtOptions::DefaultOptions();
-    globalDB.Init(crdtOptions);
+    auto initRes = globalDB.Init(crdtOptions);
 
     std::thread iothread([io]() { io->run(); });
 

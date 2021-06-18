@@ -88,15 +88,14 @@ int main(int argc, char* argv[])
 
     const std::string processingGridChannel = "GRID_CHANNEL_ID";
 
-    // @todo merge pubsub services
-    auto pubs = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();
+    auto pubs = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>(
+        sgns::crdt::KeyPairFileStorage("CRDT.Datastore.TEST/pubs_dapp").GetKeyPair().value());
 
     std::vector<std::string> pubsubBootstrapPeers;
     if (options->remote)
     {
         pubsubBootstrapPeers = std::move(std::vector({ *options->remote }));
     }
-
     pubs->Start(40001, pubsubBootstrapPeers);
 
     const size_t maximalNodesCount = 1;
@@ -114,14 +113,10 @@ int main(int argc, char* argv[])
     task.set_results_channel("RESULT_CHANNEL_ID_1");
     tasks.push_back(std::move(task));
 
-    auto pubsub = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>(
-        sgns::crdt::KeyPairFileStorage("CRDT.Datastore.TEST/pubsub").GetKeyPair().value());
-    pubsub->Start(40001, pubsubBootstrapPeers);
-
     auto io = std::make_shared<boost::asio::io_context>();
     sgns::crdt::GlobalDB globalDB(
         io, "CRDT.Datastore.TEST", 
-        std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubsub, "CRDT.Datastore.TEST.Channel"));
+        std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubs, "CRDT.Datastore.TEST.Channel"));
 
 
     auto crdtOptions = sgns::crdt::CrdtOptions::DefaultOptions();
