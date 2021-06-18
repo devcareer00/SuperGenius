@@ -25,8 +25,6 @@ void PutHook(const std::string& k, const Buffer& v, const sgns::base::Logger& lo
 */
 void DeleteHook(const std::string& k, const sgns::base::Logger& logger);
 
-void OnSubscriptionCallback(SubscriptionData subscriptionData);
-
 int main(int argc, char** argv)
 {
   std::string strDatabasePath;
@@ -77,8 +75,7 @@ int main(int argc, char** argv)
   auto io = std::make_shared<boost::asio::io_context>();
   auto logger = sgns::base::createLogger("globaldb");
 
-  std::string topicName = "globaldb-example";
-  auto subscriptionCallback = std::bind(&OnSubscriptionCallback, std::placeholders::_1);
+  std::string broadcastChannel = "globaldb-example";
 
   std::vector<std::string> pubsubBootstrapPeers;
   if (!multiAddress.empty())
@@ -86,11 +83,14 @@ int main(int argc, char** argv)
       pubsubBootstrapPeers.push_back(multiAddress);
   }
 
-  sgns::crdt::GlobalDB globalDB(io, strDatabasePath, topicName);
-  
   auto pubsub = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>(
       sgns::crdt::KeyPairFileStorage(strDatabasePath + "/pubsub").GetKeyPair().value());
   pubsub->Start(pubsubListeningPort, pubsubBootstrapPeers);
+
+  sgns::crdt::GlobalDB globalDB(
+      io, strDatabasePath, 
+      std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubsub, broadcastChannel));
+  
     
   auto crdtOptions = sgns::crdt::CrdtOptions::DefaultOptions();
   crdtOptions->logger = logger;
@@ -99,10 +99,7 @@ int main(int argc, char** argv)
   // Bind DeleteHook function pointer for notification purposes
   crdtOptions->deleteHookFunc = std::bind(&DeleteHook, std::placeholders::_1, logger);
    
-  globalDB.Start(pubsub, crdtOptions);
-
-  auto gossipPubSubTopic = std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubsub, topicName);
-  gossipPubSubTopic->Subscribe(subscriptionCallback);
+  globalDB.Init(crdtOptions);
 
   auto crdtDatastore = globalDB.GetDatastore();
 
@@ -111,7 +108,7 @@ int main(int argc, char** argv)
   //streamDisplayDetails << "\n\n\nPeer ID: " << peerID.toBase58() << std::endl;
   //streamDisplayDetails << "Listen address: " << pubsub->GetLocalAddress() << std::endl;
   //streamDisplayDetails << "DAG syncer address: " << listen_to.getStringAddress() << std::endl;
-  streamDisplayDetails << "Topic: " << topicName << std::endl;
+  streamDisplayDetails << "Broadcast channel: " << broadcastChannel << std::endl;
   //streamDisplayDetails << "Data folder: " << strDatabasePathAbsolute << std::endl;
   streamDisplayDetails << std::endl;
   streamDisplayDetails << "Ready!" << std::endl;
@@ -277,11 +274,3 @@ void DeleteHook(const std::string& k, const sgns::base::Logger& logger)
   }
 }
 
-void OnSubscriptionCallback(SubscriptionData subscriptionData)
-{
-  if (subscriptionData)
-  {
-    std::string message(reinterpret_cast<const char*>(subscriptionData->data.data()), subscriptionData->data.size());
-    std::cout << message << std::endl;
-  }
-}

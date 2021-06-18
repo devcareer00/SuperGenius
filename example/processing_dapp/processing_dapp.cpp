@@ -88,6 +88,7 @@ int main(int argc, char* argv[])
 
     const std::string processingGridChannel = "GRID_CHANNEL_ID";
 
+    // @todo merge pubsub services
     auto pubs = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();
 
     std::vector<std::string> pubsubBootstrapPeers;
@@ -113,18 +114,18 @@ int main(int argc, char* argv[])
     task.set_results_channel("RESULT_CHANNEL_ID_1");
     tasks.push_back(std::move(task));
 
-    auto io = std::make_shared<boost::asio::io_context>();
-
-    sgns::crdt::GlobalDB globalDB(
-        io, "CRDT.Datastore.TEST", "CRDT.Datastore.TEST.Channel");
-
     auto pubsub = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>(
         sgns::crdt::KeyPairFileStorage("CRDT.Datastore.TEST/pubsub").GetKeyPair().value());
     pubsub->Start(40001, pubsubBootstrapPeers);
 
-    auto crdtOptions = sgns::crdt::CrdtOptions::DefaultOptions();
+    auto io = std::make_shared<boost::asio::io_context>();
+    sgns::crdt::GlobalDB globalDB(
+        io, "CRDT.Datastore.TEST", 
+        std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubsub, "CRDT.Datastore.TEST.Channel"));
 
-    globalDB.Start(pubsub, crdtOptions);
+
+    auto crdtOptions = sgns::crdt::CrdtOptions::DefaultOptions();
+    globalDB.Init(crdtOptions);
 
     std::thread iothread([io]() { io->run(); });
 

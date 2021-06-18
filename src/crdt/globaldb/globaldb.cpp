@@ -33,21 +33,20 @@ using GossipPubSubTopic = sgns::ipfs_pubsub::GossipPubSubTopic;
 GlobalDB::GlobalDB(
     std::shared_ptr<boost::asio::io_context> context,
     std::string strDatabasePath,
-    std::string pubsubChannel)
+    std::shared_ptr<sgns::ipfs_pubsub::GossipPubSubTopic> broadcastChannel)
     : m_context(std::move(context))
     , m_strDatabasePath(std::move(strDatabasePath))
-    , m_pubsubChannel(std::move(pubsubChannel))
+    , m_broadcastChannel(std::move(broadcastChannel))
 {
 }
 
-outcome::result<void> GlobalDB::Start(
-    std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> pubSub,
-    std::shared_ptr<CrdtOptions> crdtOptions)
+outcome::result<void> GlobalDB::Init(std::shared_ptr<CrdtOptions> crdtOptions)
 {
     boost::filesystem::path databasePath = m_strDatabasePath;
 
     std::shared_ptr<RocksDB> dataStore = nullptr;
     auto databasePathAbsolute = boost::filesystem::absolute(databasePath).string();
+
     // Create new database
     m_logger->info("Opening database " + databasePathAbsolute);
     RocksDB::Options options;
@@ -104,10 +103,9 @@ outcome::result<void> GlobalDB::Start(
         // @todo Check if the error is not fatal
     }
 
-    // Create pubsub gossip node
-    auto gossipPubSubTopic = std::make_shared <GossipPubSubTopic>(pubSub, m_pubsubChannel);
-    //auto broadcaster = std::make_shared<PubSubBroadcaster>(gossipPubSubTopic);
-    auto broadcaster = std::make_shared<PubSubBroadcasterExt>(gossipPubSubTopic, dagSyncer, listen_to);
+    // Create pubsub broadcaster
+    //auto broadcaster = std::make_shared<PubSubBroadcaster>(m_broadcastChannel);
+    auto broadcaster = std::make_shared<PubSubBroadcasterExt>(m_broadcastChannel, dagSyncer, listen_to);
     broadcaster->SetLogger(m_logger);
 
     m_crdtDatastore = std::make_shared<CrdtDatastore>(

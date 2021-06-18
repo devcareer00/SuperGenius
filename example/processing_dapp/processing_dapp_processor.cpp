@@ -246,10 +246,11 @@ int main(int argc, char* argv[])
     sgns::crdt::GlobalDB globalDB(
         io, 
         (boost::format("CRDT.Datastore.TEST.%d") %  options->serviceIndex).str(), 
-        "CRDT.Datastore.TEST.Channel");
+        std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubs, "CRDT.Datastore.TEST.Channel"));
 
     auto crdtOptions = sgns::crdt::CrdtOptions::DefaultOptions();
-    globalDB.Start(pubs, crdtOptions);
+    globalDB.Init(crdtOptions);
+
     std::thread iothread([io]() { io->run(); });
 
     auto dataStore = globalDB.GetDatastore();
