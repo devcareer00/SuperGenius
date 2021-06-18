@@ -1,5 +1,8 @@
-#include "common/logger.hpp"
+#include <common/logger.hpp>
 #include "graphsync_acceptance_common.hpp"
+#include <boost/program_options.hpp>
+
+#include <iostream>
 
 // logger used by these tests
 static std::shared_ptr<spdlog::logger> logger;
@@ -64,7 +67,8 @@ public:
             sgns::ipfs_lite::ipfs::graphsync::encodeResponseMetadata(response_metadata);
         extensions.push_back(response_metadata_extension);
         std::vector<sgns::CID> cids;
-        sgns::ipfs_lite::ipfs::graphsync::Extension do_not_send_cids_extension = sgns::ipfs_lite::ipfs::graphsync::encodeDontSendCids(cids);
+        sgns::ipfs_lite::ipfs::graphsync::Extension do_not_send_cids_extension = 
+            sgns::ipfs_lite::ipfs::graphsync::encodeDontSendCids(cids);
         extensions.push_back(do_not_send_cids_extension);
         // unused code , request_ is deleted because Subscription have deleted copy-constructor and operator
               // requests_.push_back(graphsync_->makeRequest(peer,
@@ -177,43 +181,26 @@ namespace
 }
 
 // Two nodes interact, one connection is utilized
-void testTwoNodesClientServer() {
-    Node::requests_sent = 0;
-    Node::responses_received = 0;
-
+void RunIpfsServer()
+{
     auto io_server = std::make_shared<boost::asio::io_context>();
-    auto io_client = std::make_shared<boost::asio::io_context>();
-
     // strings from which we create blocks and CIDs
     std::vector<std::string> strings({ "xxx", "yyy", "zzz" });
 
     size_t unexpected = 0;
-
     // creating instances
-
     auto server_data = std::make_shared<TestDataService>();
 
     // server block callback expects no blocks
     auto server_cb = [&unexpected](sgns::CID, sgns::common::Buffer) { ++unexpected; };
 
-    auto client_data = std::make_shared<TestDataService>();
-
-    // clienc block callback expect 3 blocks from the string above
-    auto client_cb = [&client_data, &unexpected](sgns::CID cid, sgns::common::Buffer data) {
-        if (!client_data->onDataBlock(std::move(cid), std::move(data))) {
-            ++unexpected;
-        }
-    };
-
     for (const auto& s : strings) {
         // client expects what server has
 
         server_data->addData(s);
-        client_data->addExpected(s);
     }
 
     Node server(io_server, server_data, server_cb, 0);
-    Node client(io_client, client_data, client_cb, 3);
 
     auto listen_to =
         libp2p::multi::Multiaddress::create("/ip4/127.0.0.1/tcp/40000/ipfs/" + server.getId().toBase58()).value();
@@ -221,9 +208,42 @@ void testTwoNodesClientServer() {
     // starting all the stuff asynchronously
     server.listen(listen_to);
 
-    auto listen_to2 =
+    std::thread t_server([&]() { io_server->run(); });
+    //runEventLoop(io_server, run_time_msec);
+
+    t_server.join();
+
+    server.stop();
+}
+
+void RunIpfsClient() {
+    Node::requests_sent = 0;
+    Node::responses_received = 0;
+
+    auto io_client = std::make_shared<boost::asio::io_context>();
+
+    auto client_data = std::make_shared<TestDataService>();
+
+    size_t unexpected = 0;
+    // clienc block callback expect 3 blocks from the string above
+    auto client_cb = [&client_data, &unexpected](sgns::CID cid, sgns::common::Buffer data) {
+        if (!client_data->onDataBlock(std::move(cid), std::move(data))) {
+            ++unexpected;
+        }
+    };
+
+    // strings from which we create blocks and CIDs
+    std::vector<std::string> strings({ "xxx", "yyy", "zzz" });
+    for (const auto& s : strings) {
+        // client expects what server has
+        client_data->addExpected(s);
+    }
+
+    Node client(io_client, client_data, client_cb, 3);
+
+    auto listen_to =
         libp2p::multi::Multiaddress::create("/ip4/127.0.0.1/tcp/40000/ipfs/" + client.getId().toBase58()).value();
-    client.listen(listen_to2);
+    client.listen(listen_to);
 
     std::string lt(listen_to.getStringAddress().begin(), listen_to.getStringAddress().end());
     io_client->post([&, lt]() {
@@ -243,16 +263,12 @@ void testTwoNodesClientServer() {
         }
         });
 
-    std::thread t_server([&]() { io_server->run(); });
     std::thread t_client([&]() { io_client->run(); });
-    //runEventLoop(io_server, run_time_msec);
     //runEventLoop(io_client, run_time_msec);
 
-    t_server.join();
     t_client.join();
 
     client.stop();
-    server.stop();
 
     logger->info("total requests sent {}, responses received {}",
         Node::requests_sent,
@@ -401,11 +417,73 @@ void testManyNodesExchange(size_t N, size_t n_data) {
 
 }  // namespace sgns::ipfs_lite::ipfs::graphsync::test
 
+namespace
+{
+    // cmd line options
+    struct Options
+    {
+        // optional remote peer to connect to
+        std::optional<std::string> remote;
+        std::string mode;
+    };
+
+    boost::optional<Options> parseCommandLine(int argc, char** argv) {
+        namespace po = boost::program_options;
+        try
+        {
+            Options o;
+            std::string remote;
+
+            po::options_description desc("processing service options");
+            desc.add_options()("help,h", "print usage message")
+                ("mode,m", po::value(&o.mode), "application mode (client/server)")
+                ("remote,r", po::value(&remote), "remote service multiaddress to connect to")
+                ;
+
+            po::variables_map vm;
+            po::store(parse_command_line(argc, argv, desc), vm);
+            po::notify(vm);
+
+            if (vm.count("help") != 0 || argc == 1)
+            {
+                std::cerr << desc << "\n";
+                return boost::none;
+            }
+
+            if (!remote.empty())
+            {
+                o.remote = remote;
+            }
+
+            if (o.mode != "client" && o.mode != "server")
+            {
+                std::cerr << desc << "\n";
+                return boost::none;
+            }
+
+            return o;
+        }
+        catch (const std::exception& e)
+        {
+            std::cerr << e.what() << std::endl;
+        }
+        return boost::none;
+    }
+}
+
 int main(int argc, char* argv[]) {
+    auto options = parseCommandLine(argc, argv);
+    if (!options)
+    {
+        return 1;
+    }
     logger = sgns::common::createLogger("test");
     logger->set_level(spdlog::level::trace);
     sgns::common::createLogger("graphsync")->set_level(spdlog::level::trace);
 
-    testTwoNodesClientServer();
+    if (options->mode == "client")
+        RunIpfsClient();
+    else
+        RunIpfsServer();
     return 0;
 }
