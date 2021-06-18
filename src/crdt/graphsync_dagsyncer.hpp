@@ -62,9 +62,9 @@ namespace sgns::crdt
     /** Stops instance */
     void StopSync();
 
-    std::shared_ptr<Graphsync> graphsync_ = nullptr;
+    std::shared_ptr<Graphsync> graphsync_;
 
-    std::shared_ptr<libp2p::Host> host_ = nullptr;
+    std::shared_ptr<libp2p::Host> host_;
 
     Logger logger_ = libp2p::common::createLogger("GraphsyncDAGSyncer");
 
