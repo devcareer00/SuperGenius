@@ -209,7 +209,7 @@ int main(int argc, char* argv[])
     
     const std::string processingGridChannel = "GRID_CHANNEL_ID";
 
-    auto pubsubKeyPath = (boost::format("CRDT.Datastore.TEST/pubs_processor.%d") % options->serviceIndex).str();
+    auto pubsubKeyPath = (boost::format("CRDT.Datastore.TEST.%d/pubs_processor") % options->serviceIndex).str();
     auto pubs = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>(
         sgns::crdt::KeyPairFileStorage(pubsubKeyPath).GetKeyPair().value());
 
