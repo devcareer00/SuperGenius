@@ -67,7 +67,6 @@ void PubSubBroadcasterExt::OnMessage(boost::optional<const GossipPubSub::Message
                     auto pi = PeerInfoFromString(bmsg.multiaddress());
                     for (const auto& cid : cids.value())
                     {
-                        //dagSyncer_->RequestNode(peerId.value(), boost::none, cid);
                         if (pi.has_value())
                         {
                             auto hb = dagSyncer_->HasBlock(cid);
@@ -102,13 +101,14 @@ outcome::result<void> PubSubBroadcasterExt::Broadcast(const base::Buffer& buff)
         return outcome::failure(boost::system::error_code{});
     }
 
-    m_logger->debug("CIDs broadcasted");
     sgns::crdt::broadcasting::BroadcastMessage bmsg;
     auto multiaddress = dagSyncerMultiaddress_.getStringAddress();
     bmsg.set_multiaddress(std::string(multiaddress.begin(), multiaddress.end()));
-    std::string bCastData(buff.toString());
-    bmsg.set_data(bCastData);
+    std::string data(buff.toString());
+    bmsg.set_data(data);
     gossipPubSubTopic_->Publish(bmsg.SerializeAsString());
+    m_logger->debug("CIDs broadcasted by {}", bmsg.multiaddress());
+
     return outcome::success();
 }
 
