@@ -31,7 +31,6 @@ namespace sgns::crdt
     using PeerId = libp2p::peer::PeerId;
     using Subscription = libp2p::protocol::Subscription;
     using Logger = base::Logger;
-    using RequestProgressCallback = Graphsync::RequestProgressCallback;
     using BlockCallback = Graphsync::BlockCallback;
 
     GraphsyncDAGSyncer(const std::shared_ptr<IpfsDatastore>& service, 
@@ -50,8 +49,7 @@ namespace sgns::crdt
     outcome::result<PeerId> GetId() const;
 
   protected:
-    RequestProgressCallback RequestNodeCallback();
-
+    void RequestProgressCallback(ResponseStatusCode code, const std::vector<Extension>& extensions);
     static void BlockReceivedCallback(CID cid, sgns::common::Buffer buffer, GraphsyncDAGSyncer* dagSyncer);
 
     bool started_ = false;

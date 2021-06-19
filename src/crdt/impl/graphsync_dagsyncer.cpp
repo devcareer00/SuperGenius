@@ -56,7 +56,8 @@ namespace sgns::crdt
     std::vector<CID> cids;
     Extension do_not_send_cids_extension = ipfs_lite::ipfs::graphsync::encodeDontSendCids(cids);
     extensions.push_back(do_not_send_cids_extension);
-    auto subscription = this->graphsync_->makeRequest(peer, std::move(address),  root_cid, {}, extensions, this->RequestNodeCallback());
+    auto subscription = this->graphsync_->makeRequest(peer, std::move(address),  root_cid, {}, extensions, 
+        std::bind(&GraphsyncDAGSyncer::RequestProgressCallback, this, std::placeholders::_1, std::placeholders::_2));
 
     // keeping subscriptions alive, otherwise they cancel themselves
     this->requests_.push_back(std::shared_ptr<Subscription>(new Subscription(std::move(subscription))));
@@ -121,40 +122,30 @@ namespace sgns::crdt
     return outcome::failure(boost::system::error_code{});
   }
 
-  GraphsyncDAGSyncer::RequestProgressCallback GraphsyncDAGSyncer::RequestNodeCallback()
+  namespace
   {
-    static auto formatExtensions =
-      [](const std::vector<Extension>& extensions) -> std::string 
-    {
+  std::string formatExtensions(const std::vector<GraphsyncDAGSyncer::Extension>& extensions)
+  {
       std::string s;
       for (const auto& item : extensions) {
-        s += fmt::format(
-          "({}: 0x{}) ", item.name, common::Buffer(item.data).toHex());
+          s += fmt::format(
+              "({}: 0x{}) ", item.name, common::Buffer(item.data).toHex());
       }
       return s;
-    };
-    
-    return [this](ResponseStatusCode code, const std::vector<Extension>& extensions) 
-    {
-        //++responses_received;
-      logger_->trace("request progress: code={}, extensions={}", statusCodeToString(code), formatExtensions(extensions));
-        
-        /*if (++n_responses == n_responses_expected_) 
-        {
-          io_->stop();
-        }*/
-    };
+  };
   }
 
+  void GraphsyncDAGSyncer::RequestProgressCallback(
+      ResponseStatusCode code, const std::vector<Extension>& extensions)
+  {
+      logger_->trace("request progress: code={}, extensions={}", statusCodeToString(code), formatExtensions(extensions));
+  }
 
   void GraphsyncDAGSyncer::BlockReceivedCallback(CID cid, sgns::common::Buffer buffer, GraphsyncDAGSyncer* dagSyncer)
   {
-    if (dagSyncer != nullptr)
-    {
-      dagSyncer->logger_->trace("Block received: cid={}, extensions={}", cid.toString(), buffer.toHex());
-    }
+      if (dagSyncer != nullptr)
+      {
+          dagSyncer->logger_->trace("Block received: cid={}, extensions={}", cid.toString(), buffer.toHex());
+      }
   }
-
-
-
 }
