@@ -50,7 +50,7 @@ namespace sgns::crdt
 
   protected:
     void RequestProgressCallback(ResponseStatusCode code, const std::vector<Extension>& extensions);
-    static void BlockReceivedCallback(CID cid, sgns::common::Buffer buffer, GraphsyncDAGSyncer* dagSyncer);
+    void BlockReceivedCallback(CID cid, sgns::common::Buffer buffer);
 
     bool started_ = false;
 

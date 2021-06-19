@@ -86,7 +86,8 @@ namespace sgns::crdt
         return outcome::failure(boost::system::error_code{});
       }
 
-      BlockCallback blockCallback = std::bind(&BlockReceivedCallback, std::placeholders::_1, std::placeholders::_2, this);
+      BlockCallback blockCallback = std::bind(
+          &GraphsyncDAGSyncer::BlockReceivedCallback, this, std::placeholders::_1, std::placeholders::_2);
       this->graphsync_->start(dagService, blockCallback);
 
       if (this->host_ == nullptr)
@@ -141,11 +142,8 @@ namespace sgns::crdt
       logger_->trace("request progress: code={}, extensions={}", statusCodeToString(code), formatExtensions(extensions));
   }
 
-  void GraphsyncDAGSyncer::BlockReceivedCallback(CID cid, sgns::common::Buffer buffer, GraphsyncDAGSyncer* dagSyncer)
+  void GraphsyncDAGSyncer::BlockReceivedCallback(CID cid, sgns::common::Buffer buffer)
   {
-      if (dagSyncer != nullptr)
-      {
-          dagSyncer->logger_->trace("Block received: cid={}, extensions={}", cid.toString(), buffer.toHex());
-      }
+      logger_->trace("Block received: cid={}, extensions={}", cid.toString(), buffer.toHex());
   }
 }
