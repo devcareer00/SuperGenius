@@ -118,8 +118,8 @@ outcome::result<void> GlobalDB::Init(std::shared_ptr<CrdtOptions> crdtOptions)
         return outcome::failure(boost::system::error_code{});
     }
 
-    m_logger->info("Bootstrapping...");
     // TODO: bootstrapping
+    //m_logger->info("Bootstrapping...");
     //bstr, _ : = multiaddr.NewMultiaddr("/ip4/94.130.135.167/tcp/33123/ipfs/12D3KooWFta2AE7oiK1ioqjVAKajUJauZWfeM7R413K7ARtHRDAu");
     //inf, _ : = peer.AddrInfoFromP2pAddr(bstr);
     //list: = append(ipfslite.DefaultBootstrapPeers(), *inf);
