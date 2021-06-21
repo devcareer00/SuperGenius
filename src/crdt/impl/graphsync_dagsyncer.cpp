@@ -1,5 +1,7 @@
 #include "crdt/graphsync_dagsyncer.hpp"
 
+#include <ipfs_lite/ipld/impl/ipld_node_impl.hpp>
+
 namespace sgns::crdt
 {
 
@@ -145,5 +147,17 @@ namespace sgns::crdt
   void GraphsyncDAGSyncer::BlockReceivedCallback(CID cid, sgns::common::Buffer buffer)
   {
       logger_->trace("Block received: cid={}, extensions={}", cid.toString(), buffer.toHex());
+      if (!HasBlock(cid))
+      {
+          auto node = ipfs_lite::ipld::IPLDNodeImpl::createFromRawBytes(buffer);
+          if (!node.has_failure())
+          {
+              addNode(node.value());
+          }
+          else
+          {
+              logger_->error("Cannot create node from received block data for CID {}", cid.toString());
+          }
+      }
   }
 }
