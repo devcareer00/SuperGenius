@@ -464,6 +464,7 @@ namespace sgns::crdt
       return;
     }
 
+    // @todo figure out how should dagSyncerTimeoutSec be used
     std::chrono::seconds dagSyncerTimeoutSec = std::chrono::seconds(5 * 60); // 5 mins by default
     if (this->options_ != nullptr)
     {
@@ -798,7 +799,8 @@ namespace sgns::crdt
     return this->dataStore_->batch();
   }
 
-  outcome::result<std::shared_ptr<CrdtDatastore::Node>> CrdtDatastore::PutBlock(const std::vector<CID>& aHeads, const uint64_t& aHeight, const std::shared_ptr<Delta>& aDelta)
+  outcome::result<std::shared_ptr<CrdtDatastore::Node>> CrdtDatastore::PutBlock(
+      const std::vector<CID>& aHeads, const uint64_t& aHeight, const std::shared_ptr<Delta>& aDelta)
   {
     if (aDelta == nullptr)
     {
