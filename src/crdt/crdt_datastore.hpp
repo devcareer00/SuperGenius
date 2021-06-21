@@ -201,18 +201,18 @@ namespace sgns::crdt
     /** Worker thread to handle jobs broadcasted from the network.
     * @param aCrdtDatastore pointer to CRDT datastore
     */
-    static void HandleNext(CrdtDatastore* aCrdtDatastore);
+    void HandleNext();
 
     /** Worker thread to rebroadcast heads 
     * @param aCrdtDatastore pointer to CRDT datastore
     */
-    static void Rebroadcast(CrdtDatastore* aCrdtDatastore);
+    void Rebroadcast();
 
     /** Worker thread to send jobs 
     * @param aCrdtDatastore pointer to CRDT datastore
     * @param dagWorker pointer to DAG worker structure
     */
-    static void SendJobWorker(CrdtDatastore* aCrdtDatastore, std::shared_ptr<DagWorker> dagWorker);
+    void SendJobWorker(std::shared_ptr<DagWorker> dagWorker);
 
     /** SendNewJobs calls getDeltas with the given children and sends each response to the workers. 
     * @param aRootCID root CID 

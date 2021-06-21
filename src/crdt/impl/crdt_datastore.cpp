@@ -81,16 +81,16 @@ namespace sgns::crdt
     LOG_INFO("crdt Datastore created. Number of heads: " << numberOfHeads << " Current max-height: " << maxHeight);
 
     // Starting HandleNext worker thread
-    this->handleNextFuture_ = std::async(&CrdtDatastore::HandleNext, this);
+    this->handleNextFuture_ = std::async(std::bind(&CrdtDatastore::HandleNext, this));
 
     // Starting Rebroadcast worker thread
-    this->rebroadcastFuture_ = std::async(&CrdtDatastore::Rebroadcast, this);
+    this->rebroadcastFuture_ = std::async(std::bind(&CrdtDatastore::Rebroadcast, this));
 
     // Starting DAG worker threads 
     for (int i = 0; i < numberOfDagWorkers; ++i)
     {
       auto dagWorker = std::make_shared<DagWorker>();
-      dagWorker->dagWorkerFuture_ = std::async(&CrdtDatastore::SendJobWorker, this, dagWorker);
+      dagWorker->dagWorkerFuture_ = std::async(std::bind(&CrdtDatastore::SendJobWorker, this, dagWorker));
       this->dagWorkers_.push_back(dagWorker);
     }
   }
@@ -161,42 +161,37 @@ namespace sgns::crdt
 
   }
 
-  // static
-  void CrdtDatastore::HandleNext(CrdtDatastore* aCrdtDatastore)
+  void CrdtDatastore::HandleNext()
   {
-    if (aCrdtDatastore == nullptr)
-    {
-      return;
-    }
-
-    if (aCrdtDatastore->broadcaster_ == nullptr)
+  
+    if (broadcaster_ == nullptr)
     {
       // offline
       return;
     }
 
-    aCrdtDatastore->handleNextThreadRunning_ = true;
+    handleNextThreadRunning_ = true;
 
-    aCrdtDatastore->LogDebug("HandleNext thread started");
-    while (aCrdtDatastore->handleNextThreadRunning_)
+    LogDebug("HandleNext thread started");
+    while (handleNextThreadRunning_)
     {
       std::this_thread::sleep_for(threadSleepTimeInMilliseconds_);
 
-      auto broadcasterNextResult = aCrdtDatastore->broadcaster_->Next();
+      auto broadcasterNextResult = broadcaster_->Next();
       if (broadcasterNextResult.has_failure())
       {
         if (broadcasterNextResult.error().value() != (int)Broadcaster::ErrorCode::ErrNoMoreBroadcast)
         {
-          aCrdtDatastore->LogDebug("Failed to get next broadcaster (error code " + 
+          LogDebug("Failed to get next broadcaster (error code " + 
             std::to_string(broadcasterNextResult.error().value()) + ")");
         }
         continue;
       }
 
-      auto decodeResult = aCrdtDatastore->DecodeBroadcast(broadcasterNextResult.value());
+      auto decodeResult = DecodeBroadcast(broadcasterNextResult.value());
       if (decodeResult.has_failure())
       {
-        aCrdtDatastore->LogError("Broadcaster: Unable to decode broadcast (error code " + 
+        LogError("Broadcaster: Unable to decode broadcast (error code " + 
           std::to_string(broadcasterNextResult.error().value()) + ")");
         continue;
       }
@@ -204,15 +199,15 @@ namespace sgns::crdt
       // For each head, we process it.
       for (const auto& bCastHeadCID : decodeResult.value())
       {
-        auto handleBlockResult = aCrdtDatastore->HandleBlock(bCastHeadCID);
+        auto handleBlockResult = HandleBlock(bCastHeadCID);
         if (handleBlockResult.has_failure())
         {
-          aCrdtDatastore->LogError("Broadcaster: Unable to handle block (error code " + 
+          LogError("Broadcaster: Unable to handle block (error code " + 
             std::to_string(handleBlockResult.error().value()) + ")");
           continue;
         }
-        std::unique_lock lock(aCrdtDatastore->seenHeadsMutex_);
-        aCrdtDatastore->seenHeads_.push_back(bCastHeadCID);
+        std::unique_lock lock(seenHeadsMutex_);
+        seenHeads_.push_back(bCastHeadCID);
       }
 
       // We should store trusted-peer signatures associated to
@@ -222,48 +217,41 @@ namespace sgns::crdt
       // received CIDs have been issued by a trusted peer.
     }
 
-    aCrdtDatastore->LogDebug("HandleNext thread finished");
+    LogDebug("HandleNext thread finished");
   }
 
-  // static
-  void CrdtDatastore::Rebroadcast(CrdtDatastore* aCrdtDatastore)
+  void CrdtDatastore::Rebroadcast()
   {
-    if (aCrdtDatastore == nullptr)
-    {
-      return;
-    }
-
-    aCrdtDatastore->LogDebug("Rebroadcast thread started");
+    LogDebug("Rebroadcast thread started");
     std::chrono::milliseconds rebroadcastIntervalMilliseconds = std::chrono::milliseconds(threadSleepTimeInMilliseconds_);
-    if (aCrdtDatastore->options_ != nullptr)
+    if (options_ != nullptr)
     {
-      rebroadcastIntervalMilliseconds = std::chrono::milliseconds (aCrdtDatastore->options_->rebroadcastIntervalMilliseconds);
+      rebroadcastIntervalMilliseconds = std::chrono::milliseconds(options_->rebroadcastIntervalMilliseconds);
     }
 
     std::chrono::milliseconds elapsedTimeMilliseconds = std::chrono::milliseconds(0);
-    aCrdtDatastore->rebroadcastThreadRunning_ = true;
-    while (aCrdtDatastore->rebroadcastThreadRunning_)
+    rebroadcastThreadRunning_ = true;
+    while (rebroadcastThreadRunning_)
     {
       if (elapsedTimeMilliseconds >= rebroadcastIntervalMilliseconds)
       {
-        aCrdtDatastore->RebroadcastHeads();
+        RebroadcastHeads();
         elapsedTimeMilliseconds = std::chrono::milliseconds(0);
       }
       std::this_thread::sleep_for(threadSleepTimeInMilliseconds_);
       elapsedTimeMilliseconds += threadSleepTimeInMilliseconds_;
     }
-    aCrdtDatastore->LogDebug("Rebroadcast thread finished");
+    LogDebug("Rebroadcast thread finished");
   }
 
-  //static
-  void CrdtDatastore::SendJobWorker(CrdtDatastore* aCrdtDatastore, std::shared_ptr<DagWorker> dagWorker)
+  void CrdtDatastore::SendJobWorker(std::shared_ptr<DagWorker> dagWorker)
   {
-    if (aCrdtDatastore == nullptr || dagWorker == nullptr)
+    if (dagWorker == nullptr)
     {
       return;
     }
 
-    aCrdtDatastore->LogDebug("SendJobWorker thread started");
+    LogDebug("SendJobWorker thread started");
     DagJob dagJob;
     dagWorker->dagWorkerThreadRunning_ = true;
     while (dagWorker->dagWorkerThreadRunning_)
@@ -271,28 +259,28 @@ namespace sgns::crdt
       std::this_thread::sleep_for(threadSleepTimeInMilliseconds_);
 
       {
-        std::unique_lock lock(aCrdtDatastore->dagWorkerMutex_);
-        if (aCrdtDatastore->dagWorkerJobList.empty())
+        std::unique_lock lock(dagWorkerMutex_);
+        if (dagWorkerJobList.empty())
         {
           continue;
         }
-        dagJob = aCrdtDatastore->dagWorkerJobList.front();
-        aCrdtDatastore->dagWorkerJobList.pop();
+        dagJob = dagWorkerJobList.front();
+        dagWorkerJobList.pop();
       }
-      aCrdtDatastore->LogInfo("SendJobWorker CID=" + dagJob.rootCid_.toString().value() + " priority=" + std::to_string(dagJob.rootPriority_));
+      LogInfo("SendJobWorker CID=" + dagJob.rootCid_.toString().value() + " priority=" + std::to_string(dagJob.rootPriority_));
 
-      auto childrenResult = aCrdtDatastore->ProcessNode(dagJob.rootCid_, dagJob.rootPriority_, dagJob.delta_, dagJob.node_);
+      auto childrenResult = ProcessNode(dagJob.rootCid_, dagJob.rootPriority_, dagJob.delta_, dagJob.node_);
       if (childrenResult.has_failure())
       {
-        aCrdtDatastore->LogError("SendNewJobs: failed to process node:" + dagJob.rootCid_.toString().value());
+        LogError("SendNewJobs: failed to process node:" + dagJob.rootCid_.toString().value());
       }
       else
       {
-        aCrdtDatastore->SendNewJobs(dagJob.rootCid_, dagJob.rootPriority_, childrenResult.value());
+        SendNewJobs(dagJob.rootCid_, dagJob.rootPriority_, childrenResult.value());
       }
 
     }
-    aCrdtDatastore->LogDebug("SendJobWorker thread finished");
+    LogDebug("SendJobWorker thread finished");
   }
 
   void CrdtDatastore::LogError(std::string message)
@@ -420,7 +408,7 @@ namespace sgns::crdt
 
     std::vector<CID> children;
     children.push_back(aCid);
-    this->SendNewJobs(aCid, 0, children);
+    SendNewJobs(aCid, 0, children);
 
     return outcome::success();
   }
@@ -468,14 +456,14 @@ namespace sgns::crdt
     std::chrono::seconds dagSyncerTimeoutSec = std::chrono::seconds(5 * 60); // 5 mins by default
     if (this->options_ != nullptr)
     {
-      dagSyncerTimeoutSec = std::chrono::seconds(this->options_->dagSyncerTimeoutSec);
+      dagSyncerTimeoutSec = std::chrono::seconds(options_->dagSyncerTimeoutSec);
     }
 
     uint64_t rootPriority = aRootPriority;
     if (rootPriority == 0)
     {
-      std::shared_lock lock(this->dagWorkerMutex_);
-      auto getNodeResult = this->dagSyncer_->getNode(aChildren[0]);
+      std::shared_lock lock(dagWorkerMutex_);
+      auto getNodeResult = dagSyncer_->getNode(aChildren[0]);
       if (getNodeResult.has_failure())
       {
         return;
@@ -499,9 +487,9 @@ namespace sgns::crdt
     for (const auto& cid : aChildren)
     {
       //Fetch only root node with all children, but without children of their children
-      this->dagWorkerMutex_.lock_shared();
-      auto graphResult = this->dagSyncer_->fetchGraphOnDepth(cid, 1); 
-      this->dagWorkerMutex_.unlock_shared();
+      dagWorkerMutex_.lock_shared();
+      auto graphResult = dagSyncer_->fetchGraphOnDepth(cid, 1); 
+      dagWorkerMutex_.unlock_shared();
       if (graphResult.has_failure())
       {
         LOG_ERROR("SendNewJobs: error fetching graph for CID:" << cid.toString().value());
@@ -530,8 +518,8 @@ namespace sgns::crdt
       dagJob.delta_ = delta;
       dagJob.node_ = node;
       {
-        std::unique_lock lock(this->dagWorkerMutex_);
-        this->dagWorkerJobList.push(dagJob);
+        std::unique_lock lock(dagWorkerMutex_);
+        dagWorkerJobList.push(dagJob);
       }
     }
   }
