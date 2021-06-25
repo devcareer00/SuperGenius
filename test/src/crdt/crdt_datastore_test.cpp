@@ -29,17 +29,53 @@ namespace sgns::crdt
   public:
     using IpfsDatastore = ipfs_lite::ipfs::IpfsDatastore;
     using MerkleDagServiceImpl = ipfs_lite::ipfs::merkledag::MerkleDagServiceImpl;
+    using Leaf = ipfs_lite::ipfs::merkledag::Leaf;
 
     CustomDagSyncer(std::shared_ptr<IpfsDatastore> service)
-      : DAGSyncer(service)
+      : dagService_(service)
     {
     }
 
-    virtual outcome::result<bool> HasBlock(const CID& cid) const override
+    outcome::result<bool> HasBlock(const CID& cid) const override
     {
-      auto getNodeResult = this->getNode(cid);
+      auto getNodeResult = dagService_.getNode(cid);
       return getNodeResult.has_value();
     }
+
+    outcome::result<void> addNode(std::shared_ptr<const IPLDNode> node) override
+    {
+        return dagService_.addNode(node);
+    }
+
+    outcome::result<std::shared_ptr<IPLDNode>> getNode(const CID& cid) const override
+    {
+        return dagService_.getNode(cid);
+    }
+
+    outcome::result<void> removeNode(const CID& cid) override
+    {
+        return dagService_.removeNode(cid);
+    }
+
+    outcome::result<size_t> select(
+        gsl::span<const uint8_t> root_cid,
+        gsl::span<const uint8_t> selector,
+        std::function<bool(std::shared_ptr<const IPLDNode> node)> handler) const override
+    {
+        return dagService_.select(root_cid, selector, handler);
+    }
+
+    outcome::result<std::shared_ptr<Leaf>> fetchGraph(const CID& cid) const override
+    {
+        return dagService_.fetchGraph(cid);
+    }
+
+    outcome::result<std::shared_ptr<Leaf>> fetchGraphOnDepth(const CID& cid, uint64_t depth) const override
+    {
+        return dagService_.fetchGraphOnDepth(cid, depth);
+    }
+
+    MerkleDagServiceImpl dagService_;
   };
 
   class CustomBroadcaster : public Broadcaster

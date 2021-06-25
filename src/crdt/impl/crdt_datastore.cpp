@@ -820,7 +820,7 @@ namespace sgns::crdt
       auto dagSyncerResult = this->dagSyncer_->addNode(node);
       if (dagSyncerResult.has_failure())
       {
-        LOG_ERROR("DAGSyncer: error writing new block " << node->getCID().toString())
+        LOG_ERROR("DAGSyncer: error writing new block " << node->getCID().toString().value())
           return outcome::failure(dagSyncerResult.error());
       }
     }

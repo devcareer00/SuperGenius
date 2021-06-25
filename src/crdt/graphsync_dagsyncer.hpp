@@ -3,11 +3,15 @@
 
 #include "crdt/dagsyncer.hpp"
 #include <base/logger.hpp>
+#include <base/buffer.hpp>
+
 #include <ipfs_lite/ipfs/graphsync/graphsync.hpp>
 #include <ipfs_lite/ipfs/graphsync/extension.hpp>
 #include <ipfs_lite/ipfs/graphsync/impl/merkledag_bridge_impl.hpp>
+#include <ipfs_lite/ipfs/merkledag/impl/merkledag_service_impl.hpp>
+
 #include <libp2p/host/host.hpp>
-#include <base/buffer.hpp>
+
 #include <memory>
 
 namespace sgns::crdt
@@ -42,6 +46,23 @@ namespace sgns::crdt
     outcome::result<void> RequestNode(const PeerId& peer,
       boost::optional<Multiaddress> address,
       const CID& root_cid);
+      
+    // DAGService interface implementation
+    outcome::result<void> addNode(std::shared_ptr<const ipfs_lite::ipld::IPLDNode> node) override;
+
+    outcome::result<std::shared_ptr<ipfs_lite::ipld::IPLDNode>> getNode(const CID &cid) const override;
+
+    outcome::result<void> removeNode(const CID &cid) override;
+
+    outcome::result<size_t> select(
+        gsl::span<const uint8_t> root_cid,
+        gsl::span<const uint8_t> selector,
+        std::function<bool(std::shared_ptr<const ipfs_lite::ipld::IPLDNode> node)> handler) const override;
+
+    outcome::result<std::shared_ptr<ipfs_lite::ipfs::merkledag::Leaf>> fetchGraph(const CID &cid) const override;
+
+    outcome::result<std::shared_ptr<ipfs_lite::ipfs::merkledag::Leaf>> fetchGraphOnDepth(
+        const CID &cid, uint64_t depth) const override;
 
     virtual outcome::result<bool> HasBlock(const CID& cid) const override;
 
@@ -60,6 +81,7 @@ namespace sgns::crdt
     /** Stops instance */
     void StopSync();
 
+    ipfs_lite::ipfs::merkledag::MerkleDagServiceImpl dagService_;
     std::shared_ptr<Graphsync> graphsync_;
 
     std::shared_ptr<libp2p::Host> host_;

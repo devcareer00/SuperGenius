@@ -4,34 +4,33 @@
 
 namespace sgns::crdt
 {
-
-  GraphsyncDAGSyncer::GraphsyncDAGSyncer(const std::shared_ptr<IpfsDatastore>& service, 
+GraphsyncDAGSyncer::GraphsyncDAGSyncer(const std::shared_ptr<IpfsDatastore>& service,
     const std::shared_ptr<Graphsync>& graphsync, const std::shared_ptr<libp2p::Host>& host)
-    : DAGSyncer(service)
+    : dagService_(service)
     , graphsync_(graphsync)
     , host_(host)
-  {
-  }
+{
+}
 
-  outcome::result<void> GraphsyncDAGSyncer::Listen(const Multiaddress& listen_to)
-  {
+outcome::result<void> GraphsyncDAGSyncer::Listen(const Multiaddress& listen_to)
+{
     if (this->host_ == nullptr)
     {
-      return outcome::failure(boost::system::error_code{});
+        return outcome::failure(boost::system::error_code{});
     }
 
     auto listen_res = host_->listen(listen_to);
     if (listen_res.has_failure())
     {
-      /*logger->trace("Cannot listen to multiaddress {}, {}",
-        listen_to.getStringAddress(),
-        listen_res.error().message());*/
-      return listen_res.error();
+        /*logger->trace("Cannot listen to multiaddress {}, {}",
+            listen_to.getStringAddress(),
+            listen_res.error().message());*/
+        return listen_res.error();
     }
     auto startResult = this->StartSync();
     if (startResult.has_failure())
     {
-      return startResult.error();
+        return startResult.error();
     }
 
     return outcome::success();
@@ -65,100 +64,135 @@ namespace sgns::crdt
     this->requests_.push_back(std::shared_ptr<Subscription>(new Subscription(std::move(subscription))));
 
     return outcome::success();
-  }
+}
 
-  outcome::result<bool> GraphsyncDAGSyncer::HasBlock(const CID& cid) const
-  {
-    auto getNodeResult = this->getNode(cid);
+outcome::result<void> GraphsyncDAGSyncer::addNode(std::shared_ptr<const ipfs_lite::ipld::IPLDNode> node)
+{
+    return dagService_.addNode(std::move(node));
+}
+
+outcome::result<std::shared_ptr<ipfs_lite::ipld::IPLDNode>> GraphsyncDAGSyncer::getNode(const CID& cid) const
+{
+    auto node = dagService_.getNode(cid);
+    return node;
+}
+
+outcome::result<void> GraphsyncDAGSyncer::removeNode(const CID& cid)
+{
+    return dagService_.removeNode(cid);
+}
+
+outcome::result<size_t> GraphsyncDAGSyncer::select(
+    gsl::span<const uint8_t> root_cid,
+    gsl::span<const uint8_t> selector,
+    std::function<bool(std::shared_ptr<const ipfs_lite::ipld::IPLDNode> node)> handler) const
+{
+    return dagService_.select(root_cid, selector, handler);
+}
+
+outcome::result<std::shared_ptr<ipfs_lite::ipfs::merkledag::Leaf>> GraphsyncDAGSyncer::fetchGraph(const CID& cid) const
+{
+    return dagService_.fetchGraph(cid);
+}
+
+outcome::result<std::shared_ptr<ipfs_lite::ipfs::merkledag::Leaf>> GraphsyncDAGSyncer::fetchGraphOnDepth(
+    const CID& cid, uint64_t depth) const
+{
+    return dagService_.fetchGraphOnDepth(cid, depth);
+}
+
+outcome::result<bool> GraphsyncDAGSyncer::HasBlock(const CID& cid) const
+{
+    auto getNodeResult = dagService_.getNode(cid);
     return getNodeResult.has_value();
-  }
+}
 
-  outcome::result<bool> GraphsyncDAGSyncer::StartSync()
-  {
+outcome::result<bool> GraphsyncDAGSyncer::StartSync()
+{
     if (!started_)
     {
-      if (this->graphsync_ == nullptr)
-      {
-        return outcome::failure(boost::system::error_code{});
-      }
+        if (graphsync_ == nullptr)
+        {
+            return outcome::failure(boost::system::error_code{});
+        }
 
-      auto dagService = std::make_shared<MerkleDagBridgeImpl>(shared_from_this());
-      if (dagService == nullptr)
-      {
-        return outcome::failure(boost::system::error_code{});
-      }
+        auto dagService = std::make_shared<MerkleDagBridgeImpl>(shared_from_this());
+        if (dagService == nullptr)
+        {
+            return outcome::failure(boost::system::error_code{});
+        }
 
-      BlockCallback blockCallback = std::bind(
-          &GraphsyncDAGSyncer::BlockReceivedCallback, this, std::placeholders::_1, std::placeholders::_2);
-      this->graphsync_->start(dagService, blockCallback);
+        BlockCallback blockCallback = std::bind(
+            &GraphsyncDAGSyncer::BlockReceivedCallback, this, std::placeholders::_1, std::placeholders::_2);
+        graphsync_->start(dagService, blockCallback);
 
-      if (this->host_ == nullptr)
-      {
-        return outcome::failure(boost::system::error_code{});
-      }
-      this->host_->start();
+        if (host_ == nullptr)
+        {
+            return outcome::failure(boost::system::error_code{});
+        }
+        host_->start();
 
-      this->started_ = true;
+        started_ = true;
     }
-    return this->started_;
-  }
+    return started_;
+}
 
-  void GraphsyncDAGSyncer::StopSync()
-  {
-    if (this->graphsync_ != nullptr)
+void GraphsyncDAGSyncer::StopSync()
+{
+    if (graphsync_ != nullptr)
     {
-      this->graphsync_->stop();
+        graphsync_->stop();
     }
-    if (this->host_ != nullptr)
+    if (host_ != nullptr)
     {
-      this->host_->stop();
+        host_->stop();
     }
-    this->started_ = false;
-  }
+    started_ = false;
+}
 
-  outcome::result<GraphsyncDAGSyncer::PeerId> GraphsyncDAGSyncer::GetId() const
-  {
-    if (this->host_ != nullptr)
+outcome::result<GraphsyncDAGSyncer::PeerId> GraphsyncDAGSyncer::GetId() const
+{
+    if (host_ != nullptr)
     {
-      return this->host_->getId();
+        return host_->getId();
     }
     return outcome::failure(boost::system::error_code{});
-  }
+}
 
-  namespace
-  {
-  std::string formatExtensions(const std::vector<GraphsyncDAGSyncer::Extension>& extensions)
-  {
-      std::string s;
-      for (const auto& item : extensions) {
-          s += fmt::format(
-              "({}: 0x{}) ", item.name, common::Buffer(item.data).toHex());
-      }
-      return s;
-  };
-  }
+namespace
+{
+    std::string formatExtensions(const std::vector<GraphsyncDAGSyncer::Extension>& extensions)
+    {
+        std::string s;
+        for (const auto& item : extensions) {
+            s += fmt::format(
+                "({}: 0x{}) ", item.name, common::Buffer(item.data).toHex());
+        }
+        return s;
+    };
+}
 
-  void GraphsyncDAGSyncer::RequestProgressCallback(
-      ResponseStatusCode code, const std::vector<Extension>& extensions)
-  {
-      logger_->trace("request progress: code={}, extensions={}", statusCodeToString(code), formatExtensions(extensions));
-  }
+void GraphsyncDAGSyncer::RequestProgressCallback(
+    ResponseStatusCode code, const std::vector<Extension>& extensions)
+{
+    logger_->trace("request progress: code={}, extensions={}", statusCodeToString(code), formatExtensions(extensions));
+}
 
-  void GraphsyncDAGSyncer::BlockReceivedCallback(CID cid, sgns::common::Buffer buffer)
-  {
-      logger_->trace("Block received: cid={}, extensions={}", cid.toString(), buffer.toHex());
-      auto hb = HasBlock(cid);
-      if (hb.has_value() && !hb.value())
-      {
-          auto node = ipfs_lite::ipld::IPLDNodeImpl::createFromRawBytes(buffer);
-          if (!node.has_failure())
-          {
-              addNode(node.value());
-          }
-          else
-          {
-              logger_->error("Cannot create node from received block data for CID {}", cid.toString());
-          }
-      }
-  }
+void GraphsyncDAGSyncer::BlockReceivedCallback(CID cid, sgns::common::Buffer buffer)
+{
+    logger_->trace("Block received: cid={}, extensions={}", cid.toString().value(), buffer.toHex());
+    auto hb = HasBlock(cid);
+    if (hb.has_value() && !hb.value())
+    {
+        auto node = ipfs_lite::ipld::IPLDNodeImpl::createFromRawBytes(buffer);
+        if (!node.has_failure())
+        {
+            addNode(node.value());
+        }
+        else
+        {
+            logger_->error("Cannot create node from received block data for CID {}", cid.toString().value());
+        }
+    }
+}
 }
