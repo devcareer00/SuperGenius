@@ -302,14 +302,6 @@ namespace sgns::crdt
     */
     void Close();
 
-    /** Get node and delta from DAG syncer 
-    * @param aCID CID of the node to get 
-    * @param aNode out reference of the result Node
-    * @param aDelta out reference of the result Delta
-    * @return returns outcome::success on success or outcome::failure otherwise
-    */
-    outcome::result<void> GetNodeAndDeltaFromDAGSyncer(const CID& aCID, std::shared_ptr<Node>& aNode, std::shared_ptr<Delta>& aDelta);
-
     /** SyncDatastore sync heads and set datastore
     * TODO: Need to see if needed, not fully implemented 
     * @return returns outcome::success on success or outcome::failure otherwise

@@ -413,36 +413,7 @@ namespace sgns::crdt
     return outcome::success();
   }
 
-  outcome::result<void> CrdtDatastore::GetNodeAndDeltaFromDAGSyncer(const CID& aCID, std::shared_ptr<Node>& aNode, std::shared_ptr<Delta>& aDelta)
-  {
-    if (this->dagSyncer_ == nullptr)
-    {
-      return outcome::failure(boost::system::error_code{});
-    }
-
-    auto getNodeResult = this->dagSyncer_->getNode(aCID);
-    if (getNodeResult.has_failure())
-    {
-      return outcome::failure(getNodeResult.error());
-    }
-    aNode = getNodeResult.value();
-    auto nodeBuffer = aNode->serialize();
-
-    if (aDelta == nullptr)
-    {
-      aDelta = std::make_shared<Delta>();
-    }
-
-    if (!aDelta->ParseFromArray(nodeBuffer.data(), nodeBuffer.size()))
-    {
-      return outcome::failure(boost::system::error_code{});
-    }
-
-    return outcome::success();
-  }
-
-
-  void CrdtDatastore::SendNewJobs(const CID& aRootCID, const uint64_t& aRootPriority, const std::vector<CID>& aChildren)
+    void CrdtDatastore::SendNewJobs(const CID& aRootCID, const uint64_t& aRootPriority, const std::vector<CID>& aChildren)
   {
     // sendNewJobs calls getDeltas with the given
     // children and sends each response to the workers. 
@@ -469,7 +440,7 @@ namespace sgns::crdt
         return;
       }
       auto node = getNodeResult.value();
-      auto nodeBuffer = node->serialize();
+      auto nodeBuffer = node->content();
 
       auto delta = std::make_shared<Delta>();
 
@@ -499,6 +470,7 @@ namespace sgns::crdt
       auto leaf = graphResult.value();
       auto nodeBuffer = leaf->content();
 
+      // @todo Check if it is OK that the node has only content and doesn't have links
       auto nodeResult = ipfs_lite::ipld::IPLDNodeImpl::createFromRawBytes(nodeBuffer);
       if (nodeResult.has_failure())
       {
@@ -1034,7 +1006,7 @@ namespace sgns::crdt
     auto node = getNodeResult.value();
 
     auto delta = std::make_shared<Delta>();
-    auto nodeBuffer = node->serialize();
+    auto nodeBuffer = node->content();
     if (!delta->ParseFromArray(nodeBuffer.data(), nodeBuffer.size()))
     {
       LOG_ERROR("PrintDAGRec: failed to parse delta from node");
