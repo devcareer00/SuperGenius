@@ -43,10 +43,8 @@ namespace sgns::crdt
 
     outcome::result<void> Listen(const Multiaddress& listen_to);
 
-    outcome::result<void> RequestNode(const PeerId& peer,
-      boost::optional<Multiaddress> address,
-      const CID& root_cid);
-      
+    void AddRoute(const CID& cid, const PeerId& peer, Multiaddress& address);
+
     // DAGService interface implementation
     outcome::result<void> addNode(std::shared_ptr<const ipfs_lite::ipld::IPLDNode> node) override;
 
@@ -64,13 +62,16 @@ namespace sgns::crdt
     outcome::result<std::shared_ptr<ipfs_lite::ipfs::merkledag::Leaf>> fetchGraphOnDepth(
         const CID &cid, uint64_t depth) const override;
 
-    virtual outcome::result<bool> HasBlock(const CID& cid) const override;
+    outcome::result<bool> HasBlock(const CID& cid) const override;
 
     /* Returns peer ID */
     outcome::result<PeerId> GetId() const;
 
   protected:
-    void RequestProgressCallback(ResponseStatusCode code, const std::vector<Extension>& extensions);
+    outcome::result<std::future<std::shared_ptr<ipfs_lite::ipld::IPLDNode>>> RequestNode(
+        const PeerId& peer, boost::optional<Multiaddress> address, const CID& root_cid) const;
+
+    void RequestProgressCallback(ResponseStatusCode code, const std::vector<Extension>& extensions) const;
     void BlockReceivedCallback(CID cid, sgns::common::Buffer buffer);
 
     bool started_ = false;
@@ -91,7 +92,9 @@ namespace sgns::crdt
     // keeping subscriptions alive, otherwise they cancel themselves
     // class Subscription have non-copyable constructor and operator, so it can not be used in std::vector
     // std::vector<Subscription> requests_;
-    std::vector<std::shared_ptr<Subscription>> requests_;
+    mutable std::map<CID, std::tuple<std::shared_ptr<Subscription>, 
+        std::shared_ptr<std::promise<std::shared_ptr<ipfs_lite::ipld::IPLDNode>>>>> requests_;
+    std::map<CID, std::tuple<PeerId, Multiaddress>> routing_;
 
   };
 }

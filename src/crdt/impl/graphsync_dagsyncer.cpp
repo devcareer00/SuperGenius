@@ -34,36 +34,44 @@ outcome::result<void> GraphsyncDAGSyncer::Listen(const Multiaddress& listen_to)
     }
 
     return outcome::success();
-  }
+}
 
-  outcome::result<void> GraphsyncDAGSyncer::RequestNode(const PeerId& peer,  boost::optional<Multiaddress> address,
-    const CID& root_cid)
-  {
-    auto startResult = this->StartSync();
-    if (startResult.has_failure())
+outcome::result<std::future<std::shared_ptr<ipfs_lite::ipld::IPLDNode>>> GraphsyncDAGSyncer::RequestNode(
+    const PeerId& peer, boost::optional<Multiaddress> address, const CID& root_cid) const
+{
+    if(!started_)
     {
-      return startResult.error();
+        return outcome::failure(boost::system::error_code{});
     }
 
-    if (this->graphsync_ == nullptr)
+    if (graphsync_ == nullptr)
     {
-      return outcome::failure(boost::system::error_code{});
+        return outcome::failure(boost::system::error_code{});
     }
+    auto result = std::make_shared<std::promise<std::shared_ptr<ipfs_lite::ipld::IPLDNode>>>();
     std::vector<Extension> extensions;
     ResponseMetadata response_metadata{};
     Extension response_metadata_extension = ipfs_lite::ipfs::graphsync::encodeResponseMetadata(response_metadata);
     extensions.push_back(response_metadata_extension);
-    
+
     std::vector<CID> cids;
     Extension do_not_send_cids_extension = ipfs_lite::ipfs::graphsync::encodeDontSendCids(cids);
     extensions.push_back(do_not_send_cids_extension);
-    auto subscription = this->graphsync_->makeRequest(peer, std::move(address),  root_cid, {}, extensions, 
+    auto subscription = graphsync_->makeRequest(peer, std::move(address), root_cid, {}, extensions,
         std::bind(&GraphsyncDAGSyncer::RequestProgressCallback, this, std::placeholders::_1, std::placeholders::_2));
 
     // keeping subscriptions alive, otherwise they cancel themselves
-    this->requests_.push_back(std::shared_ptr<Subscription>(new Subscription(std::move(subscription))));
+    requests_.insert(std::make_pair(root_cid, std::make_tuple(
+        std::shared_ptr<Subscription>(new Subscription(std::move(subscription))),
+        result)));
 
-    return outcome::success();
+
+    return result->get_future();
+}
+
+void GraphsyncDAGSyncer::AddRoute(const CID& cid, const PeerId& peer, Multiaddress& address)
+{
+    routing_.insert(std::make_pair(cid, std::make_tuple(peer, address)));
 }
 
 outcome::result<void> GraphsyncDAGSyncer::addNode(std::shared_ptr<const ipfs_lite::ipld::IPLDNode> node)
@@ -74,6 +82,20 @@ outcome::result<void> GraphsyncDAGSyncer::addNode(std::shared_ptr<const ipfs_lit
 outcome::result<std::shared_ptr<ipfs_lite::ipld::IPLDNode>> GraphsyncDAGSyncer::getNode(const CID& cid) const
 {
     auto node = dagService_.getNode(cid);
+    if (node.has_error())
+    {
+        auto it = routing_.find(cid);
+        if (it != routing_.end())
+        {
+            auto res = RequestNode(std::get<0>(it->second), std::get<1>(it->second), it->first);
+            if (res.has_failure())
+            {
+                return res.as_failure();
+            }
+            res.value().wait();
+            node = res.value().get();
+        }
+    }
     return node;
 }
 
@@ -173,7 +195,7 @@ namespace
 }
 
 void GraphsyncDAGSyncer::RequestProgressCallback(
-    ResponseStatusCode code, const std::vector<Extension>& extensions)
+    ResponseStatusCode code, const std::vector<Extension>& extensions) const
 {
     logger_->trace("request progress: code={}, extensions={}", statusCodeToString(code), formatExtensions(extensions));
 }
@@ -187,7 +209,13 @@ void GraphsyncDAGSyncer::BlockReceivedCallback(CID cid, sgns::common::Buffer buf
         auto node = ipfs_lite::ipld::IPLDNodeImpl::createFromRawBytes(buffer);
         if (!node.has_failure())
         {
-            addNode(node.value());
+            auto res = dagService_.addNode(node.value());
+            auto itSubscription = requests_.find(cid);
+            if (itSubscription != requests_.end())
+            {
+                // @todo check if multiple requests of the same CID works as expected.
+                std::get<1>(itSubscription->second)->set_value(node.value());
+            }
         }
         else
         {
