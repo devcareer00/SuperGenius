@@ -204,17 +204,46 @@ void GraphsyncDAGSyncer::BlockReceivedCallback(CID cid, sgns::common::Buffer buf
 {
     logger_->trace("Block received: cid={}, extensions={}", cid.toString().value(), buffer.toHex());
     auto hb = HasBlock(cid);
+
+    if (hb.has_failure())
+    {
+        logger_->debug("HasBlock failed: {}, cid: {}" , hb.error().message().c_str(), cid.toString().value());
+    }
+    else
+    {
+        logger_->debug("HasBlock: {}, cid: {}", hb.value(), cid.toString().value());
+    }
+
     if (hb.has_value() && !hb.value())
     {
         auto node = ipfs_lite::ipld::IPLDNodeImpl::createFromRawBytes(buffer);
         if (!node.has_failure())
         {
             auto res = dagService_.addNode(node.value());
+            std::stringstream sslinks;
+            for (const auto& link : node.value()->getLinks())
+            {
+                sslinks << "[";
+                sslinks << link.get().getCID().toString().value();
+                sslinks << link.get().getName();
+                sslinks << "], ";
+            }
+            logger_->error("Node added to dagService. CID: {}, links: [{}]",
+                node.value()->getCID().toString().value(),
+                sslinks.str());
+
+            // @todo performance optimization is required
             auto itSubscription = requests_.find(cid);
             if (itSubscription != requests_.end())
             {
+                logger_->debug("Request found {}", cid.toString().value());
+
                 // @todo check if multiple requests of the same CID works as expected.
                 std::get<1>(itSubscription->second)->set_value(node.value());
+            }
+            else
+            {
+                logger_->debug("Unexpected block received {}", cid.toString().value());
             }
         }
         else
