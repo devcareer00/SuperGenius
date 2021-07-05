@@ -114,13 +114,52 @@ outcome::result<size_t> GraphsyncDAGSyncer::select(
 
 outcome::result<std::shared_ptr<ipfs_lite::ipfs::merkledag::Leaf>> GraphsyncDAGSyncer::fetchGraph(const CID& cid) const
 {
-    return dagService_.fetchGraph(cid);
+    OUTCOME_TRY(node, getNode(cid));
+    auto root_leaf = std::make_shared<sgns::ipfs_lite::ipfs::merkledag::LeafImpl>(node->content());
+    auto result = buildGraph(root_leaf, node->getLinks(), false, 0, 0);
+    if (result.has_error()) return result.error();
+    return root_leaf;
 }
 
 outcome::result<std::shared_ptr<ipfs_lite::ipfs::merkledag::Leaf>> GraphsyncDAGSyncer::fetchGraphOnDepth(
     const CID& cid, uint64_t depth) const
 {
-    return dagService_.fetchGraphOnDepth(cid, depth);
+    OUTCOME_TRY(node, getNode(cid));
+    auto leaf = std::make_shared<sgns::ipfs_lite::ipfs::merkledag::LeafImpl>(node->content());
+    auto result = buildGraph(leaf, node->getLinks(), true, depth, 0);
+    if (result.has_error()) return result.error();
+    return leaf;
+}
+
+outcome::result<void> GraphsyncDAGSyncer::buildGraph(
+    const std::shared_ptr<sgns::ipfs_lite::ipfs::merkledag::LeafImpl>& root,
+    const std::vector<std::reference_wrapper<const sgns::ipfs_lite::ipld::IPLDLink>>& links,
+    bool depth_limit,
+    const size_t max_depth,
+    size_t current_depth) const {
+    if (depth_limit && current_depth == max_depth) {
+        return outcome::success();
+    }
+    for (const auto& link : links) {
+        auto request = getNode(link.get().getCID());
+        if (request.has_error()) return sgns::ipfs_lite::ipfs::merkledag::ServiceError::UNRESOLVED_LINK;
+        std::shared_ptr<sgns::ipfs_lite::ipld::IPLDNode> node = request.value();
+        auto child_leaf = std::make_shared<sgns::ipfs_lite::ipfs::merkledag::LeafImpl>(node->content());
+        auto build_result = buildGraph(child_leaf,
+            node->getLinks(),
+            depth_limit,
+            max_depth,
+            ++current_depth);
+        if (build_result.has_error()) {
+            return build_result;
+        }
+        auto insert_result =
+            root->insertSubLeaf(link.get().getName(), std::move(*child_leaf));
+        if (insert_result.has_error()) {
+            return insert_result;
+        }
+    }
+    return outcome::success();
 }
 
 outcome::result<bool> GraphsyncDAGSyncer::HasBlock(const CID& cid) const
@@ -237,6 +276,15 @@ void GraphsyncDAGSyncer::BlockReceivedCallback(CID cid, sgns::common::Buffer buf
             if (itSubscription != requests_.end())
             {
                 logger_->debug("Request found {}", cid.toString().value());
+
+                auto it = routing_.find(cid);
+                if (it != routing_.end())
+                {
+                    for (auto link : node.value()->getLinks())
+                    {
+                        AddRoute(link.get().getCID(), std::get<0>(it->second), std::get<1>(it->second));
+                    }
+                }
 
                 // @todo check if multiple requests of the same CID works as expected.
                 std::get<1>(itSubscription->second)->set_value(node.value());
