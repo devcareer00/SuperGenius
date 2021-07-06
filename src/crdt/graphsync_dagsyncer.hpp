@@ -74,13 +74,6 @@ namespace sgns::crdt
     void RequestProgressCallback(ResponseStatusCode code, const std::vector<Extension>& extensions) const;
     void BlockReceivedCallback(CID cid, sgns::common::Buffer buffer);
 
-    outcome::result<void> buildGraph(
-        const std::shared_ptr<sgns::ipfs_lite::ipfs::merkledag::LeafImpl>& root,
-        const std::vector<std::reference_wrapper<const sgns::ipfs_lite::ipld::IPLDLink>>& links,
-        bool depth_limit,
-        const size_t max_depth,
-        size_t current_depth) const;
-
     bool started_ = false;
 
     /** Starts instance and subscribes to blocks */

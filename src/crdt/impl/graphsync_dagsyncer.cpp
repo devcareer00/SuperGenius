@@ -114,52 +114,15 @@ outcome::result<size_t> GraphsyncDAGSyncer::select(
 
 outcome::result<std::shared_ptr<ipfs_lite::ipfs::merkledag::Leaf>> GraphsyncDAGSyncer::fetchGraph(const CID& cid) const
 {
-    OUTCOME_TRY(node, getNode(cid));
-    auto root_leaf = std::make_shared<sgns::ipfs_lite::ipfs::merkledag::LeafImpl>(node->content());
-    auto result = buildGraph(root_leaf, node->getLinks(), false, 0, 0);
-    if (result.has_error()) return result.error();
-    return root_leaf;
+    return ipfs_lite::ipfs::merkledag::MerkleDagServiceImpl::fetchGraphOnDepth(
+        std::bind(&MerkleDagService::getNode, this, std::placeholders::_1), cid, {});
 }
 
 outcome::result<std::shared_ptr<ipfs_lite::ipfs::merkledag::Leaf>> GraphsyncDAGSyncer::fetchGraphOnDepth(
     const CID& cid, uint64_t depth) const
 {
-    OUTCOME_TRY(node, getNode(cid));
-    auto leaf = std::make_shared<sgns::ipfs_lite::ipfs::merkledag::LeafImpl>(node->content());
-    auto result = buildGraph(leaf, node->getLinks(), true, depth, 0);
-    if (result.has_error()) return result.error();
-    return leaf;
-}
-
-outcome::result<void> GraphsyncDAGSyncer::buildGraph(
-    const std::shared_ptr<sgns::ipfs_lite::ipfs::merkledag::LeafImpl>& root,
-    const std::vector<std::reference_wrapper<const sgns::ipfs_lite::ipld::IPLDLink>>& links,
-    bool depth_limit,
-    const size_t max_depth,
-    size_t current_depth) const {
-    if (depth_limit && current_depth == max_depth) {
-        return outcome::success();
-    }
-    for (const auto& link : links) {
-        auto request = getNode(link.get().getCID());
-        if (request.has_error()) return sgns::ipfs_lite::ipfs::merkledag::ServiceError::UNRESOLVED_LINK;
-        std::shared_ptr<sgns::ipfs_lite::ipld::IPLDNode> node = request.value();
-        auto child_leaf = std::make_shared<sgns::ipfs_lite::ipfs::merkledag::LeafImpl>(node->content());
-        auto build_result = buildGraph(child_leaf,
-            node->getLinks(),
-            depth_limit,
-            max_depth,
-            ++current_depth);
-        if (build_result.has_error()) {
-            return build_result;
-        }
-        auto insert_result =
-            root->insertSubLeaf(link.get().getName(), std::move(*child_leaf));
-        if (insert_result.has_error()) {
-            return insert_result;
-        }
-    }
-    return outcome::success();
+    return ipfs_lite::ipfs::merkledag::MerkleDagServiceImpl::fetchGraphOnDepth(
+        std::bind(&MerkleDagService::getNode, this, std::placeholders::_1), cid, depth);
 }
 
 outcome::result<bool> GraphsyncDAGSyncer::HasBlock(const CID& cid) const
