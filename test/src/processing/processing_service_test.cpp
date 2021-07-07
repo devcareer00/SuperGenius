@@ -21,7 +21,7 @@ namespace
 class ProcessingTaksQueueImpl : public ProcessingTaksQueue
 {
 public:
-    bool PopTask(SGProcessing::Task& task) override
+    bool GrabTask(SGProcessing::Task& task) override
     {
         return false;
     };

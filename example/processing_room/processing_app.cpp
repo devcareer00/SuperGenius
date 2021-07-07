@@ -53,7 +53,7 @@ namespace
         {
         }
 
-        bool PopTask(SGProcessing::Task& task) override
+        bool GrabTask(SGProcessing::Task& task) override
         {
             if (m_tasks.empty())
             {

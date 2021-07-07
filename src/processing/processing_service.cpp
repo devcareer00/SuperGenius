@@ -146,7 +146,7 @@ void ProcessingServiceImpl::HandleRequestTimeout()
     while (processingNodes.size() < m_maximalNodesCount)
     {
         SGProcessing::Task task;
-        if (m_taskQueue->PopTask(task))
+        if (m_taskQueue->GrabTask(task))
         {
             auto node = std::make_shared<ProcessingNode>(
                 m_gossipPubSub, m_processingChannelCapacity, m_processingCore);

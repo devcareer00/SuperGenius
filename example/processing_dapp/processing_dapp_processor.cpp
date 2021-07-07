@@ -58,9 +58,9 @@ namespace
         {
         }
 
-        bool PopTask(SGProcessing::Task& task) override
+        bool GrabTask(SGProcessing::Task& task) override
         {
-            m_logger->info("POP_TASK");
+            m_logger->info("GRAB_TASK");
 
             auto queryKeyValues = m_dataStore->QueryKeyValues("");
             if (queryKeyValues.has_failure())
