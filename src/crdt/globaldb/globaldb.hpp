@@ -15,6 +15,9 @@ namespace sgns::crdt
 class GlobalDB
 {
 public:
+    using Buffer = base::Buffer;
+    using QueryResult = CrdtDatastore::QueryResult;
+
     GlobalDB(
         std::shared_ptr<boost::asio::io_context> context,
         std::string databasePath,
@@ -23,7 +26,30 @@ public:
 
     outcome::result<void> Init(std::shared_ptr<CrdtOptions> crdtOptions);
 
-    std::shared_ptr<CrdtDatastore> GetDatastore() const;
+    /** Puts key-value pair to storage
+    * @param key
+    * @param value
+    * @return outcome::failure on error or success otherwise
+    */
+    outcome::result<void> Put(const HierarchicalKey& key, const Buffer& value);
+
+    /** Gets a value that corresponds to specified key.
+    * @param key - value key
+    * @return value as a Buffer
+    */
+    outcome::result<Buffer> Get(const HierarchicalKey& key);
+
+    /** Removes value for a given key.
+    * @param key to remove from storage
+    * @return outcome::failure on error or success otherwise
+    */
+    outcome::result<void> Remove(const HierarchicalKey& key);
+
+    /** Queries CRDT key-value pairs by prefix. If the prefix is empty returns all elements that were not tombstoned
+    * @param prefix - keys prefix to match. An empty prefix matches any key.
+    * @return list of key-value pairs matches prefix
+    */
+    outcome::result<QueryResult> QueryKeyValues(const std::string& keyPrefix);
 
 private:
     std::shared_ptr<boost::asio::io_context> m_context;

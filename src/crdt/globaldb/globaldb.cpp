@@ -139,8 +139,48 @@ outcome::result<void> GlobalDB::Init(std::shared_ptr<CrdtOptions> crdtOptions)
     return outcome::success();
 }
 
-std::shared_ptr<CrdtDatastore> GlobalDB::GetDatastore() const
+outcome::result<void> GlobalDB::Put(const HierarchicalKey& key, const Buffer& value)
 {
-    return m_crdtDatastore;
+    if (!m_crdtDatastore)
+    {
+        m_logger->error("CRDT datastore is not initialized yet");
+        return outcome::failure(boost::system::error_code{});
+    }
+
+    return m_crdtDatastore->PutKey(key, value);
 }
+
+outcome::result<GlobalDB::Buffer> GlobalDB::Get(const HierarchicalKey& key)
+{
+    if (!m_crdtDatastore)
+    {
+        m_logger->error("CRDT datastore is not initialized yet");
+        return outcome::failure(boost::system::error_code{});
+    }
+
+    return m_crdtDatastore->GetKey(key);
+}
+
+outcome::result<void> GlobalDB::Remove(const HierarchicalKey& key)
+{
+    if (!m_crdtDatastore)
+    {
+        m_logger->error("CRDT datastore is not initialized yet");
+        return outcome::failure(boost::system::error_code{});
+    }
+
+    return m_crdtDatastore->DeleteKey(key);
+}
+
+outcome::result<GlobalDB::QueryResult> GlobalDB::QueryKeyValues(const std::string& keyPrefix)
+{
+    if (!m_crdtDatastore)
+    {
+        m_logger->error("CRDT datastore is not initialized yet");
+        return outcome::failure(boost::system::error_code{});
+    }
+
+    return m_crdtDatastore->QueryKeyValues(keyPrefix);
+}
+
 }

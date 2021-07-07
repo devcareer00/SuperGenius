@@ -101,8 +101,6 @@ int main(int argc, char** argv)
    
   globalDB.Init(crdtOptions);
 
-  auto crdtDatastore = globalDB.GetDatastore();
-
   std::ostringstream streamDisplayDetails;
   // @todo fix commented output
   //streamDisplayDetails << "\n\n\nPeer ID: " << peerID.toBase58() << std::endl;
@@ -148,34 +146,17 @@ int main(int argc, char** argv)
       }
       else if (command == "list")
       {
-        auto queryResult = crdtDatastore->QueryKeyValues("");
+        auto queryResult = globalDB.QueryKeyValues("");
         if (queryResult.has_failure())
         {
           std::cout << "Unable list keys from CRDT datastore" << std::endl;
         }
         else
         {
-          auto keysPrefixResult = crdtDatastore->GetKeysPrefix();
-          if (keysPrefixResult.has_failure())
-          {
-            std::cout << "Unable to get key prefix from CRDT datastore" << std::endl;
-            return EXIT_FAILURE;
-          }
-          auto valueSuffixResult = crdtDatastore->GetValueSuffix();
-          if (valueSuffixResult.has_failure())
-          {
-            std::cout << "Unable to get value suffix from CRDT datastore" << std::endl;
-            return EXIT_FAILURE;
-          }
-
-          auto keysPrefix = keysPrefixResult.value();
-          auto valueSuffix = valueSuffixResult.value();
           for (const auto& element : queryResult.value())
           {
             // key name: /crdt/s/k/<key>/v
             auto strKey = std::string(element.first.toString());
-            boost::algorithm::erase_first(strKey, keysPrefix);
-            boost::algorithm::erase_last(strKey, valueSuffix);
             std::cout << "[" << strKey << "] -> " << element.second.toString() << std::endl;
           }
         }
@@ -190,7 +171,7 @@ int main(int argc, char** argv)
         }
         else
         {
-          auto getKeyResult = crdtDatastore->GetKey(HierarchicalKey(key));
+          auto getKeyResult = globalDB.Get(HierarchicalKey(key));
           if (getKeyResult.has_failure())
           {
             std::cout << "Unable to find key in CRDT datastore: " << key << std::endl;
@@ -233,7 +214,7 @@ int main(int argc, char** argv)
           }
           Buffer valueBuffer;
           valueBuffer.put(value);
-          auto setKeyResult = crdtDatastore->PutKey(HierarchicalKey(key), valueBuffer);
+          auto setKeyResult = globalDB.Put(HierarchicalKey(key), valueBuffer);
           if (setKeyResult.has_failure())
           {
             std::cout << "Unable to put key-value to CRDT datastore: " << key << " " << value << std::endl;

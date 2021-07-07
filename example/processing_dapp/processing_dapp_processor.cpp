@@ -53,8 +53,8 @@ namespace
     {
     public:
         ProcessingTaksQueueImpl(
-            std::shared_ptr<sgns::crdt::CrdtDatastore> dataStore)
-            : m_dataStore(dataStore)
+            std::shared_ptr<sgns::crdt::GlobalDB> db)
+            : m_db(db)
         {
         }
 
@@ -62,24 +62,10 @@ namespace
         {
             m_logger->info("GRAB_TASK");
 
-            auto queryKeyValues = m_dataStore->QueryKeyValues("");
+            auto queryKeyValues = m_db->QueryKeyValues("");
             if (queryKeyValues.has_failure())
             {
                 m_logger->info("Unable list keys from CRDT datastore");
-                return false;
-            }
-
-            auto keysPrefix = m_dataStore->GetKeysPrefix();
-            if (keysPrefix.has_failure())
-            {
-                m_logger->info("Unable to get key prefix from CRDT datastore");
-                return false;
-            }
-
-            auto valueSuffix = m_dataStore->GetValueSuffix();
-            if (valueSuffix.has_failure())
-            {
-                m_logger->info("Unable to get value suffix from CRDT datastore");
                 return false;
             }
 
@@ -100,7 +86,7 @@ namespace
         };
 
     private:
-        std::shared_ptr<sgns::crdt::CrdtDatastore> m_dataStore;
+        std::shared_ptr<sgns::crdt::GlobalDB> m_db;
 
         sgns::base::Logger m_logger = sgns::base::createLogger("ProcessingTaksQueueImpl");
     };
@@ -234,24 +220,18 @@ int main(int argc, char* argv[])
     }
 
     auto io = std::make_shared<boost::asio::io_context>();
-    sgns::crdt::GlobalDB globalDB(
+    auto globalDB = std::make_shared<sgns::crdt::GlobalDB>(
         io, 
         (boost::format("CRDT.Datastore.TEST.%d") %  options->serviceIndex).str(), 
         40010 + options->serviceIndex,
         std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubs, "CRDT.Datastore.TEST.Channel"));
 
     auto crdtOptions = sgns::crdt::CrdtOptions::DefaultOptions();
-    auto initRes = globalDB.Init(crdtOptions);
+    auto initRes = globalDB->Init(crdtOptions);
 
     std::thread iothread([io]() { io->run(); });
 
-    auto dataStore = globalDB.GetDatastore();
-    if (!dataStore)
-    {
-        // @todo log error
-        return 1;
-    }
-    auto taskQueue = std::make_shared<ProcessingTaksQueueImpl>(dataStore);
+    auto taskQueue = std::make_shared<ProcessingTaksQueueImpl>(globalDB);
 
     auto processingCore = std::make_shared<ProcessingCoreImpl>(options->nSubTasks, options->subTaskProcessingTime);
     ProcessingServiceImpl processingService(pubs, maximalNodesCount, options->roomSize, taskQueue, processingCore);
