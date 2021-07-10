@@ -24,7 +24,12 @@ public:
     bool GrabTask(SGProcessing::Task& task) override
     {
         return false;
-    };
+    }
+
+    bool CompleteTask(SGProcessing::TaskResult& task) override
+    {
+        return false;
+    }
 };
 
 /**

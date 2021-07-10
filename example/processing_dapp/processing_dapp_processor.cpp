@@ -74,16 +74,28 @@ namespace
                 m_logger->info("TASK_QUEUE_SIZE: {}", queryKeyValues.value().size());
                 for (auto element : queryKeyValues.value())
                 {
-                    m_logger->info(element.first);
+                    sgns::base::Buffer keyPrefix;
+                    keyPrefix.put(element.first);
+
+                    m_logger->info("TASK_QUEUE_ELEMENT_KEY: {}", keyPrefix.toString());
                     // @todo Check if the task is not locked
                     if (task.ParseFromArray(element.second.data(), element.second.size()))
                     {
                         return true;
                     }
-                }
+                }   
             }
             return false;
-        };
+        }
+
+        bool CompleteTask(SGProcessing::TaskResult& taskResult) override
+        {
+            sgns::base::Buffer valueBuffer;
+            valueBuffer.put(taskResult.SerializeAsString());
+            auto res = m_db->Put(sgns::crdt::HierarchicalKey("task_results/" + taskResult.task_ipfs_block_id()), valueBuffer);
+
+            return !res.has_failure();
+        }
 
     private:
         std::shared_ptr<sgns::crdt::GlobalDB> m_db;

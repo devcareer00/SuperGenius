@@ -67,6 +67,11 @@ namespace
             return true;
         };
 
+        bool CompleteTask(SGProcessing::TaskResult& task) override
+        {
+            return false;
+        }
+
     private:
         std::list<SGProcessing::Task> m_tasks;
     };

@@ -14,6 +14,7 @@ public:
     virtual ~ProcessingTaksQueue() = default;
 
     virtual bool GrabTask(SGProcessing::Task& task) = 0;
+    virtual bool CompleteTask(SGProcessing::TaskResult& task) = 0;
 };
 
 #endif // GRPC_FOR_SUPERGENIUS_PROCESSING_TASK_QUEUE_HPP
