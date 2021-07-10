@@ -128,21 +128,21 @@ int main(int argc, char* argv[])
     {
         sgns::base::Buffer valueBuffer;
         valueBuffer.put(task.SerializeAsString());
-        auto setKeyResult = globalDB.Put(sgns::crdt::HierarchicalKey("TASK_1"), valueBuffer);
+        auto setKeyResult = globalDB.Put(sgns::crdt::HierarchicalKey("tasks/TASK_1"), valueBuffer);
         if (setKeyResult.has_failure())
         {
             std::cout << "Unable to put key-value to CRDT datastore." << std::endl;
         }
 
         // Check if data put
-        auto getKeyResult = globalDB.Get(sgns::crdt::HierarchicalKey("TASK_1"));
+        auto getKeyResult = globalDB.Get(sgns::crdt::HierarchicalKey("tasks/TASK_1"));
         if (getKeyResult.has_failure())
         {
             std::cout << "Unable to find key in CRDT datastore"<< std::endl;
         }
         else
         {
-            std::cout << "[" << "TASK_1" << "] -> " << std::endl;
+            std::cout << "[" << "tasks/TASK_1" << "] -> " << std::endl;
             // getKeyResult.value().toString()
         }
     }

@@ -62,7 +62,7 @@ namespace
         {
             m_logger->info("GRAB_TASK");
 
-            auto queryKeyValues = m_db->QueryKeyValues("");
+            auto queryKeyValues = m_db->QueryKeyValues("tasks");
             if (queryKeyValues.has_failure())
             {
                 m_logger->info("Unable list keys from CRDT datastore");
