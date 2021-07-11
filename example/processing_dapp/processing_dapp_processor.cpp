@@ -55,6 +55,7 @@ namespace
         ProcessingTaksQueueImpl(
             std::shared_ptr<sgns::crdt::GlobalDB> db)
             : m_db(db)
+            , m_processingTimeout(std::chrono::seconds(10))
         {
         }
 
@@ -62,44 +63,132 @@ namespace
         {
             m_logger->info("GRAB_TASK");
 
-            auto queryKeyValues = m_db->QueryKeyValues("tasks");
-            if (queryKeyValues.has_failure())
+            auto queryTasks = m_db->QueryKeyValues("tasks");
+            if (queryTasks.has_failure())
             {
-                m_logger->info("Unable list keys from CRDT datastore");
+                m_logger->info("Unable list tasks from CRDT datastore");
                 return false;
             }
 
-            if (queryKeyValues.has_value())
+            std::set<std::string> lockedTasks;
+            if (queryTasks.has_value())
             {
-                m_logger->info("TASK_QUEUE_SIZE: {}", queryKeyValues.value().size());
-                for (auto element : queryKeyValues.value())
+                m_logger->info("TASK_QUEUE_SIZE: {}", queryTasks.value().size());
+                bool isTaskGrabbed = false;
+                for (auto element : queryTasks.value())
                 {
-                    sgns::base::Buffer keyPrefix;
-                    keyPrefix.put(element.first);
+                    auto taskKey = m_db->KeyToString(element.first);
+                    if (taskKey.has_value())
+                    {
 
-                    m_logger->info("TASK_QUEUE_ELEMENT_KEY: {}", keyPrefix.toString());
-                    // @todo Check if the task is not locked
-                    if (task.ParseFromArray(element.second.data(), element.second.size()))
+                        m_logger->info("TASK_QUEUE_ELEMENT_KEY: {}", taskKey.value());
+
+                        if (!IsTaskLocked(taskKey.value()))
+                        {
+                            if (task.ParseFromArray(element.second.data(), element.second.size()))
+                            {
+                                if (LockTask(taskKey.value()))
+                                {
+                                    return true;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            lockedTasks.insert(taskKey.value());
+                        }
+                    }
+                    else
+                    {
+                        m_logger->info("Undable to convert a key to string");
+                    }
+                }
+
+                // No task was grabbed so far
+                for (auto lockedTask : lockedTasks)
+                {
+                    if (MoveExpiredTaskLock(lockedTask, task))
                     {
                         return true;
                     }
-                }   
+                }
+
             }
             return false;
         }
 
         bool CompleteTask(SGProcessing::TaskResult& taskResult) override
         {
-            sgns::base::Buffer valueBuffer;
-            valueBuffer.put(taskResult.SerializeAsString());
-            auto res = m_db->Put(sgns::crdt::HierarchicalKey("task_results/" + taskResult.task_ipfs_block_id()), valueBuffer);
+            sgns::base::Buffer data;
+            data.put(taskResult.SerializeAsString());
+            // @todo Extract task key from task id
+            auto res = m_db->Put(sgns::crdt::HierarchicalKey("task_results/" + taskResult.task_id()), data);
 
             return !res.has_failure();
         }
 
+        bool IsTaskLocked(const std::string& taskKey)
+        {
+            auto lockData = m_db->Get(sgns::crdt::HierarchicalKey("task_lock/" + taskKey));
+            return (lockData.has_failure() && lockData.has_value());
+        }
+
+        bool LockTask(const std::string& taskKey)
+        {
+            auto timestamp = std::chrono::system_clock::now();
+
+            SGProcessing::TaskLock lock;
+            lock.set_task_id(taskKey);
+            lock.set_lock_timestamp(timestamp.time_since_epoch().count());
+
+            sgns::base::Buffer lockData;
+            lockData.put(lock.SerializeAsString());
+
+            auto res = m_db->Put(sgns::crdt::HierarchicalKey("task_lock/" + taskKey), lockData);
+            return !res.has_failure();
+        }
+
+        bool MoveExpiredTaskLock(const std::string& taskKey, SGProcessing::Task& task)
+        {
+            auto timestamp = std::chrono::system_clock::now();
+
+            auto lockData = m_db->Get(sgns::crdt::HierarchicalKey("task_lock/" + taskKey));
+            if (lockData.has_failure() && lockData.has_value())
+            {
+                // Check task expiration
+                SGProcessing::TaskLock lock;
+                if (lock.ParseFromArray(lockData.value().data(), lockData.value().size()))
+                {
+                    auto expirationTime =
+                        std::chrono::system_clock::time_point(
+                            std::chrono::system_clock::duration(lock.lock_timestamp())) + m_processingTimeout;
+                    if (timestamp > expirationTime)
+                    {
+                        auto taskData = m_db->Get(taskKey);
+
+                        if (!taskData.has_failure())
+                        {
+                            if (task.ParseFromArray(taskData.value().data(), taskData.value().size()))
+                            {
+                                if (LockTask(taskKey))
+                                {
+                                    return true;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            m_logger->debug("Unable to find a task {}", taskKey);
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
     private:
         std::shared_ptr<sgns::crdt::GlobalDB> m_db;
-
+        std::chrono::system_clock::duration m_processingTimeout;
         sgns::base::Logger m_logger = sgns::base::createLogger("ProcessingTaksQueueImpl");
     };
 
