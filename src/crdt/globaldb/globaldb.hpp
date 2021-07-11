@@ -51,6 +51,12 @@ public:
     */
     outcome::result<QueryResult> QueryKeyValues(const std::string& keyPrefix);
 
+    /** Converts a unique key part to a string representation
+    * @param key - binary key to convert
+    * @return string represenation of a unique key part
+    */
+    outcome::result<std::string> KeyToString(const Buffer& key) const;
+
 private:
     std::shared_ptr<boost::asio::io_context> m_context;
     std::string m_databasePath;
