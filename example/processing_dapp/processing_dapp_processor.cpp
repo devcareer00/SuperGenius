@@ -80,27 +80,29 @@ namespace
                     auto taskKey = m_db->KeyToString(element.first);
                     if (taskKey.has_value())
                     {
+                        bool isTaskLocked = IsTaskLocked(taskKey.value());
+                        m_logger->debug("TASK_QUEUE_ITEM: {}, LOCKED: {}", taskKey.value(), isTaskLocked);
 
-                        m_logger->info("TASK_QUEUE_ELEMENT_KEY: {}", taskKey.value());
-
-                        if (!IsTaskLocked(taskKey.value()))
+                        if (!isTaskLocked)
                         {
                             if (task.ParseFromArray(element.second.data(), element.second.size()))
                             {
                                 if (LockTask(taskKey.value()))
                                 {
+                                    m_logger->debug("TASK_LOCKED {}", taskKey.value());
                                     return true;
                                 }
                             }
                         }
                         else
                         {
+                            m_logger->debug("TASK_PREVIOUSLY_LOCKED {}", taskKey.value());
                             lockedTasks.insert(taskKey.value());
                         }
                     }
                     else
                     {
-                        m_logger->info("Undable to convert a key to string");
+                        m_logger->debug("Undable to convert a key to string");
                     }
                 }
 
@@ -129,8 +131,8 @@ namespace
 
         bool IsTaskLocked(const std::string& taskKey)
         {
-            auto lockData = m_db->Get(sgns::crdt::HierarchicalKey("task_lock/" + taskKey));
-            return (lockData.has_failure() && lockData.has_value());
+            auto lockData = m_db->Get(sgns::crdt::HierarchicalKey("lock_" + taskKey));
+            return (!lockData.has_failure() && lockData.has_value());
         }
 
         bool LockTask(const std::string& taskKey)
@@ -144,7 +146,7 @@ namespace
             sgns::base::Buffer lockData;
             lockData.put(lock.SerializeAsString());
 
-            auto res = m_db->Put(sgns::crdt::HierarchicalKey("task_lock/" + taskKey), lockData);
+            auto res = m_db->Put(sgns::crdt::HierarchicalKey("lock_" + taskKey), lockData);
             return !res.has_failure();
         }
 
@@ -152,7 +154,7 @@ namespace
         {
             auto timestamp = std::chrono::system_clock::now();
 
-            auto lockData = m_db->Get(sgns::crdt::HierarchicalKey("task_lock/" + taskKey));
+            auto lockData = m_db->Get(sgns::crdt::HierarchicalKey("lock_" + taskKey));
             if (lockData.has_failure() && lockData.has_value())
             {
                 // Check task expiration
