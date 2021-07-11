@@ -6,7 +6,7 @@ ProcessingServiceImpl::ProcessingServiceImpl(
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> gossipPubSub,
     size_t maximalNodesCount,
     size_t processingChannelCapacity,
-    std::shared_ptr<ProcessingTaksQueue> taskQueue,
+    std::shared_ptr<ProcessingTaskQueue> taskQueue,
     std::shared_ptr<ProcessingCore> processingCore)
     : m_gossipPubSub(gossipPubSub)
     , m_context(gossipPubSub->GetAsioContext())

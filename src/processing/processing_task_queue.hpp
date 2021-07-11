@@ -8,10 +8,10 @@
 
 #include "SGProcessing.pb.h"
 
-class ProcessingTaksQueue
+class ProcessingTaskQueue
 {
 public:
-    virtual ~ProcessingTaksQueue() = default;
+    virtual ~ProcessingTaskQueue() = default;
 
     virtual bool GrabTask(SGProcessing::Task& task) = 0;
     virtual bool CompleteTask(SGProcessing::TaskResult& task) = 0;

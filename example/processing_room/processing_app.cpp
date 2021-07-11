@@ -45,10 +45,10 @@ namespace
     };
 
 
-    class ProcessingTaksQueueImpl : public ProcessingTaksQueue
+    class ProcessingTaskQueueImpl : public ProcessingTaskQueue
     {
     public:
-        ProcessingTaksQueueImpl(const std::list<SGProcessing::Task>& tasks)
+        ProcessingTaskQueueImpl(const std::list<SGProcessing::Task>& tasks)
             : m_tasks(tasks)
         {
         }
@@ -225,7 +225,7 @@ int main(int argc, char* argv[])
         });
     }
 
-    auto taskQueue = std::make_shared<ProcessingTaksQueueImpl>(tasks);
+    auto taskQueue = std::make_shared<ProcessingTaskQueueImpl>(tasks);
     auto processingCore = std::make_shared<ProcessingCoreImpl>(options->nSubTasks, options->subTaskProcessingTime);
     ProcessingServiceImpl processingService(pubs, maximalNodesCount, options->roomSize, taskQueue, processingCore);
 

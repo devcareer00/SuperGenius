@@ -49,10 +49,10 @@ namespace
     };
 
 
-    class ProcessingTaksQueueImpl : public ProcessingTaksQueue
+    class ProcessingTaskQueueImpl : public ProcessingTaskQueue
     {
     public:
-        ProcessingTaksQueueImpl(
+        ProcessingTaskQueueImpl(
             std::shared_ptr<sgns::crdt::GlobalDB> db)
             : m_db(db)
             , m_processingTimeout(std::chrono::seconds(10))
@@ -189,7 +189,7 @@ namespace
     private:
         std::shared_ptr<sgns::crdt::GlobalDB> m_db;
         std::chrono::system_clock::duration m_processingTimeout;
-        sgns::base::Logger m_logger = sgns::base::createLogger("ProcessingTaksQueueImpl");
+        sgns::base::Logger m_logger = sgns::base::createLogger("ProcessingTaskQueueImpl");
     };
 
     // cmd line options
@@ -282,8 +282,11 @@ int main(int argc, char* argv[])
     auto loggerProcessingService = libp2p::common::createLogger("ProcessingService");
     loggerProcessingService->set_level(spdlog::level::trace);
 
-    auto loggerProcessingQueue = libp2p::common::createLogger("ProcessingSubTaskQueue");
-    loggerProcessingQueue->set_level(spdlog::level::debug);
+    auto loggerProcessingTaskQueue = libp2p::common::createLogger("ProcessingTaskQueueImpl");
+    loggerProcessingTaskQueue->set_level(spdlog::level::debug);
+
+    auto loggerProcessingSubTaskQueue = libp2p::common::createLogger("ProcessingSubTaskQueue");
+    loggerProcessingSubTaskQueue->set_level(spdlog::level::debug);
     
     auto loggerGlobalDB = libp2p::common::createLogger("GlobalDB");
     loggerGlobalDB->set_level(spdlog::level::debug);
@@ -332,7 +335,7 @@ int main(int argc, char* argv[])
 
     std::thread iothread([io]() { io->run(); });
 
-    auto taskQueue = std::make_shared<ProcessingTaksQueueImpl>(globalDB);
+    auto taskQueue = std::make_shared<ProcessingTaskQueueImpl>(globalDB);
 
     auto processingCore = std::make_shared<ProcessingCoreImpl>(options->nSubTasks, options->subTaskProcessingTime);
     ProcessingServiceImpl processingService(pubs, maximalNodesCount, options->roomSize, taskQueue, processingCore);

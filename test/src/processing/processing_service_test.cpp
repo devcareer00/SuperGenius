@@ -18,7 +18,7 @@ namespace
     };
 }
 
-class ProcessingTaksQueueImpl : public ProcessingTaksQueue
+class ProcessingTaskQueueImpl : public ProcessingTaskQueue
 {
 public:
     bool GrabTask(SGProcessing::Task& task) override
@@ -43,7 +43,7 @@ TEST(ProcessingServiceTest, ProcessingSlotsAreAvailable)
     pubs->Start(40001, {});
 
     auto processingCore = std::make_shared<ProcessingCoreImpl>();
-    auto taskQueue = std::make_shared<ProcessingTaksQueueImpl>();
+    auto taskQueue = std::make_shared<ProcessingTaskQueueImpl>();
     ProcessingServiceImpl processingService(pubs, 1, 1, taskQueue, processingCore);
 
 
@@ -78,7 +78,7 @@ TEST(ProcessingServiceTest, NoProcessingSlotsAvailable)
     pubs->Start(40001, {});
 
     auto processingManager = std::make_shared<ProcessingCoreImpl>();
-    auto taskQueue = std::make_shared<ProcessingTaksQueueImpl>();
+    auto taskQueue = std::make_shared<ProcessingTaskQueueImpl>();
     ProcessingServiceImpl processingService(pubs, 1, 1, taskQueue, processingManager);
 
 
