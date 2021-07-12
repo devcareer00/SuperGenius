@@ -155,7 +155,7 @@ namespace
             auto timestamp = std::chrono::system_clock::now();
 
             auto lockData = m_db->Get(sgns::crdt::HierarchicalKey("lock_" + taskKey));
-            if (lockData.has_failure() && lockData.has_value())
+            if (!lockData.has_failure() && lockData.has_value())
             {
                 // Check task expiration
                 SGProcessing::TaskLock lock;
