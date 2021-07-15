@@ -80,8 +80,6 @@ namespace sgns::crdt
 
       std::mutex currentDeltaMutex_;
       std::shared_ptr<Delta> currentDelta_;
-
-      Logger logger_;
   };
 
   /** @brief CrdtDatastore provides a replicated go-datastore (key-value store)
