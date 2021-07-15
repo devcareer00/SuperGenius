@@ -234,36 +234,5 @@ namespace sgns::crdt
     EXPECT_OUTCOME_EQ(crdtDatastore_->HasKey(newKey4), true);
     EXPECT_OUTCOME_EQ(crdtDatastore_->HasKey(newKey5), false);
   }
-
-  TEST_F(CrdtDatastoreTest, TestBatchFunctions)
-  {
-    auto newKey1 = HierarchicalKey("NewKey1");
-    CrdtBuffer buffer1;
-    buffer1.put("Data1");
-
-    auto newKey2 = HierarchicalKey("NewKey2");
-    CrdtBuffer buffer2;
-    buffer2.put("Data2");
-
-    auto newKey3 = HierarchicalKey("NewKey3");
-    CrdtBuffer buffer3;
-    buffer3.put("Data3");
-
-    EXPECT_OUTCOME_TRUE(batch, crdtDatastore_->GetBatch());
-    EXPECT_OUTCOME_TRUE_1(crdtDatastore_->PutBatch(batch, newKey1, buffer1));
-    EXPECT_OUTCOME_TRUE_1(crdtDatastore_->PutBatch(batch, newKey2, buffer2));
-    EXPECT_OUTCOME_TRUE_1(crdtDatastore_->PutBatch(batch, newKey3, buffer3));
-    EXPECT_OUTCOME_TRUE_1(crdtDatastore_->CommitBatch(batch));
-    EXPECT_OUTCOME_EQ(crdtDatastore_->HasKey(newKey1), true);
-    EXPECT_OUTCOME_EQ(crdtDatastore_->HasKey(newKey2), true);
-    EXPECT_OUTCOME_EQ(crdtDatastore_->HasKey(newKey3), true);
-
-    EXPECT_OUTCOME_TRUE_1(crdtDatastore_->DeleteBatch(batch, newKey2));
-    EXPECT_OUTCOME_TRUE_1(crdtDatastore_->DeleteBatch(batch, newKey3));
-    EXPECT_OUTCOME_TRUE_1(crdtDatastore_->CommitBatch(batch));
-    EXPECT_OUTCOME_EQ(crdtDatastore_->HasKey(newKey1), true);
-    EXPECT_OUTCOME_EQ(crdtDatastore_->HasKey(newKey2), false);
-    EXPECT_OUTCOME_EQ(crdtDatastore_->HasKey(newKey3), false);
-
-  }
+  
 }

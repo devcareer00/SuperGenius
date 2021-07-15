@@ -556,28 +556,6 @@ namespace sgns::crdt
     return this->Publish(deltaResult.value());
   }
 
-  outcome::result<void> CrdtDatastore::PutBatch(const std::unique_ptr<storage::BufferBatch>& aBatchDataStore, const HierarchicalKey& aKey,
-    const Buffer& aValueBuffer)
-  {
-    if (this->options_ == nullptr)
-    {
-      return outcome::failure(boost::system::error_code{});
-    }
-
-    auto addToDeltaResult = this->AddToDelta(aKey, aValueBuffer);
-    if (addToDeltaResult.has_failure())
-    {
-      return outcome::failure(addToDeltaResult.error());
-    }
-    if (addToDeltaResult.value() > this->options_->maxBatchDeltaSize)
-    {
-      LOG_INFO("Delta size over MaxBatchDeltaSize. Commiting.");
-      return this->CommitBatch(aBatchDataStore);
-    }
-
-    return outcome::success();
-  }
-
   outcome::result<void> CrdtDatastore::DeleteKey(const HierarchicalKey& aKey)
   {
     if (this->set_ == nullptr)
@@ -597,33 +575,6 @@ namespace sgns::crdt
     }
 
     return this->Publish(deltaResult.value());
-  }
-
-  outcome::result<void> CrdtDatastore::DeleteBatch(const std::unique_ptr<storage::BufferBatch>& aBatchDataStore, const HierarchicalKey& aKey)
-  {
-    if (this->options_ == nullptr)
-    {
-      return outcome::failure(boost::system::error_code{});
-    }
-
-    auto removeResult = this->RemoveFromDelta(aKey);
-    if (removeResult.has_failure())
-    {
-      return outcome::failure(removeResult.error());
-    }
-
-    if (removeResult.value() > this->options_->maxBatchDeltaSize)
-    {
-      LOG_INFO("Delta size over MaxBatchDeltaSize. Commiting.");
-      return this->CommitBatch(aBatchDataStore);
-    }
-
-    return outcome::success();
-  }
-
-  outcome::result<void> CrdtDatastore::CommitBatch(const std::unique_ptr<storage::BufferBatch>& aBatchDataStore)
-  {
-    return this->PublishDelta();
   }
 
   outcome::result<int> CrdtDatastore::AddToDelta(const HierarchicalKey& aKey, const Buffer& aValue)
@@ -748,15 +699,6 @@ namespace sgns::crdt
       }
     }
     return outcome::success();
-  }
-
-  outcome::result<std::unique_ptr<storage::BufferBatch>> CrdtDatastore::GetBatch()
-  {
-    if (this->dataStore_ == nullptr)
-    {
-      return outcome::failure(boost::system::error_code{});
-    }
-    return this->dataStore_->batch();
   }
 
   outcome::result<std::shared_ptr<CrdtDatastore::Node>> CrdtDatastore::PutBlock(

@@ -138,35 +138,6 @@ namespace sgns::crdt
     */
     outcome::result<void> Publish(const std::shared_ptr<Delta>& aDelta);
 
-    /** GetBatch returns batch used for datastore batch operations 
-    * @return pointer to datastore batch 
-    */
-    outcome::result<std::unique_ptr<storage::BufferBatch>> GetBatch();
-
-    /** PutBatch adds key-value pair to database in batch mode, when caller commits data
-    * @param aBatchDataStore pointer to datastore batch 
-    * @param aKey key to add to datastore 
-    * @param aValueBuffer value to add to datastore 
-    * @return returns outcome::success on success or outcome::failure otherwise
-    * \sa CommitBatch, GetBatch
-    */
-    outcome::result<void> PutBatch(const std::unique_ptr<storage::BufferBatch>& aBatchDataStore, const HierarchicalKey& aKey, 
-      const Buffer& aValueBuffer);
-
-    /** DeleteBatch deletes key from database in batch mode, when caller commits data
-    * @param aBatchDataStore pointer to datastore batch
-    * @param aKey key to remove from datastore
-    * @return returns outcome::success on success or outcome::failure otherwise
-    * \sa CommitBatch, GetBatch
-    */
-    outcome::result<void> DeleteBatch(const std::unique_ptr<storage::BufferBatch>&aBatchDataStore, const HierarchicalKey & aKey);
-
-    /** CommitBatch commits changes to datastore 
-    * @param aBatchDataStore pointer to datastore batch
-    * @return returns outcome::success on success or outcome::failure otherwise
-    */
-    outcome::result<void> CommitBatch(const std::unique_ptr<storage::BufferBatch>&aBatchDataStore);
-
     /** PrintDAG pretty prints the current Merkle-DAG using the given printFunc
     * @return returns outcome::success on success or outcome::failure otherwise
     */
