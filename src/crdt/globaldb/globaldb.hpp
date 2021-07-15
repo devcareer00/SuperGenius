@@ -57,6 +57,11 @@ public:
     */
     outcome::result<std::string> KeyToString(const Buffer& key) const;
 
+    /** Create a transaction object
+    * @return new transaction
+    */
+    std::shared_ptr<CrdtDataStoreTransaction> BeginTransaction();
+
 private:
     std::shared_ptr<boost::asio::io_context> m_context;
     std::string m_databasePath;

@@ -215,4 +215,9 @@ outcome::result<std::string> GlobalDB::KeyToString(const Buffer& key) const
     return sKey.substr(keyPos, suffixPos - keyPos);
 }
 
+std::shared_ptr<CrdtDataStoreTransaction> GlobalDB::BeginTransaction()
+{
+    return m_crdtDatastore->BeginTransaction();
+}
+
 }

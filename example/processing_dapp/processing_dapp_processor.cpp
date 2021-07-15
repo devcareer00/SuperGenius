@@ -123,9 +123,13 @@ namespace
         {
             sgns::base::Buffer data;
             data.put(taskResult.SerializeAsString());
-            // @todo Extract task key from task id
-            auto res = m_db->Put(sgns::crdt::HierarchicalKey("task_results/" + taskResult.task_id()), data);
 
+            auto transaction = m_db->BeginTransaction();
+            transaction->AddToDelta(sgns::crdt::HierarchicalKey("task_results/" + taskResult.task_id()), data);
+            transaction->RemoveFromDelta(sgns::crdt::HierarchicalKey("lock_" + taskResult.task_id()));
+            transaction->RemoveFromDelta(sgns::crdt::HierarchicalKey(taskResult.task_id()));
+
+            auto res = transaction->PublishDelta();
             return !res.has_failure();
         }
 
