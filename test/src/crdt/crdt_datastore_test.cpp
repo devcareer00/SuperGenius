@@ -186,11 +186,12 @@ namespace sgns::crdt
     CrdtBuffer buffer3;
     buffer3.put("Data3");
 
-    EXPECT_OUTCOME_TRUE_1(crdtDatastore_->AddToDelta(newKey1, buffer1));
-    EXPECT_OUTCOME_TRUE_1(crdtDatastore_->AddToDelta(newKey2, buffer2));
-    EXPECT_OUTCOME_TRUE_1(crdtDatastore_->AddToDelta(newKey3, buffer3));
-    EXPECT_OUTCOME_TRUE(deltaSize, crdtDatastore_->RemoveFromDelta(newKey2));
-    EXPECT_OUTCOME_TRUE_1(crdtDatastore_->PublishDelta());
+    auto transaction = crdtDatastore_->BeginTransaction();
+    EXPECT_OUTCOME_TRUE_1(transaction->AddToDelta(newKey1, buffer1));
+    EXPECT_OUTCOME_TRUE_1(transaction->AddToDelta(newKey2, buffer2));
+    EXPECT_OUTCOME_TRUE_1(transaction->AddToDelta(newKey3, buffer3));
+    EXPECT_OUTCOME_TRUE(deltaSize, transaction->RemoveFromDelta(newKey2));
+    EXPECT_OUTCOME_TRUE_1(transaction->PublishDelta());
     EXPECT_OUTCOME_EQ(crdtDatastore_->HasKey(newKey1), true);
     EXPECT_OUTCOME_EQ(crdtDatastore_->HasKey(newKey2), false);
 

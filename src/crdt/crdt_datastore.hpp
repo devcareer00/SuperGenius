@@ -20,6 +20,69 @@
 namespace sgns::crdt
 {
   class CrdtSet;
+  class CrdtDatastore;
+  /** @brief CrdtDataStoreTransaction incapsulated transaction functionality
+  * of CRDT datastore
+  */
+  class CrdtDataStoreTransaction
+  {
+  public:
+      using Buffer = base::Buffer;
+      using Logger = base::Logger;
+      using Delta = pb::Delta;
+      using Element = pb::Element;
+      //using Node = ipfs_lite::ipld::IPLDNode;
+
+      CrdtDataStoreTransaction() = delete;
+
+      /** Constructor
+      * @param datastore pointer to data storage
+      */
+      CrdtDataStoreTransaction(std::shared_ptr<CrdtDatastore> datastore);
+
+      /** AddToDelta creates delta with key and value pair and merges it into current delta,
+      * caller is responsible for calling PublishDelta()
+      * @param aKey HierarchicalKey to add to delta
+      * @param aValue Buffer value to add to delta
+      * @return returns size of current delta or outcome::failure on error
+      */
+      outcome::result<int> AddToDelta(const HierarchicalKey& aKey, const Buffer& aValue);
+
+      /** RemoveFromDelta creates delta to remove and merges it into current delta as tombstone,
+      * caller is responsible for calling PublishDelta()
+      * @param aKey HierarchicalKey to remove from delta
+      * @return returns size of current delta or outcome::failure on error
+      */
+      outcome::result<int> RemoveFromDelta(const HierarchicalKey& aKey);
+
+      /** PublishDelta publishes current delta constructed and broadcast it
+      * @return returns outcome::success on success or outcome::failure otherwise
+      */
+      outcome::result<void> PublishDelta();
+
+  private:
+      /** UpdateDeltaWithRemove updates current delta with tomstones
+      * To satisfy datastore semantics, we need to remove elements from the current
+      * batch if they were added.
+      * @param aKey HierarchicalKey for delta
+      * @param aDelta pointer to delta to merge
+      */
+      int UpdateDeltaWithRemove(const HierarchicalKey& aKey, const std::shared_ptr<Delta>& aDelta);
+
+      /** UpdateDelta updates current delta by merging input delta
+      * @param aDelta pointer to Delta to merge
+      * @return the size of current delta just merged
+      *
+      */
+      int UpdateDelta(const std::shared_ptr<Delta>& aDelta);
+
+      std::shared_ptr<CrdtDatastore> datastore_;
+
+      std::mutex currentDeltaMutex_;
+      std::shared_ptr<Delta> currentDelta_;
+
+      Logger logger_;
+  };
 
   /** @brief CrdtDatastore provides a replicated go-datastore (key-value store)
   * implementation using Merkle-CRDTs built with IPLD nodes.
@@ -33,7 +96,7 @@ namespace sgns::crdt
   * paper by Héctor Sanjuán, Samuli Pöyhtäri and Pedro Teixeira.
   *
   */
-  class CrdtDatastore
+  class CrdtDatastore : public std::enable_shared_from_this<CrdtDatastore>
   {
   public: 
     using Buffer = base::Buffer;
@@ -112,26 +175,6 @@ namespace sgns::crdt
     */
     outcome::result<void> DeleteKey(const HierarchicalKey& aKey);
 
-    /** AddToDelta creates delta with key and value pair and merges it into current delta, 
-    * caller is responsible for calling PublishDelta()
-    * @param aKey HierarchicalKey to add to delta 
-    * @param aValue Buffer value to add to delta 
-    * @return returns size of current delta or outcome::failure on error
-    */
-    outcome::result<int> AddToDelta(const HierarchicalKey& aKey, const Buffer& aValue);
-
-    /** RemoveFromDelta creates delta to remove and merges it into current delta as tombstone,
-    * caller is responsible for calling PublishDelta()
-    * @param aKey HierarchicalKey to remove from delta
-    * @return returns size of current delta or outcome::failure on error
-    */
-    outcome::result<int> RemoveFromDelta(const HierarchicalKey& aKey);
-
-    /** PublishDelta publishes current delta constructed and broadcast it 
-    * @return returns outcome::success on success or outcome::failure otherwise
-    */
-    outcome::result<void> PublishDelta();
-
     /** Publish publishes delta and broadcast it
     * @param aDelta Delta to publish
     * @return returns outcome::success on success or outcome::failure otherwise
@@ -148,6 +191,24 @@ namespace sgns::crdt
     * @return vector of CIDs or outcome::failure on error
     */
     outcome::result<std::vector<CID>> DecodeBroadcast(const Buffer& buff);
+
+    /** Create a transaction object
+    * @return new transaction
+    */
+    std::shared_ptr<CrdtDataStoreTransaction> BeginTransaction();
+
+    /** Returns a new delta-set adding the given key/value.
+    * @param key - delta key to add to datastore 
+    * @param value - delta value to add to datastore 
+    * @return pointer to new delta or outcome::failure on error
+    */
+    outcome::result<std::shared_ptr<Delta>> CreateDeltaToAdd(const std::string& key, const std::string& value);
+
+    /** Returns a new delta-set removing the given keys with prefix /namespace/s/<key>
+    * @param key - delta key to remove from datastore 
+    * @return pointer to delta or outcome::failure on error
+    */
+    outcome::result<std::shared_ptr<Delta>> CreateDeltaToRemove(const std::string& key);
 
   protected:
 
@@ -245,7 +306,8 @@ namespace sgns::crdt
     * @param aDelta Delta to serialize into IPLD node 
     * @return IPLD node or outcome::failure on error
     */
-    outcome::result<std::shared_ptr<Node>> PutBlock(const std::vector<CID>& aHeads, const uint64_t& aHeight, const std::shared_ptr<Delta>& aDelta);
+    outcome::result<std::shared_ptr<Node>> PutBlock(
+        const std::vector<CID>& aHeads, const uint64_t& aHeight, const std::shared_ptr<Delta>& aDelta);
 
     /** AddDAGNode adds node to DAGSyncer and processes new blocks.
     * @param aDelta Pointer to Delta used for generating node and process it 
@@ -253,21 +315,6 @@ namespace sgns::crdt
     * \sa PutBlock, ProcessNode
     */
     outcome::result<CID> AddDAGNode(const std::shared_ptr<Delta>& aDelta);
-
-    /** UpdateDeltaWithRemove updates current delta with tomstones
-    * To satisfy datastore semantics, we need to remove elements from the current
-    * batch if they were added.
-    * @param aKey HierarchicalKey for delta
-    * @param aDelta pointer to delta to merge 
-    */
-    int UpdateDeltaWithRemove(const HierarchicalKey& aKey, const std::shared_ptr<Delta>& aDelta);
-
-    /** UpdateDelta updates current delta by merging input delta 
-    * @param aDelta pointer to Delta to merge 
-    * @return the size of current delta just merged 
-    * 
-    */
-    int UpdateDelta(const std::shared_ptr<Delta>& aDelta);
 
     /** Close shuts down the CRDT datastore and worker threads. It should not be used afterwards.
     */
@@ -302,9 +349,6 @@ namespace sgns::crdt
     std::shared_ptr<CrdtSet> set_ = nullptr;
     std::shared_ptr<CrdtHeads> heads_ = nullptr;
 
-    std::mutex currentDeltaMutex_;
-    std::shared_ptr <Delta> currentDelta_ = nullptr;
-
     std::shared_mutex seenHeadsMutex_;
     std::vector<CID> seenHeads_;
 
@@ -328,7 +372,6 @@ namespace sgns::crdt
     std::vector<std::shared_ptr<DagWorker>> dagWorkers_;
     std::shared_mutex dagWorkerMutex_;
     std::queue<DagJob> dagWorkerJobList;
-
   };
 
 } // namespace sgns::crdt 

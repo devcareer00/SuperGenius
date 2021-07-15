@@ -577,38 +577,33 @@ namespace sgns::crdt
     return this->Publish(deltaResult.value());
   }
 
-  outcome::result<int> CrdtDatastore::AddToDelta(const HierarchicalKey& aKey, const Buffer& aValue)
+  CrdtDataStoreTransaction::CrdtDataStoreTransaction(std::shared_ptr<CrdtDatastore> datastore)
+      : datastore_(std::move(datastore))
   {
-    if (this->set_ == nullptr)
-    {
-      return outcome::failure(boost::system::error_code{});
-    }
-
-    auto deltaResult = this->set_->CreateDeltaToAdd(aKey.GetKey(), std::string(aValue.toString()));
-    if (deltaResult.has_failure())
-    {
-      return outcome::failure(deltaResult.error());
-    }
-
-    return this->UpdateDelta(deltaResult.value());
   }
 
-  outcome::result<int> CrdtDatastore::RemoveFromDelta(const HierarchicalKey& aKey)
+  outcome::result<int> CrdtDataStoreTransaction::AddToDelta(const HierarchicalKey& aKey, const Buffer& aValue)
   {
-    if (this->set_ == nullptr)
-    {
-      return outcome::failure(boost::system::error_code{});
-    }
+      auto deltaResult = datastore_->CreateDeltaToAdd(aKey.GetKey(), std::string(aValue.toString()));
+      if (deltaResult.has_failure())
+      {
+          return outcome::failure(deltaResult.error());
+      }
 
-    auto deltaResult = this->set_->CreateDeltaToRemove(aKey.GetKey());
-    if (deltaResult.has_failure())
-    {
-      return outcome::failure(deltaResult.error());
-    }
-    return this->UpdateDeltaWithRemove(aKey, deltaResult.value());
+      return UpdateDelta(deltaResult.value());
   }
 
-  int CrdtDatastore::UpdateDeltaWithRemove(const HierarchicalKey& aKey, const std::shared_ptr<Delta>& aDelta)
+  outcome::result<int> CrdtDataStoreTransaction::RemoveFromDelta(const HierarchicalKey& aKey)
+  {
+      auto deltaResult = datastore_->CreateDeltaToRemove(aKey.GetKey());
+      if (deltaResult.has_failure())
+      {
+          return outcome::failure(deltaResult.error());
+      }
+      return this->UpdateDeltaWithRemove(aKey, deltaResult.value());
+  }
+
+  int CrdtDataStoreTransaction::UpdateDeltaWithRemove(const HierarchicalKey& aKey, const std::shared_ptr<Delta>& aDelta)
   {
     int deltaSize = 0;
     std::vector<Element> elems;
@@ -639,24 +634,24 @@ namespace sgns::crdt
       deltaToMerge->set_priority(priority);
     }
 
-    this->currentDelta_ = DeltaMerge(deltaToMerge, aDelta);
+    currentDelta_ = CrdtDatastore::DeltaMerge(deltaToMerge, aDelta);
     deltaSize = this->currentDelta_->ByteSizeLong();
     return deltaSize;
   }
 
-  int CrdtDatastore::UpdateDelta(const std::shared_ptr<Delta>& aDelta)
+  int CrdtDataStoreTransaction::UpdateDelta(const std::shared_ptr<Delta>& aDelta)
   {
     int deltaSize = 0;
     std::lock_guard lg(this->currentDeltaMutex_);
-    this->currentDelta_ = DeltaMerge(this->currentDelta_, aDelta);
+    currentDelta_ = CrdtDatastore::DeltaMerge(this->currentDelta_, aDelta);
     deltaSize = this->currentDelta_->ByteSizeLong();
     return deltaSize;
   }
 
-  outcome::result<void> CrdtDatastore::PublishDelta()
+  outcome::result<void> CrdtDataStoreTransaction::PublishDelta()
   {
     std::lock_guard lg(this->currentDeltaMutex_);
-    auto publishResult = this->Publish(this->currentDelta_);
+    auto publishResult = datastore_->Publish(currentDelta_);
     if (publishResult.has_failure())
     {
       return outcome::failure(publishResult.error());
@@ -1044,6 +1039,23 @@ namespace sgns::crdt
 
     // TODO: Need to implement it 
     return outcome::failure(boost::system::error_code{});
+  }
+
+  std::shared_ptr<CrdtDataStoreTransaction> CrdtDatastore::BeginTransaction()
+  {
+      auto transaction = std::make_shared<CrdtDataStoreTransaction>(shared_from_this());
+      return transaction;
+  }
+
+  outcome::result<std::shared_ptr<CrdtDatastore::Delta>> CrdtDatastore::CreateDeltaToAdd(
+      const std::string& key, const std::string& value)
+  {
+      return set_->CreateDeltaToAdd(key, value);
+  }
+
+  outcome::result<std::shared_ptr<CrdtDatastore::Delta>> CrdtDatastore::CreateDeltaToRemove(const std::string& key)
+  {
+      return set_->CreateDeltaToRemove(key);
   }
 
 }
