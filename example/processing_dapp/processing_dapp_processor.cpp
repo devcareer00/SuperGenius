@@ -119,7 +119,7 @@ namespace
             return false;
         }
 
-        bool CompleteTask(SGProcessing::TaskResult& taskResult) override
+        bool CompleteTask(const SGProcessing::TaskResult& taskResult) override
         {
             sgns::base::Buffer data;
             data.put(taskResult.SerializeAsString());

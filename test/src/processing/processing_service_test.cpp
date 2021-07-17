@@ -26,7 +26,7 @@ public:
         return false;
     }
 
-    bool CompleteTask(SGProcessing::TaskResult& task) override
+    bool CompleteTask(const SGProcessing::TaskResult& task) override
     {
         return false;
     }
