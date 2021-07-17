@@ -59,7 +59,7 @@ namespace
         {
         }
 
-        bool GrabTask(SGProcessing::Task& task) override
+        bool GrabTask(std::string& grabbedTaskKey, SGProcessing::Task& task) override
         {
             m_logger->info("GRAB_TASK");
 
@@ -90,6 +90,7 @@ namespace
                                 if (LockTask(taskKey.value()))
                                 {
                                     m_logger->debug("TASK_LOCKED {}", taskKey.value());
+                                    grabbedTaskKey = taskKey.value();
                                     return true;
                                 }
                             }
@@ -111,6 +112,7 @@ namespace
                 {
                     if (MoveExpiredTaskLock(lockedTask, task))
                     {
+                        grabbedTaskKey = lockedTask;
                         return true;
                     }
                 }
@@ -119,17 +121,18 @@ namespace
             return false;
         }
 
-        bool CompleteTask(const SGProcessing::TaskResult& taskResult) override
+        bool CompleteTask(const std::string& taskKey, const SGProcessing::TaskResult& taskResult) override
         {
             sgns::base::Buffer data;
             data.put(taskResult.SerializeAsString());
 
             auto transaction = m_db->BeginTransaction();
-            transaction->AddToDelta(sgns::crdt::HierarchicalKey("task_results/" + taskResult.task_id()), data);
-            transaction->RemoveFromDelta(sgns::crdt::HierarchicalKey("lock_" + taskResult.task_id()));
-            transaction->RemoveFromDelta(sgns::crdt::HierarchicalKey(taskResult.task_id()));
+            transaction->AddToDelta(sgns::crdt::HierarchicalKey("task_results/" + taskKey), data);
+            transaction->RemoveFromDelta(sgns::crdt::HierarchicalKey("lock_" + taskKey));
+            transaction->RemoveFromDelta(sgns::crdt::HierarchicalKey(taskKey));
 
             auto res = transaction->PublishDelta();
+            m_logger->debug("TASK_COMPLETED: {}", taskKey);
             return !res.has_failure();
         }
 

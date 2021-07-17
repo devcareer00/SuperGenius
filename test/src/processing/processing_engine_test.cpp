@@ -83,7 +83,7 @@ TEST(ProcessingEngineTest, SubscribtionToResultChannel)
     // The local queue wrapper doesn't own the queue
     processingQueue->ProcessSubTaskQueueMessage(queue.release());
 
-    engine.StartQueueProcessing(processingQueue);
+    engine.StartQueueProcessing(processingQueue, [](const SGProcessing::TaskResult&) {});
 
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
@@ -138,7 +138,7 @@ TEST(ProcessingEngineTest, SubTaskProcessing)
         queueChannel, pubs1->GetAsioContext(), nodeId, processingCore);
     processingQueue->ProcessSubTaskQueueMessage(queue.release());
 
-    engine.StartQueueProcessing(processingQueue);
+    engine.StartQueueProcessing(processingQueue, [](const SGProcessing::TaskResult&) {});
 
     std::this_thread::sleep_for(std::chrono::milliseconds(2000));
 
@@ -191,7 +191,7 @@ TEST(ProcessingEngineTest, SharedSubTaskProcessing)
         queueChannel, pubs1->GetAsioContext(), nodeId1, processingCore);
     processingQueue1->ProcessSubTaskQueueMessage(queue.release());
 
-    engine1.StartQueueProcessing(processingQueue1);
+    engine1.StartQueueProcessing(processingQueue1, [](const SGProcessing::TaskResult&) {});
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     auto processingQueue2 = std::make_shared<ProcessingSubTaskQueue>(
@@ -206,7 +206,7 @@ TEST(ProcessingEngineTest, SharedSubTaskProcessing)
     processingQueue2->ProcessSubTaskQueueMessage(processingQueue1->GetQueueSnapshot().release());
     processingQueue1->ProcessSubTaskQueueMessage(processingQueue2->GetQueueSnapshot().release());
 
-    engine2.StartQueueProcessing(processingQueue2);
+    engine2.StartQueueProcessing(processingQueue2, [](const SGProcessing::TaskResult&) {});
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 

@@ -12,7 +12,9 @@ ProcessingEngine::ProcessingEngine(
 {
 }
 
-void ProcessingEngine::StartQueueProcessing(std::shared_ptr<ProcessingSubTaskQueue> subTaskQueue)
+void ProcessingEngine::StartQueueProcessing(
+    std::shared_ptr<ProcessingSubTaskQueue> subTaskQueue,
+    std::function<void(const SGProcessing::TaskResult&)> taskResultProcessingSink)
 {
     if (IsQueueProcessingStarted())
     {
@@ -20,6 +22,8 @@ void ProcessingEngine::StartQueueProcessing(std::shared_ptr<ProcessingSubTaskQue
     }
 
     m_subTaskQueue = subTaskQueue;
+    m_taskResultProcessingSink = taskResultProcessingSink;
+
     auto queue = m_subTaskQueue->GetQueueSnapshot();
     if (queue->subtasks_size() > 0)
     {
@@ -75,7 +79,16 @@ void ProcessingEngine::ProcessSubTask(SGProcessing::SubTask subTask)
 std::vector<std::tuple<std::string, SGProcessing::SubTaskResult>> ProcessingEngine::GetResults() const
 {
     std::lock_guard<std::mutex> guard(m_mutexResults);
-    return m_results;
+    std::vector<std::tuple<std::string, SGProcessing::SubTaskResult>> results;
+    for (auto item : m_results)
+    {
+        results.push_back({item.first, item.second});
+    }
+    std::sort(results.begin(), results.end(),
+        [](const std::tuple<std::string, SGProcessing::SubTaskResult>& v1,
+            const std::tuple<std::string, SGProcessing::SubTaskResult>& v2) { return std::get<0>(v1) < std::get<0>(v2); });
+
+    return results;
 }
 
 void ProcessingEngine::OnResultChannelMessage(
@@ -93,7 +106,24 @@ void ProcessingEngine::OnResultChannelMessage(
                 m_subTaskQueue->AddSubTaskResult(message->topics[0], result);
             }
            std::lock_guard<std::mutex> guard(m_mutexResults);
-           m_results.push_back(std::make_tuple(message->topics[0], std::move(result)));
+           m_results.insert({ message->topics[0], std::move(result) });
+
+           if (m_results.size() == m_resultChannels.size())
+           {
+               // Task processing finished
+               // @todo Replace with checking if the node is a validator
+               if (m_subTaskQueue->HasOwnership()) 
+               {
+                   SGProcessing::TaskResult taskResult;
+                   auto results = taskResult.mutable_subtask_results();
+                   for (const auto& r : m_results)
+                   {
+                       auto result = results->Add();
+                       result->CopyFrom(r.second);
+                   }
+                   m_taskResultProcessingSink(taskResult);
+               }
+           }
         }
     }
 }

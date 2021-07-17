@@ -16,12 +16,6 @@ message Task
     string results_channel = 6; // which channel to publish results to.
 }
 
-message TaskResult
-{
-    string task_id = 1; // processed task id
-    string result_ipfs_block_id = 2; // result block
-}
-
 message TaskLock
 {
     string task_id = 1;
@@ -79,6 +73,11 @@ message SubTaskResult
     uint32 result_hash = 1; // hash of results
     repeated uint32 chunk_hashes = 2; // the hashes for each chunk
     string ipfs_results_data_id = 3; // UUID of the results data on ipfs
+}
+
+message TaskResult
+{
+    repeated SubTaskResult subtask_results = 1;
 }
 
 // Processing service handling

@@ -13,8 +13,8 @@ class ProcessingTaskQueue
 public:
     virtual ~ProcessingTaskQueue() = default;
 
-    virtual bool GrabTask(SGProcessing::Task& task) = 0;
-    virtual bool CompleteTask(const SGProcessing::TaskResult& task) = 0;
+    virtual bool GrabTask(std::string& taskKey, SGProcessing::Task& task) = 0;
+    virtual bool CompleteTask(const std::string& taskKey, const SGProcessing::TaskResult& task) = 0;
 };
 
 #endif // GRPC_FOR_SUPERGENIUS_PROCESSING_TASK_QUEUE_HPP

@@ -21,12 +21,12 @@ namespace
 class ProcessingTaskQueueImpl : public ProcessingTaskQueue
 {
 public:
-    bool GrabTask(SGProcessing::Task& task) override
+    bool GrabTask(std::string& taskKey, SGProcessing::Task& task) override
     {
         return false;
     }
 
-    bool CompleteTask(const SGProcessing::TaskResult& task) override
+    bool CompleteTask(const std::string& taskKey, const SGProcessing::TaskResult& task) override
     {
         return false;
     }

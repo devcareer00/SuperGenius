@@ -28,7 +28,10 @@ public:
         std::string nodeId,
         std::shared_ptr<ProcessingCore> processingCore);
 
-    void StartQueueProcessing(std::shared_ptr<ProcessingSubTaskQueue> subTaskQueue);
+    void StartQueueProcessing(
+        std::shared_ptr<ProcessingSubTaskQueue> subTaskQueue,
+        std::function<void(const SGProcessing::TaskResult&)> taskResultProcessingSink);
+
     void StopQueueProcessing();
     bool IsQueueProcessingStarted() const;
 
@@ -50,7 +53,8 @@ private:
     std::shared_ptr<ProcessingCore> m_processingCore;
 
     std::shared_ptr<ProcessingSubTaskQueue> m_subTaskQueue;
-    std::vector<std::tuple<std::string, SGProcessing::SubTaskResult>> m_results;
+    std::function<void(const SGProcessing::TaskResult&)> m_taskResultProcessingSink;
+    std::map<std::string, SGProcessing::SubTaskResult> m_results;
     std::map<std::string, std::shared_ptr<sgns::ipfs_pubsub::GossipPubSubTopic>> m_resultChannels;
 
     mutable std::mutex m_mutexResults;

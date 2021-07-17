@@ -146,13 +146,17 @@ void ProcessingServiceImpl::HandleRequestTimeout()
     while (processingNodes.size() < m_maximalNodesCount)
     {
         SGProcessing::Task task;
-        if (m_taskQueue->GrabTask(task))
+        std::string taskKey;
+        if (m_taskQueue->GrabTask(taskKey, task))
         {
             auto node = std::make_shared<ProcessingNode>(
                 m_gossipPubSub, m_processingChannelCapacity, m_processingCore);
 
             // @todo Figure out if the task is still available for other peers
-            node->CreateProcessingHost(task);
+            node->CreateProcessingHost(
+                task, 
+                std::bind(&ProcessingTaskQueue::CompleteTask, m_taskQueue.get(), taskKey, std::placeholders::_1));
+
             processingNodes[task.ipfs_block_id()] = node;
             m_logger->debug("New processing channel created. {}", task.ipfs_block_id());
         }

@@ -48,13 +48,18 @@ void ProcessingNode::AttachTo(const std::string& processingChannelId, size_t msS
     m_room->AttachLocalNodeToRemoteRoom();
 }
 
-void ProcessingNode::CreateProcessingHost(const SGProcessing::Task& task, size_t msSubscriptionWaitingDuration)
+void ProcessingNode::CreateProcessingHost(
+    const SGProcessing::Task& task, 
+    std::function<void(const SGProcessing::TaskResult&)> taskResultProcessingSink,
+    size_t msSubscriptionWaitingDuration)
 {
     Initialize(task.ipfs_block_id(), msSubscriptionWaitingDuration);
 
     m_room->Create();
     m_subtaskQueue->CreateQueue(task);
-    m_processingEngine->StartQueueProcessing(m_subtaskQueue);
+
+    m_taskResultProcessingSink = taskResultProcessingSink;
+    m_processingEngine->StartQueueProcessing(m_subtaskQueue, m_taskResultProcessingSink);
 }
 
 void ProcessingNode::OnProcessingChannelMessage(boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message)
@@ -119,7 +124,7 @@ void ProcessingNode::HandleProcessingRoom(SGProcessing::ProcessingChannelMessage
             {
                 if (m_processingEngine && !m_processingEngine->IsQueueProcessingStarted())
                 {
-                    m_processingEngine->StartQueueProcessing(m_subtaskQueue);
+                    m_processingEngine->StartQueueProcessing(m_subtaskQueue, m_taskResultProcessingSink);
                 }
             }
         }

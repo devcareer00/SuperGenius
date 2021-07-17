@@ -38,7 +38,7 @@ TEST(ProcessingRoomTest, AttachToProcessingRoom)
 
     SGProcessing::Task task;
     task.set_ipfs_block_id("DATABLOCKID");
-    node1.CreateProcessingHost(task);
+    node1.CreateProcessingHost(task, [](const SGProcessing::TaskResult&) {});
     node2.AttachTo("DATABLOCKID", 500);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(2000));
@@ -78,7 +78,7 @@ TEST(ProcessingRoomTest, RoomSizeLimitExceeded)
     SGProcessing::Task task;
     task.set_ipfs_block_id("DATABLOCKID");
 
-    node1.CreateProcessingHost(task);
+    node1.CreateProcessingHost(task, [](const SGProcessing::TaskResult&) {});
     node2.AttachTo("DATABLOCKID", 1000);
     // Wait for room {1, 2} construction
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));

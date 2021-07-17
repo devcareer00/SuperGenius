@@ -53,7 +53,7 @@ namespace
         {
         }
 
-        bool GrabTask(SGProcessing::Task& task) override
+        bool GrabTask(std::string& taskKey, SGProcessing::Task& task) override
         {
             if (m_tasks.empty())
             {
@@ -63,11 +63,12 @@ namespace
 
             task = std::move(m_tasks.back());
             m_tasks.pop_back();
+            taskKey = (boost::format("TASK_%d") %  m_tasks.size()).str();
 
             return true;
         };
 
-        bool CompleteTask(const SGProcessing::TaskResult& task) override
+        bool CompleteTask(const std::string& taskKey, const SGProcessing::TaskResult& task) override
         {
             return false;
         }
