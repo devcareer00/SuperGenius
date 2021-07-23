@@ -24,6 +24,7 @@ public:
 
     /** Construct an empty queue
     * @param queueChannel - task processing channel
+    * @param context - io context to handle timers
     * @param localNodeId local processing node ID
     * @param proceessingCore - custom task processing algorithm
     */
