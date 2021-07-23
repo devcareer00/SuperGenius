@@ -56,7 +56,8 @@ void ProcessingNode::CreateProcessingHost(
     Initialize(task.ipfs_block_id(), msSubscriptionWaitingDuration);
 
     m_room->Create();
-    m_subtaskQueue->CreateQueue(task);
+    // @todo replace the second parameter with true once tests are passed
+    m_subtaskQueue->CreateQueue(task, false);
 
     m_taskResultProcessingSink = taskResultProcessingSink;
     m_processingEngine->StartQueueProcessing(m_subtaskQueue, m_taskResultProcessingSink);

@@ -36,8 +36,11 @@ public:
 
     /** Create a subtask queue by splitting the task to subtasks using the processing code
     * @param task - task that should be split into subtasks
+    * @param requireChunksDuplication - controls if processing chunks/blocks need to be duplicated 
+    * in subrasks to allow a validation
+    * @return false if not queue was created due to errors
     */
-    void CreateQueue(const SGProcessing::Task& task);
+    bool CreateQueue(const SGProcessing::Task& task, bool requireChunksDuplication);
 
     /** Asynchronous getting of a subtask from the queue
     * @param onSubTaskGrabbedCallback a callback that is called when a grapped iosubtask is locked by the local node
@@ -102,6 +105,7 @@ private:
     void GrabSubTasks();
     void HandleGrabSubTaskTimeout(const boost::system::error_code& ec);
     void LogQueue() const;
+    bool HasChunkDuplicates(const ProcessingCore::SubTaskList& subTaskList);
     bool CheckSubTaskResultHashes(
         const SGProcessing::SubTask& subTask, 
         const std::map<std::string, std::vector<uint32_t>>& chunks) const;

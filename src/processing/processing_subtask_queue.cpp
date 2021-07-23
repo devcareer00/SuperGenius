@@ -21,7 +21,7 @@ ProcessingSubTaskQueue::ProcessingSubTaskQueue(
 {
 }
 
-void ProcessingSubTaskQueue::CreateQueue(const SGProcessing::Task& task)
+bool ProcessingSubTaskQueue::CreateQueue(const SGProcessing::Task& task, bool requireChunksDuplication)
 {
     using SubTaskList = ProcessingCore::SubTaskList;
 
@@ -30,6 +30,15 @@ void ProcessingSubTaskQueue::CreateQueue(const SGProcessing::Task& task)
     bool hasChunksDuplicates = false;
     SubTaskList subTasks;
     m_processingCore->SplitTask(task, subTasks);
+
+    if (requireChunksDuplication)
+    {
+        if (!HasChunkDuplicates(subTasks))
+        {
+            return false;
+        }
+        hasChunksDuplicates = true;
+    }
 
     std::lock_guard<std::mutex> guard(m_queueMutex);
     m_queue = std::make_shared<SGProcessing::SubTaskQueue>();
@@ -45,6 +54,8 @@ void ProcessingSubTaskQueue::CreateQueue(const SGProcessing::Task& task)
     m_hasChunkDuplicates = hasChunksDuplicates;
 
     PublishSubTaskQueue();
+
+    return true;
 }
 
 bool ProcessingSubTaskQueue::UpdateQueue(SGProcessing::SubTaskQueue* pQueue)
@@ -385,6 +396,41 @@ void ProcessingSubTaskQueue::LogQueue() const
 
         m_logger->trace(ss.str());
     }
+}
+
+bool ProcessingSubTaskQueue::HasChunkDuplicates(const ProcessingCore::SubTaskList& subTaskList)
+{
+    std::map<std::string, size_t> chunks;
+    for (const auto& subTask : subTaskList)
+    {
+        if (subTask->chunkstoprocess_size() == 0)
+        {
+            m_logger->info("No chunks are specified in subtask '{}'", subTask->results_channel());
+            return false;
+        }
+
+        for (int chunkIdx = 0; chunkIdx < subTask->chunkstoprocess_size(); ++chunkIdx)
+        {
+            auto it = chunks.insert(std::make_pair(subTask->chunkstoprocess(chunkIdx).SerializeAsString(), 0));
+            it.first->second++;
+        }
+    }
+
+    for (const auto& item : chunks)
+    {
+        if (item.second < 2)
+        {
+            if (m_logger->level() <= spdlog::level::info)
+            {
+                SGProcessing::ProcessingChunk chunk;
+                chunk.ParseFromString(item.first);
+                m_logger->info("No duplicates found for chunk '{}'", chunk.chunkid());
+            }
+            return false;
+        }
+    }
+
+    return true;
 }
 
 bool ProcessingSubTaskQueue::CheckSubTaskResultHashes(
