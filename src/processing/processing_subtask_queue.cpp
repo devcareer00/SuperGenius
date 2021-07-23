@@ -297,6 +297,12 @@ bool ProcessingSubTaskQueue::AddSubTaskResult(
     return true;
 }
 
+bool ProcessingSubTaskQueue::IsProcessed() const
+{
+    // The queue can contain only valid results
+    return (m_results.size() == m_queue->subtasks_size());
+}
+
 void ProcessingSubTaskQueue::LogQueue() const
 {
     if (m_logger->level() <= spdlog::level::trace)

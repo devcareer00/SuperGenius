@@ -78,6 +78,11 @@ public:
     */
     bool AddSubTaskResult(
         const std::string& resultChannel, const SGProcessing::SubTaskResult& subTaskResult);
+
+    /** Checks if all subtask in the queue are processed
+    * @return true if the queue is processed
+    */
+    bool IsProcessed() const;
         
 private:
     /** Updates the local queue with a snapshot that have the most recent timestamp

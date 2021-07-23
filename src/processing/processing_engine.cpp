@@ -108,10 +108,9 @@ void ProcessingEngine::OnResultChannelMessage(
            std::lock_guard<std::mutex> guard(m_mutexResults);
            m_results.insert({ message->topics[0], std::move(result) });
 
-           if (m_results.size() == m_resultChannels.size())
+           // Task processing finished
+           if (m_subTaskQueue->IsProcessed()) 
            {
-               // Task processing finished
-               // @todo Replace with checking if the node is a validator
                if (m_subTaskQueue->HasOwnership()) 
                {
                    SGProcessing::TaskResult taskResult;
