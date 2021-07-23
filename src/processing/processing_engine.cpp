@@ -111,16 +111,27 @@ void ProcessingEngine::OnResultChannelMessage(
            // Task processing finished
            if (m_subTaskQueue->IsProcessed()) 
            {
-               if (m_subTaskQueue->HasOwnership()) 
+               if (m_subTaskQueue->HasOwnership())
                {
-                   SGProcessing::TaskResult taskResult;
-                   auto results = taskResult.mutable_subtask_results();
-                   for (const auto& r : m_results)
+                   if (m_subTaskQueue->ValidateResults())
                    {
-                       auto result = results->Add();
-                       result->CopyFrom(r.second);
+                       SGProcessing::TaskResult taskResult;
+                       auto results = taskResult.mutable_subtask_results();
+                       for (const auto& r : m_results)
+                       {
+                           auto result = results->Add();
+                           result->CopyFrom(r.second);
+                       }
+                       m_taskResultProcessingSink(taskResult);
                    }
-                   m_taskResultProcessingSink(taskResult);
+                   else
+                   {
+                       // @todo GrabSubTask? Check if the queue is updated and broadcasted for the case
+                   }
+               }
+               else
+               {
+                   // @todo Start task finalization timer
                }
            }
         }

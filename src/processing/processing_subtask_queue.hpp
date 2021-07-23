@@ -84,6 +84,12 @@ public:
     */
     bool IsProcessed() const;
         
+    /** Checks if chenk result hashes are valid.
+    * If invalid chunk hashes found corresponding subtasks are invalidated and returned to processing queue
+    * @return true if all chunk results are valid
+    */
+    bool ValidateResults();
+        
 private:
     /** Updates the local queue with a snapshot that have the most recent timestamp
     * @param queue - the queue snapshot
@@ -96,11 +102,16 @@ private:
     void GrabSubTasks();
     void HandleGrabSubTaskTimeout(const boost::system::error_code& ec);
     void LogQueue() const;
+    bool CheckSubTaskResultHashes(
+        const SGProcessing::SubTask& subTask, 
+        const std::map<std::string, std::vector<uint32_t>>& chunks) const;
 
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSubTopic> m_queueChannel;
     std::shared_ptr<boost::asio::io_context> m_context;
     std::string m_localNodeId;
     std::shared_ptr<ProcessingCore> m_processingCore;
+    bool m_hasChunkDuplicates;
+
     std::shared_ptr<SGProcessing::SubTaskQueue> m_queue;
     mutable std::mutex m_queueMutex;
     std::list<SubTaskGrabbedCallback> m_onSubTaskGrabbedCallbacks;

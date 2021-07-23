@@ -12,6 +12,7 @@ ProcessingSubTaskQueue::ProcessingSubTaskQueue(
     , m_context(std::move(context))
     , m_localNodeId(localNodeId)
     , m_processingCore(processingCore)
+    , m_hasChunkDuplicates(false)
     , m_dltQueueResponseTimeout(*m_context.get())
     , m_queueResponseTimeout(boost::posix_time::seconds(5))
     , m_dltGrabSubTaskTimeout(*m_context.get())
@@ -26,6 +27,7 @@ void ProcessingSubTaskQueue::CreateQueue(const SGProcessing::Task& task)
 
     auto timestamp = std::chrono::system_clock::now();
 
+    bool hasChunksDuplicates = false;
     SubTaskList subTasks;
     m_processingCore->SplitTask(task, subTasks);
 
@@ -40,6 +42,8 @@ void ProcessingSubTaskQueue::CreateQueue(const SGProcessing::Task& task)
     }
 
     m_sharedQueue.CreateQueue(processingQueue);
+    m_hasChunkDuplicates = hasChunksDuplicates;
+
     PublishSubTaskQueue();
 }
 
@@ -303,6 +307,65 @@ bool ProcessingSubTaskQueue::IsProcessed() const
     return (m_results.size() == m_queue->subtasks_size());
 }
 
+bool ProcessingSubTaskQueue::ValidateResults()
+{
+    if (!IsProcessed())
+    {
+        return false;
+    }
+
+    bool areResultsValid = true;
+    if (m_hasChunkDuplicates)
+    {
+        // Compare result hashes for each chunk
+        // If a shunk hashes didn't match each other add the all subtasks with invalid hashes to VALID ITEMS LIST
+        std::map<std::string, std::vector<uint32_t>> chunks;
+        std::set<int> invalidSubtasksIndices;
+        for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks_size(); ++subTaskIdx)
+        {
+            const auto& subTask = m_queue->subtasks(subTaskIdx);
+            auto itResult = m_results.find(subTask.results_channel());
+            if (itResult != m_results.end())
+            {
+                for (int chunkIdx = 0; chunkIdx < subTask.chunkstoprocess_size(); ++chunkIdx)
+                {
+                    auto it = chunks.insert(std::make_pair(
+                        subTask.chunkstoprocess(chunkIdx).SerializeAsString(), std::vector<uint32_t>())
+                    );
+                    it.first->second.push_back(itResult->second.chunk_hashes(chunkIdx));
+                }
+            }
+            else 
+            {
+                // Since all subtasks are processed a result should be found for all of them
+                m_logger->error("NO_RESULTS_FOUND {}", subTask.results_channel());
+                invalidSubtasksIndices.insert(subTaskIdx);
+            }
+           
+        }
+
+        for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks_size(); ++subTaskIdx)
+        {
+            const auto& subTask = m_queue->subtasks(subTaskIdx);
+            if ((invalidSubtasksIndices.find(subTaskIdx) == invalidSubtasksIndices.end())
+                && !CheckSubTaskResultHashes(subTask, chunks))
+            {
+                invalidSubtasksIndices.insert(subTaskIdx);
+            }
+        }
+
+        if (!invalidSubtasksIndices.empty())
+        {
+            areResultsValid = false;
+            std::vector<int> validItemIndices;
+            std::copy(invalidSubtasksIndices.begin(), invalidSubtasksIndices.end(), std::back_inserter(validItemIndices));
+            m_sharedQueue.SetValidItemIndices(std::move(validItemIndices));    
+        }
+
+    }
+    return areResultsValid;
+}
+
 void ProcessingSubTaskQueue::LogQueue() const
 {
     if (m_logger->level() <= spdlog::level::trace)
@@ -323,6 +386,33 @@ void ProcessingSubTaskQueue::LogQueue() const
         m_logger->trace(ss.str());
     }
 }
+
+bool ProcessingSubTaskQueue::CheckSubTaskResultHashes(
+    const SGProcessing::SubTask& subTask,
+    const std::map<std::string, std::vector<uint32_t>>& chunks) const
+{
+    for (int chunkIdx = 0; chunkIdx < subTask.chunkstoprocess_size(); ++chunkIdx)
+    {
+        const auto& chunk = subTask.chunkstoprocess(chunkIdx);
+        auto it = chunks.find(chunk.SerializeAsString());
+        if (it != chunks.end())
+        {
+            if ((it->second.size() < 2) 
+                || std::equal(it->second.begin() + 1, it->second.end(), it->second.begin()))
+            {
+                m_logger->debug("INVALID_CHUNK_RESULT_HASH. SubTaskResultsChannel {}, ChunkIdx", subTask.results_channel(), chunkIdx);
+                return false;
+            }
+        }
+        else
+        {
+            m_logger->debug("NO_CHUNK_RESULT_FOUND. SubTaskResultsChannel {}, ChunkIdx", subTask.results_channel(), chunkIdx);
+            return false;
+        }
+    }
+    return true;
+}
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
