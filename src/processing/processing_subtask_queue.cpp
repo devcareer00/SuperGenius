@@ -31,11 +31,11 @@ void ProcessingSubTaskQueue::CreateQueue(const SGProcessing::Task& task)
 
     std::lock_guard<std::mutex> guard(m_queueMutex);
     m_queue = std::make_shared<SGProcessing::SubTaskQueue>();
-    auto queuSubTasks = m_queue->mutable_subtasks();
+    auto queueSubTasks = m_queue->mutable_subtasks();
     auto processingQueue = m_queue->mutable_processing_queue();
     for (auto itSubTask = subTasks.begin(); itSubTask != subTasks.end(); ++itSubTask)
     {
-        queuSubTasks->AddAllocated(itSubTask->release());
+        queueSubTasks->AddAllocated(itSubTask->release());
         processingQueue->add_items();
     }
 
@@ -258,10 +258,27 @@ std::unique_ptr<SGProcessing::SubTaskQueue> ProcessingSubTaskQueue::GetQueueSnap
     return std::move(queue);
 }
 
-void ProcessingSubTaskQueue::AddSubTaskResult(
+bool ProcessingSubTaskQueue::AddSubTaskResult(
     const std::string& resultChannel, const SGProcessing::SubTaskResult& subTaskResult)
 {
     std::lock_guard<std::mutex> guard(m_queueMutex);
+    bool channelFound = false;
+    for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks_size(); ++subTaskIdx)
+    {
+        const auto& subTask = m_queue->subtasks(subTaskIdx);
+        if (subTask.results_channel() == resultChannel)
+        {
+            channelFound = true;
+            break;
+        }
+    }
+
+    if (!channelFound)
+    {
+        m_logger->error("UNEXPECTED_RESULT_CHANNEL {}", resultChannel);
+        return false;
+    }
+    
     SGProcessing::SubTaskResult result;
     result.CopyFrom(subTaskResult);
     m_results.insert(std::make_pair(resultChannel, std::move(result)));
@@ -276,6 +293,8 @@ void ProcessingSubTaskQueue::AddSubTaskResult(
         }
     }
     m_sharedQueue.SetValidItemIndices(std::move(validItemIndices));
+
+    return true;
 }
 
 void ProcessingSubTaskQueue::LogQueue() const

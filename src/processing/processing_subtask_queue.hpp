@@ -74,8 +74,9 @@ public:
     /** Add a results for a processed subtask into the queue
     * @param resultChannel - subtask identifier
     * @param subTaskResult - subtask result
+    * @return true if the result was added
     */
-    void AddSubTaskResult(
+    bool AddSubTaskResult(
         const std::string& resultChannel, const SGProcessing::SubTaskResult& subTaskResult);
         
 private:

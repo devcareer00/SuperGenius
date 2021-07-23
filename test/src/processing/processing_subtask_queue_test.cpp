@@ -13,11 +13,13 @@ namespace
         {
             {
                 auto subtask = std::make_unique<SGProcessing::SubTask>();
+                subtask->set_results_channel("RESULT_CHANNEL_1");
                 subTasks.push_back(std::move(subtask));
             }
 
             {
                 auto subtask = std::make_unique<SGProcessing::SubTask>();
+                subtask->set_results_channel("RESULT_CHANNEL_2");
                 subTasks.push_back(std::move(subtask));
             }
         }
@@ -223,7 +225,7 @@ TEST(ProcessingSubTaskQueueTest, GrabSubTaskWithoutOwnershipTransferring)
  * @given Local node doesn't own the subtask queue
  * @when New subtask is being grabbed
  * @then Queue snapshot is published that contains a lock on the grabbed subtask.
- * Ownershop is moved to the local node.
+ * Ownership is moved to the local node.
  */
 TEST(ProcessingSubTaskQueueTest, GrabSubTaskWithOwnershipTransferring)
 {
@@ -319,4 +321,34 @@ TEST(ProcessingSubTaskQueueTest, GrabSubTaskWithOwnershipTransferring)
     EXPECT_EQ("", queueSnapshotSet2[2].processing_queue().items(1).lock_node_id());
 }
 
+/**
+ * @given A subtask queue
+ * @when New results added
+ * @then Queue ignores results that are not relevant to subtasks located in the queue.
+ */
+TEST(ProcessingSubTaskQueueTest, AddUnexpectedResult)
+{
+    std::vector<SGProcessing::SubTaskQueue> queueSnapshotSet1;
+
+    auto pubs1 = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();;
+    pubs1->Start(40001, {});
+
+
+    auto processingCore = std::make_shared<ProcessingCoreImpl>();
+
+    auto pubs1Channel = std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubs1, "PROCESSING_CHANNEL_ID");
+    auto nodeId1 = pubs1->GetLocalAddress();
+
+    ProcessingSubTaskQueue queue1(pubs1Channel, pubs1->GetAsioContext(), nodeId1, processingCore);
+
+    // Create the queue on node1
+    SGProcessing::Task task;
+    queue1.CreateQueue(task);
+
+    SGProcessing::SubTaskResult subTaskResult;
+    ASSERT_TRUE(queue1.AddSubTaskResult("RESULT_CHANNEL_1", subTaskResult));
+    ASSERT_FALSE(queue1.AddSubTaskResult("RESULT_CHANNEL_UNKNOWN", subTaskResult));
+
+    pubs1->Stop();
+}
 
