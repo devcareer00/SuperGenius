@@ -9,25 +9,44 @@ namespace
     class ProcessingCoreImpl : public ProcessingCore
     {
     public:
-        void SplitTask(const SGProcessing::Task& task, SubTaskList& subTasks) override
+        ProcessingCoreImpl()
         {
             {
                 auto subtask = std::make_unique<SGProcessing::SubTask>();
                 subtask->set_results_channel("RESULT_CHANNEL_1");
-                subTasks.push_back(std::move(subtask));
+                m_subTasks.push_back(std::move(subtask));
             }
 
             {
                 auto subtask = std::make_unique<SGProcessing::SubTask>();
                 subtask->set_results_channel("RESULT_CHANNEL_2");
-                subTasks.push_back(std::move(subtask));
+                m_subTasks.push_back(std::move(subtask));
+            }
+        }
+
+        ProcessingCoreImpl(SubTaskList&& subTasks)
+            : m_subTasks(std::move(subTasks))
+        {
+        }
+
+        void SplitTask(const SGProcessing::Task& task, SubTaskList& subTasks) override
+        {
+            for (const auto& subTask : m_subTasks)
+            {
+                auto newSubTask = std::make_unique<SGProcessing::SubTask>();
+                newSubTask->CopyFrom(*subTask);
+                subTasks.push_back(std::move(newSubTask));
             }
         }
 
         void  ProcessSubTask(
             const SGProcessing::SubTask& subTask, SGProcessing::SubTaskResult& result,
             uint32_t initialHashCode) override {}
+
+    private:
+        SubTaskList m_subTasks;
     };
+
 }
 
 /**
@@ -428,7 +447,7 @@ TEST(ProcessingSubTaskQueueTest, ValidateResults)
 /**
  * @given A subtask queue
  * @when A task split does not create duplicated chunks
- * @then Queue creating failed.
+ * @then Queue creation failed.
  */
 TEST(ProcessingSubTaskQueueTest, TaskSplitFailed)
 {
@@ -449,6 +468,62 @@ TEST(ProcessingSubTaskQueueTest, TaskSplitFailed)
     // Create the queue on node1
     SGProcessing::Task task;
     ASSERT_FALSE(queue1.CreateQueue(task, true));
+
+    pubs1->Stop();
+}
+
+/**
+ * @given A subtask queue
+ * @when A task split does not create duplicated chunks
+ * @then Queue creation failed.
+ */
+TEST(ProcessingSubTaskQueueTest, TaskSplitSucceeded)
+{
+    // @todo extend the test to get determite invalid result hashes
+    std::vector<SGProcessing::SubTaskQueue> queueSnapshotSet1;
+
+    auto pubs1 = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();;
+    pubs1->Start(40001, {});
+
+
+    SGProcessing::ProcessingChunk chunk1;
+    chunk1.set_chunkid("CHUNK_1");
+    chunk1.set_n_subchunks(1);
+    chunk1.set_line_stride(1);
+    chunk1.set_offset(0);
+    chunk1.set_stride(1);
+    chunk1.set_subchunk_height(10);
+    chunk1.set_subchunk_width(10);
+
+    ProcessingCore::SubTaskList subTasks;
+
+    // A single chunk is added to 2 subtasks
+    {
+        auto subtask = std::make_unique<SGProcessing::SubTask>();
+        subtask->set_results_channel("RESULT_CHANNEL_1");
+        auto chunk = subtask->add_chunkstoprocess();
+        chunk->CopyFrom(chunk1);
+        subTasks.push_back(std::move(subtask));
+    }
+
+    {
+        auto subtask = std::make_unique<SGProcessing::SubTask>();
+        subtask->set_results_channel("RESULT_CHANNEL_2");
+        auto chunk = subtask->add_chunkstoprocess();
+        chunk->CopyFrom(chunk1);
+        subTasks.push_back(std::move(subtask));
+    }
+
+    auto processingCore = std::make_shared<ProcessingCoreImpl>(std::move(subTasks));
+
+    auto pubs1Channel = std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubs1, "PROCESSING_CHANNEL_ID");
+    auto nodeId1 = pubs1->GetLocalAddress();
+
+    ProcessingSubTaskQueue queue1(pubs1Channel, pubs1->GetAsioContext(), nodeId1, processingCore);
+
+    // Create the queue on node1
+    SGProcessing::Task task;
+    ASSERT_TRUE(queue1.CreateQueue(task, true));
 
     pubs1->Stop();
 }
