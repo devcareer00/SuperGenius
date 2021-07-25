@@ -9,26 +9,6 @@ namespace
     class ProcessingCoreImpl : public ProcessingCore
     {
     public:
-        ProcessingCoreImpl()
-        {
-            {
-                auto subtask = std::make_unique<SGProcessing::SubTask>();
-                subtask->set_results_channel("RESULT_CHANNEL_1");
-                m_subTasks.push_back(std::move(subtask));
-            }
-
-            {
-                auto subtask = std::make_unique<SGProcessing::SubTask>();
-                subtask->set_results_channel("RESULT_CHANNEL_2");
-                m_subTasks.push_back(std::move(subtask));
-            }
-        }
-
-        ProcessingCoreImpl(SubTaskList&& subTasks)
-            : m_subTasks(std::move(subTasks))
-        {
-        }
-
         void SplitTask(const SGProcessing::Task& task, SubTaskList& subTasks) override
         {
             for (const auto& subTask : m_subTasks)
@@ -43,7 +23,6 @@ namespace
             const SGProcessing::SubTask& subTask, SGProcessing::SubTaskResult& result,
             uint32_t initialHashCode) override {}
 
-    private:
         SubTaskList m_subTasks;
     };
 
@@ -91,6 +70,16 @@ TEST(ProcessingSubTaskQueueTest, QueueCreating)
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
     auto processingCore = std::make_shared<ProcessingCoreImpl>();
+    {
+        auto subtask = std::make_unique<SGProcessing::SubTask>();
+        subtask->set_results_channel("RESULT_CHANNEL_1");
+        processingCore->m_subTasks.push_back(std::move(subtask));
+    }
+    {
+        auto subtask = std::make_unique<SGProcessing::SubTask>();
+        subtask->set_results_channel("RESULT_CHANNEL_2");
+        processingCore->m_subTasks.push_back(std::move(subtask));
+    }
 
     auto nodeId = pubs1->GetLocalAddress();
     ProcessingSubTaskQueue queue(pubs1Channel, pubs1->GetAsioContext(), nodeId, processingCore);
@@ -150,6 +139,17 @@ TEST(ProcessingSubTaskQueueTest, QueueOwnershipTransfer)
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
     auto processingCore = std::make_shared<ProcessingCoreImpl>();
+    {
+        auto subtask = std::make_unique<SGProcessing::SubTask>();
+        subtask->set_results_channel("RESULT_CHANNEL_1");
+        processingCore->m_subTasks.push_back(std::move(subtask));
+    }
+
+    {
+        auto subtask = std::make_unique<SGProcessing::SubTask>();
+        subtask->set_results_channel("RESULT_CHANNEL_2");
+        processingCore->m_subTasks.push_back(std::move(subtask));
+    }
 
     auto nodeId1 = pubs1->GetLocalAddress();
     ProcessingSubTaskQueue queue(pubs1Channel, pubs1->GetAsioContext(), nodeId1, processingCore);
@@ -213,6 +213,17 @@ TEST(ProcessingSubTaskQueueTest, GrabSubTaskWithoutOwnershipTransferring)
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
     auto processingCore = std::make_shared<ProcessingCoreImpl>();
+    {
+        auto subtask = std::make_unique<SGProcessing::SubTask>();
+        subtask->set_results_channel("RESULT_CHANNEL_1");
+        processingCore->m_subTasks.push_back(std::move(subtask));
+    }
+
+    {
+        auto subtask = std::make_unique<SGProcessing::SubTask>();
+        subtask->set_results_channel("RESULT_CHANNEL_2");
+        processingCore->m_subTasks.push_back(std::move(subtask));
+    }
 
     auto nodeId = pubs1->GetLocalAddress();
     ProcessingSubTaskQueue queue(pubs1Channel, pubs1->GetAsioContext(), nodeId, processingCore);
@@ -258,6 +269,17 @@ TEST(ProcessingSubTaskQueueTest, GrabSubTaskWithOwnershipTransferring)
     pubs2->Start(40001, { pubs1->GetLocalAddress() });
 
     auto processingCore = std::make_shared<ProcessingCoreImpl>();
+    {
+        auto subtask = std::make_unique<SGProcessing::SubTask>();
+        subtask->set_results_channel("RESULT_CHANNEL_1");
+        processingCore->m_subTasks.push_back(std::move(subtask));
+    }
+
+    {
+        auto subtask = std::make_unique<SGProcessing::SubTask>();
+        subtask->set_results_channel("RESULT_CHANNEL_2");
+        processingCore->m_subTasks.push_back(std::move(subtask));
+    }
 
     auto pubs1Channel = std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubs1, "PROCESSING_CHANNEL_ID");
     auto nodeId1 = pubs1->GetLocalAddress();
@@ -354,6 +376,17 @@ TEST(ProcessingSubTaskQueueTest, AddUnexpectedResult)
 
 
     auto processingCore = std::make_shared<ProcessingCoreImpl>();
+    {
+        auto subtask = std::make_unique<SGProcessing::SubTask>();
+        subtask->set_results_channel("RESULT_CHANNEL_1");
+        processingCore->m_subTasks.push_back(std::move(subtask));
+    }
+
+    {
+        auto subtask = std::make_unique<SGProcessing::SubTask>();
+        subtask->set_results_channel("RESULT_CHANNEL_2");
+        processingCore->m_subTasks.push_back(std::move(subtask));
+    }
 
     auto pubs1Channel = std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubs1, "PROCESSING_CHANNEL_ID");
     auto nodeId1 = pubs1->GetLocalAddress();
@@ -385,6 +418,16 @@ TEST(ProcessingSubTaskQueueTest, CheckProcessedQueue)
 
 
     auto processingCore = std::make_shared<ProcessingCoreImpl>();
+    {
+        auto subtask = std::make_unique<SGProcessing::SubTask>();
+        subtask->set_results_channel("RESULT_CHANNEL_1");
+        processingCore->m_subTasks.push_back(std::move(subtask));
+    }
+    {
+        auto subtask = std::make_unique<SGProcessing::SubTask>();
+        subtask->set_results_channel("RESULT_CHANNEL_2");
+        processingCore->m_subTasks.push_back(std::move(subtask));
+    }
 
     auto pubs1Channel = std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubs1, "PROCESSING_CHANNEL_ID");
     auto nodeId1 = pubs1->GetLocalAddress();
@@ -422,6 +465,17 @@ TEST(ProcessingSubTaskQueueTest, ValidateResults)
 
 
     auto processingCore = std::make_shared<ProcessingCoreImpl>();
+    {
+        auto subtask = std::make_unique<SGProcessing::SubTask>();
+        subtask->set_results_channel("RESULT_CHANNEL_1");
+        processingCore->m_subTasks.push_back(std::move(subtask));
+    }
+
+    {
+        auto subtask = std::make_unique<SGProcessing::SubTask>();
+        subtask->set_results_channel("RESULT_CHANNEL_2");
+        processingCore->m_subTasks.push_back(std::move(subtask));
+    }
 
     auto pubs1Channel = std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubs1, "PROCESSING_CHANNEL_ID");
     auto nodeId1 = pubs1->GetLocalAddress();
@@ -459,6 +513,17 @@ TEST(ProcessingSubTaskQueueTest, TaskSplitFailed)
 
 
     auto processingCore = std::make_shared<ProcessingCoreImpl>();
+    {
+        auto subtask = std::make_unique<SGProcessing::SubTask>();
+        subtask->set_results_channel("RESULT_CHANNEL_1");
+        processingCore->m_subTasks.push_back(std::move(subtask));
+    }
+
+    {
+        auto subtask = std::make_unique<SGProcessing::SubTask>();
+        subtask->set_results_channel("RESULT_CHANNEL_2");
+        processingCore->m_subTasks.push_back(std::move(subtask));
+    }
 
     auto pubs1Channel = std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubs1, "PROCESSING_CHANNEL_ID");
     auto nodeId1 = pubs1->GetLocalAddress();
@@ -486,6 +551,9 @@ TEST(ProcessingSubTaskQueueTest, TaskSplitSucceeded)
     pubs1->Start(40001, {});
 
 
+    auto processingCore = std::make_shared<ProcessingCoreImpl>();
+
+    // A single chunk is added to 2 subtasks
     SGProcessing::ProcessingChunk chunk1;
     chunk1.set_chunkid("CHUNK_1");
     chunk1.set_n_subchunks(1);
@@ -495,15 +563,12 @@ TEST(ProcessingSubTaskQueueTest, TaskSplitSucceeded)
     chunk1.set_subchunk_height(10);
     chunk1.set_subchunk_width(10);
 
-    ProcessingCore::SubTaskList subTasks;
-
-    // A single chunk is added to 2 subtasks
     {
         auto subtask = std::make_unique<SGProcessing::SubTask>();
         subtask->set_results_channel("RESULT_CHANNEL_1");
         auto chunk = subtask->add_chunkstoprocess();
         chunk->CopyFrom(chunk1);
-        subTasks.push_back(std::move(subtask));
+        processingCore->m_subTasks.push_back(std::move(subtask));
     }
 
     {
@@ -511,10 +576,8 @@ TEST(ProcessingSubTaskQueueTest, TaskSplitSucceeded)
         subtask->set_results_channel("RESULT_CHANNEL_2");
         auto chunk = subtask->add_chunkstoprocess();
         chunk->CopyFrom(chunk1);
-        subTasks.push_back(std::move(subtask));
+        processingCore->m_subTasks.push_back(std::move(subtask));
     }
-
-    auto processingCore = std::make_shared<ProcessingCoreImpl>(std::move(subTasks));
 
     auto pubs1Channel = std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubs1, "PROCESSING_CHANNEL_ID");
     auto nodeId1 = pubs1->GetLocalAddress();
