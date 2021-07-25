@@ -14,7 +14,6 @@ namespace
         ProcessingCoreImpl(size_t processingMillisec)
             : m_processingMillisec(processingMillisec)
         {
-
         }
 
         void SplitTask(const SGProcessing::Task& task, SubTaskList& subTasks) override
@@ -32,13 +31,24 @@ namespace
                 std::this_thread::sleep_for(std::chrono::milliseconds(m_processingMillisec));
             }
 
+            auto itResultHashes = m_chunkResultHashes.find(subTask.results_channel());
+
             size_t subTaskResultHash = initialHashCode;
             for (int chunkIdx = 0; chunkIdx < subTask.chunkstoprocess_size(); ++chunkIdx)
             {
-                const auto& chunk = subTask.chunkstoprocess(chunkIdx);
-                // Chunk result hash should be calculated
-                // Chunk data hash is calculated just as a stub
-                auto chunkHash = std::hash<std::string>{}(chunk.SerializeAsString());
+                size_t chunkHash = 0;
+                if (itResultHashes != m_chunkResultHashes.end())
+                {
+                    chunkHash = itResultHashes->second[chunkIdx];
+                }
+                else
+                {
+                    const auto& chunk = subTask.chunkstoprocess(chunkIdx);
+                    // Chunk result hash should be calculated
+                    // Chunk data hash is calculated just as a stub
+                    chunkHash = std::hash<std::string>{}(chunk.SerializeAsString());
+                }
+
                 result.add_chunk_hashes(chunkHash);
                 boost::hash_combine(subTaskResultHash, chunkHash);
             }
@@ -52,6 +62,7 @@ namespace
         std::vector<SGProcessing::SubTask> m_processedSubTasks;
         std::vector<uint32_t> m_initialHashes;
 
+        std::map<std::string, std::vector<size_t>> m_chunkResultHashes;
     private:
         size_t m_processingMillisec;
     };
@@ -292,6 +303,72 @@ TEST(ProcessingEngineTest, TaskFinalization)
     pubs1->Stop();
 
     ASSERT_TRUE(isTaskFinalized);
+}
+
+/**
+ * @given A queue containing 2 subtasks
+ * @when Subtasks contains invalid chunk hashes
+ * @then The subtasks processing is restarted.
+ */
+TEST(ProcessingEngineTest, InvalidSubTasksRestart)
+{
+    auto pubs1 = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();;
+    pubs1->Start(40001, {});
+
+    auto queueChannel = std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubs1, "QUEUE_CHANNEL_ID");
+    queueChannel->Subscribe([](boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message) {});
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
+    auto processingCore = std::make_shared<ProcessingCoreImpl>(100);
+    processingCore->m_chunkResultHashes["RESULT_CHANNEL_ID1"] = { 0 };
+    processingCore->m_chunkResultHashes["RESULT_CHANNEL_ID2"] = { 1 };
+
+    auto nodeId1 = "NODE_1";
+
+    SGProcessing::ProcessingChunk chunk1;
+    chunk1.set_chunkid("CHUNK_1");
+    chunk1.set_n_subchunks(1);
+    chunk1.set_line_stride(1);
+    chunk1.set_offset(0);
+    chunk1.set_stride(1);
+    chunk1.set_subchunk_height(10);
+    chunk1.set_subchunk_width(10);
+
+    auto queue = std::make_unique<SGProcessing::SubTaskQueue>();
+    // Local queue wrapped owns the queue
+    queue->mutable_processing_queue()->set_owner_node_id(nodeId1);
+    {
+        auto item = queue->mutable_processing_queue()->add_items();
+        auto subTask = queue->add_subtasks();
+        subTask->set_results_channel("RESULT_CHANNEL_ID1");
+        auto chunk = subTask->add_chunkstoprocess();
+        chunk->CopyFrom(chunk1);
+    }
+    {
+        auto item = queue->mutable_processing_queue()->add_items();
+        auto subTask = queue->add_subtasks();
+        subTask->set_results_channel("RESULT_CHANNEL_ID2");
+        auto chunk = subTask->add_chunkstoprocess();
+        chunk->CopyFrom(chunk1);
+    }
+
+    auto processingQueue1 = std::make_shared<ProcessingSubTaskQueue>(
+        queueChannel, pubs1->GetAsioContext(), nodeId1, processingCore);
+    processingQueue1->ProcessSubTaskQueueMessage(queue.release());
+
+    ProcessingEngine engine1(pubs1, nodeId1, processingCore);
+
+    bool isTaskFinalized = false;
+    engine1.StartQueueProcessing(
+        processingQueue1,
+        [&isTaskFinalized](const SGProcessing::TaskResult&) { isTaskFinalized = true; });
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
+    pubs1->Stop();
+
+    // No task finalization should be called when there are invalid chunk results
+    ASSERT_FALSE(isTaskFinalized);
 }
 
 
