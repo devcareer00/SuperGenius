@@ -105,7 +105,7 @@ private:
     void GrabSubTasks();
     void HandleGrabSubTaskTimeout(const boost::system::error_code& ec);
     void LogQueue() const;
-    bool HasChunkDuplicates(const ProcessingCore::SubTaskList& subTaskList);
+    bool HasChunkDuplicates(const SGProcessing::SubTaskQueue& subTaskQueue);
     bool CheckSubTaskResultHashes(
         const SGProcessing::SubTask& subTask, 
         const std::map<std::string, std::vector<uint32_t>>& chunks) const;
@@ -114,7 +114,6 @@ private:
     std::shared_ptr<boost::asio::io_context> m_context;
     std::string m_localNodeId;
     std::shared_ptr<ProcessingCore> m_processingCore;
-    bool m_hasChunkDuplicates;
 
     std::shared_ptr<SGProcessing::SubTaskQueue> m_queue;
     mutable std::mutex m_queueMutex;

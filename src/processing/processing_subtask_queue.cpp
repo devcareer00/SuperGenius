@@ -12,7 +12,6 @@ ProcessingSubTaskQueue::ProcessingSubTaskQueue(
     , m_context(std::move(context))
     , m_localNodeId(localNodeId)
     , m_processingCore(processingCore)
-    , m_hasChunkDuplicates(false)
     , m_dltQueueResponseTimeout(*m_context.get())
     , m_queueResponseTimeout(boost::posix_time::seconds(5))
     , m_dltGrabSubTaskTimeout(*m_context.get())
@@ -31,27 +30,23 @@ bool ProcessingSubTaskQueue::CreateQueue(const SGProcessing::Task& task, bool re
     SubTaskList subTasks;
     m_processingCore->SplitTask(task, subTasks);
 
-    if (requireChunksDuplication)
-    {
-        if (!HasChunkDuplicates(subTasks))
-        {
-            return false;
-        }
-        hasChunksDuplicates = true;
-    }
-
-    std::lock_guard<std::mutex> guard(m_queueMutex);
-    m_queue = std::make_shared<SGProcessing::SubTaskQueue>();
-    auto queueSubTasks = m_queue->mutable_subtasks();
-    auto processingQueue = m_queue->mutable_processing_queue();
+    auto queue = std::make_shared<SGProcessing::SubTaskQueue>();
+    auto queueSubTasks = queue->mutable_subtasks();
+    auto processingQueue = queue->mutable_processing_queue();
     for (auto itSubTask = subTasks.begin(); itSubTask != subTasks.end(); ++itSubTask)
     {
         queueSubTasks->AddAllocated(itSubTask->release());
         processingQueue->add_items();
     }
 
+    if (requireChunksDuplication && !HasChunkDuplicates(*queue))
+    {
+        return false;
+    }
+    
+    std::lock_guard<std::mutex> guard(m_queueMutex);
+    m_queue = std::move(queue);
     m_sharedQueue.CreateQueue(processingQueue);
-    m_hasChunkDuplicates = hasChunksDuplicates;
 
     PublishSubTaskQueue();
 
@@ -326,7 +321,7 @@ bool ProcessingSubTaskQueue::ValidateResults()
     }
 
     bool areResultsValid = true;
-    if (m_hasChunkDuplicates)
+    if (HasChunkDuplicates(*m_queue))
     {
         // Compare result hashes for each chunk
         // If a shunk hashes didn't match each other add the all subtasks with invalid hashes to VALID ITEMS LIST
@@ -374,6 +369,11 @@ bool ProcessingSubTaskQueue::ValidateResults()
         }
 
     }
+    else
+    {
+        m_logger->info("CHUNKS_ARE_NOT_DUPLICATED");
+    }
+    
     return areResultsValid;
 }
 
@@ -398,20 +398,21 @@ void ProcessingSubTaskQueue::LogQueue() const
     }
 }
 
-bool ProcessingSubTaskQueue::HasChunkDuplicates(const ProcessingCore::SubTaskList& subTaskList)
+bool ProcessingSubTaskQueue::HasChunkDuplicates(const SGProcessing::SubTaskQueue& subTaskQueue)
 {
     std::map<std::string, size_t> chunks;
-    for (const auto& subTask : subTaskList)
+    for (int subTaskIdx = 0; subTaskIdx < subTaskQueue.subtasks_size(); ++subTaskIdx)
     {
-        if (subTask->chunkstoprocess_size() == 0)
+        const auto& subTask = subTaskQueue.subtasks(subTaskIdx);
+        if (subTask.chunkstoprocess_size() == 0)
         {
-            m_logger->info("No chunks are specified in subtask '{}'", subTask->results_channel());
+            m_logger->info("No chunks are specified in subtask '{}'", subTask.results_channel());
             return false;
         }
 
-        for (int chunkIdx = 0; chunkIdx < subTask->chunkstoprocess_size(); ++chunkIdx)
+        for (int chunkIdx = 0; chunkIdx < subTask.chunkstoprocess_size(); ++chunkIdx)
         {
-            auto it = chunks.insert(std::make_pair(subTask->chunkstoprocess(chunkIdx).SerializeAsString(), 0));
+            auto it = chunks.insert(std::make_pair(subTask.chunkstoprocess(chunkIdx).SerializeAsString(), 0));
             it.first->second++;
         }
     }
