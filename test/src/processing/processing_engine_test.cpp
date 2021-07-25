@@ -23,7 +23,7 @@ namespace
             subTasks.push_back(std::move(subtask));
         }
 
-        void  ProcessSubTask(
+        void ProcessSubTask(
             const SGProcessing::SubTask& subTask, SGProcessing::SubTaskResult& result,
             uint32_t initialHashCode) override 
         {
@@ -31,6 +31,20 @@ namespace
             {
                 std::this_thread::sleep_for(std::chrono::milliseconds(m_processingMillisec));
             }
+
+            size_t subTaskResultHash = initialHashCode;
+            for (int chunkIdx = 0; chunkIdx < subTask.chunkstoprocess_size(); ++chunkIdx)
+            {
+                const auto& chunk = subTask.chunkstoprocess(chunkIdx);
+                // Chunk result hash should be calculated
+                // Chunk data hash is calculated just as a stub
+                auto chunkHash = std::hash<std::string>{}(chunk.SerializeAsString());
+                result.add_chunk_hashes(chunkHash);
+                boost::hash_combine(subTaskResultHash, chunkHash);
+            }
+
+            result.set_result_hash(subTaskResultHash);
+
             m_processedSubTasks.push_back(subTask);
             m_initialHashes.push_back(initialHashCode);
         };
@@ -238,6 +252,15 @@ TEST(ProcessingEngineTest, TaskFinalization)
 
     ProcessingEngine engine1(pubs1, nodeId1, processingCore);
 
+    SGProcessing::ProcessingChunk chunk1;
+    chunk1.set_chunkid("CHUNK_1");
+    chunk1.set_n_subchunks(1);
+    chunk1.set_line_stride(1);
+    chunk1.set_offset(0);
+    chunk1.set_stride(1);
+    chunk1.set_subchunk_height(10);
+    chunk1.set_subchunk_width(10);
+
     auto queue = std::make_unique<SGProcessing::SubTaskQueue>();
     // Local queue wrapped owns the queue
     queue->mutable_processing_queue()->set_owner_node_id(nodeId1);
@@ -245,11 +268,15 @@ TEST(ProcessingEngineTest, TaskFinalization)
         auto item = queue->mutable_processing_queue()->add_items();
         auto subTask = queue->add_subtasks();
         subTask->set_results_channel("RESULT_CHANNEL_ID1");
+        auto chunk = subTask->add_chunkstoprocess();
+        chunk->CopyFrom(chunk1);
     }
     {
         auto item = queue->mutable_processing_queue()->add_items();
         auto subTask = queue->add_subtasks();
         subTask->set_results_channel("RESULT_CHANNEL_ID2");
+        auto chunk = subTask->add_chunkstoprocess();
+        chunk->CopyFrom(chunk1);
     }
 
     auto processingQueue1 = std::make_shared<ProcessingSubTaskQueue>(
