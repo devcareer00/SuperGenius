@@ -465,15 +465,29 @@ TEST(ProcessingSubTaskQueueTest, ValidateResults)
 
 
     auto processingCore = std::make_shared<ProcessingCoreImpl>();
+    // A single chunk is added to 2 subtasks
+    SGProcessing::ProcessingChunk chunk1;
+    chunk1.set_chunkid("CHUNK_1");
+    chunk1.set_n_subchunks(1);
+    chunk1.set_line_stride(1);
+    chunk1.set_offset(0);
+    chunk1.set_stride(1);
+    chunk1.set_subchunk_height(10);
+    chunk1.set_subchunk_width(10);
+
     {
         auto subtask = std::make_unique<SGProcessing::SubTask>();
         subtask->set_results_channel("RESULT_CHANNEL_1");
+        auto chunk = subtask->add_chunkstoprocess();
+        chunk->CopyFrom(chunk1);
         processingCore->m_subTasks.push_back(std::move(subtask));
     }
 
     {
         auto subtask = std::make_unique<SGProcessing::SubTask>();
         subtask->set_results_channel("RESULT_CHANNEL_2");
+        auto chunk = subtask->add_chunkstoprocess();
+        chunk->CopyFrom(chunk1);
         processingCore->m_subTasks.push_back(std::move(subtask));
     }
 
@@ -487,6 +501,8 @@ TEST(ProcessingSubTaskQueueTest, ValidateResults)
     queue1.CreateQueue(task, false);
 
     SGProcessing::SubTaskResult subTaskResult;
+    subTaskResult.add_chunk_hashes(1);
+
     queue1.AddSubTaskResult("RESULT_CHANNEL_1", subTaskResult);
 
     ASSERT_FALSE(queue1.ValidateResults());

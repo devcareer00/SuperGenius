@@ -445,7 +445,7 @@ bool ProcessingSubTaskQueue::CheckSubTaskResultHashes(
         if (it != chunks.end())
         {
             if ((it->second.size() < 2) 
-                || std::equal(it->second.begin() + 1, it->second.end(), it->second.begin()))
+                || !std::equal(it->second.begin() + 1, it->second.end(), it->second.begin()))
             {
                 m_logger->debug("INVALID_CHUNK_RESULT_HASH. SubTaskResultsChannel {}, ChunkIdx", subTask.results_channel(), chunkIdx);
                 return false;
