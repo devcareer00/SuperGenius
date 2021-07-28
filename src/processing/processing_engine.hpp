@@ -58,6 +58,7 @@ private:
     std::map<std::string, std::shared_ptr<sgns::ipfs_pubsub::GossipPubSubTopic>> m_resultChannels;
 
     mutable std::mutex m_mutexResults;
+    mutable std::mutex m_mutexSubTaskQueue;
     
     libp2p::common::Logger m_logger = libp2p::common::createLogger("ProcessingEngine");
 };

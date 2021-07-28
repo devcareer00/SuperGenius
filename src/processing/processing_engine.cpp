@@ -16,12 +16,9 @@ void ProcessingEngine::StartQueueProcessing(
     std::shared_ptr<ProcessingSubTaskQueue> subTaskQueue,
     std::function<void(const SGProcessing::TaskResult&)> taskResultProcessingSink)
 {
-    if (IsQueueProcessingStarted())
-    {
-        StopQueueProcessing();
-    }
-
+    std::lock_guard<std::mutex> queueGuard(m_mutexSubTaskQueue);
     m_subTaskQueue = subTaskQueue;
+
     m_taskResultProcessingSink = taskResultProcessingSink;
 
     auto queue = m_subTaskQueue->GetQueueSnapshot();
@@ -39,11 +36,13 @@ void ProcessingEngine::StartQueueProcessing(
 
 void ProcessingEngine::StopQueueProcessing()
 {
+    std::lock_guard<std::mutex> queueGuard(m_mutexSubTaskQueue);
     m_subTaskQueue.reset();
 }
 
 bool ProcessingEngine::IsQueueProcessingStarted() const
 {
+    std::lock_guard<std::mutex> queueGuard(m_mutexSubTaskQueue);
     return (m_subTaskQueue.get() != nullptr);
 }
 
@@ -70,8 +69,12 @@ void ProcessingEngine::ProcessSubTask(SGProcessing::SubTask subTask)
         resultChannel->Publish(result.SerializeAsString());
         m_logger->debug("[RESULT_SENT]. ({}).", subTask.results_channel());
 
-        // @todo Should a new subtask be grabbed once the perivious one is processed?
-        m_subTaskQueue->GrabSubTask(std::bind(&ProcessingEngine::OnSubTaskGrabbed, this, std::placeholders::_1));
+        std::lock_guard<std::mutex> queueGuard(m_mutexSubTaskQueue);
+        if (m_subTaskQueue)
+        {
+            // @todo Should a new subtask be grabbed once the perivious one is processed?
+            m_subTaskQueue->GrabSubTask(std::bind(&ProcessingEngine::OnSubTaskGrabbed, this, std::placeholders::_1));
+        }
     });
     thread.detach();
 }
@@ -100,40 +103,44 @@ void ProcessingEngine::OnResultChannelMessage(
         if (result.ParseFromArray(message->data.data(), static_cast<int>(message->data.size())))
         {           
             m_logger->debug("[RESULT_RECEIVED]. ({}).", result.ipfs_results_data_id());
-            // Results accumulation
+
+            std::lock_guard<std::mutex> queueGuard(m_mutexSubTaskQueue);
             if (m_subTaskQueue)
             {
                 m_subTaskQueue->AddSubTaskResult(message->topics[0], result);
-            }
-           std::lock_guard<std::mutex> guard(m_mutexResults);
-           m_results.insert({ message->topics[0], std::move(result) });
 
-           // Task processing finished
-           if (m_subTaskQueue->IsProcessed()) 
-           {
-               if (m_subTaskQueue->HasOwnership())
-               {
-                   if (m_subTaskQueue->ValidateResults())
-                   {
-                       SGProcessing::TaskResult taskResult;
-                       auto results = taskResult.mutable_subtask_results();
-                       for (const auto& r : m_results)
-                       {
-                           auto result = results->Add();
-                           result->CopyFrom(r.second);
-                       }
-                       m_taskResultProcessingSink(taskResult);
-                   }
-                   else
-                   {
-                       // @todo GrabSubTask? Check if the queue is updated and broadcasted for the case
-                   }
-               }
-               else
-               {
-                   // @todo Start task finalization timer
-               }
-           }
+                // Task processing finished
+                if (m_subTaskQueue->IsProcessed()) 
+                {
+                    if (m_subTaskQueue->HasOwnership())
+                    {
+                        if (m_subTaskQueue->ValidateResults())
+                        {
+                            SGProcessing::TaskResult taskResult;
+                            auto results = taskResult.mutable_subtask_results();
+                            for (const auto& r : m_results)
+                            {
+                                auto result = results->Add();
+                                result->CopyFrom(r.second);
+                            }
+                            m_taskResultProcessingSink(taskResult);
+                        }
+                        else
+                        {
+                            // @todo GrabSubTask? Check if the queue is updated and broadcasted for the case
+                        }
+                    }
+                    else
+                    {
+                        // @todo Start task finalization timer
+                    }
+                }
+            }
+            // Results accumulation
+            {
+                std::lock_guard<std::mutex> guard(m_mutexResults);
+                m_results.insert({ message->topics[0], std::move(result) });
+            }
         }
     }
 }
