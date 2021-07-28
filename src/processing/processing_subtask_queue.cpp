@@ -333,12 +333,20 @@ bool ProcessingSubTaskQueue::ValidateResults()
             auto itResult = m_results.find(subTask.results_channel());
             if (itResult != m_results.end())
             {
-                for (int chunkIdx = 0; chunkIdx < subTask.chunkstoprocess_size(); ++chunkIdx)
+                if (itResult->second.chunk_hashes_size() != subTask.chunkstoprocess_size())
                 {
-                    auto it = chunks.insert(std::make_pair(
-                        subTask.chunkstoprocess(chunkIdx).SerializeAsString(), std::vector<uint32_t>())
-                    );
-                    it.first->second.push_back(itResult->second.chunk_hashes(chunkIdx));
+                    m_logger->error("WRONG_CHANNEL_HASHES_LENGTH {}", subTask.results_channel());
+                    invalidSubtasksIndices.insert(subTaskIdx);
+                }
+                else
+                {
+                    for (int chunkIdx = 0; chunkIdx < subTask.chunkstoprocess_size(); ++chunkIdx)
+                    {
+                        auto it = chunks.insert(std::make_pair(
+                            subTask.chunkstoprocess(chunkIdx).SerializeAsString(), std::vector<uint32_t>()));
+
+                        it.first->second.push_back(itResult->second.chunk_hashes(chunkIdx));
+                    }
                 }
             }
             else 
@@ -347,7 +355,6 @@ bool ProcessingSubTaskQueue::ValidateResults()
                 m_logger->error("NO_RESULTS_FOUND {}", subTask.results_channel());
                 invalidSubtasksIndices.insert(subTaskIdx);
             }
-           
         }
 
         for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks_size(); ++subTaskIdx)
@@ -367,7 +374,6 @@ bool ProcessingSubTaskQueue::ValidateResults()
             std::copy(invalidSubtasksIndices.begin(), invalidSubtasksIndices.end(), std::back_inserter(validItemIndices));
             m_sharedQueue.SetValidItemIndices(std::move(validItemIndices));    
         }
-
     }
     else
     {
