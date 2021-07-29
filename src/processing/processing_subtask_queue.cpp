@@ -309,13 +309,15 @@ bool ProcessingSubTaskQueue::AddSubTaskResult(
 
 bool ProcessingSubTaskQueue::IsProcessed() const
 {
+    std::lock_guard<std::mutex> guard(m_queueMutex);
     // The queue can contain only valid results
     return (m_results.size() == m_queue->subtasks_size());
 }
 
 bool ProcessingSubTaskQueue::ValidateResults()
 {
-    if (!IsProcessed())
+    std::lock_guard<std::mutex> guard(m_queueMutex);
+    if ((m_results.size() != m_queue->subtasks_size()))
     {
         return false;
     }
@@ -370,8 +372,14 @@ bool ProcessingSubTaskQueue::ValidateResults()
         if (!invalidSubtasksIndices.empty())
         {
             areResultsValid = false;
+
             std::vector<int> validItemIndices;
-            std::copy(invalidSubtasksIndices.begin(), invalidSubtasksIndices.end(), std::back_inserter(validItemIndices));
+            for (auto invalidSubTaskIndex : invalidSubtasksIndices)
+            {
+                m_results.erase(m_queue->subtasks(invalidSubTaskIndex).results_channel());
+                validItemIndices.push_back(invalidSubTaskIndex);
+            }
+
             m_sharedQueue.SetValidItemIndices(std::move(validItemIndices));    
         }
     }
