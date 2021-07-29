@@ -262,6 +262,8 @@ TEST(ProcessingEngineTest, TaskFinalization)
     auto nodeId1 = "NODE_1";
 
     ProcessingEngine engine1(pubs1, nodeId1, processingCore);
+    processingCore->m_chunkResultHashes["RESULT_CHANNEL_ID1"] = { 0 };
+    processingCore->m_chunkResultHashes["RESULT_CHANNEL_ID2"] = { 0 };
 
     SGProcessing::ProcessingChunk chunk1;
     chunk1.set_chunkid("CHUNK_1");
@@ -320,11 +322,19 @@ TEST(ProcessingEngineTest, InvalidSubTasksRestart)
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
-    auto processingCore = std::make_shared<ProcessingCoreImpl>(100);
-    processingCore->m_chunkResultHashes["RESULT_CHANNEL_ID1"] = { 0 };
-    processingCore->m_chunkResultHashes["RESULT_CHANNEL_ID2"] = { 1 };
+    // The processing core 1 has invalid chunk result hashes
+    auto processingCore1 = std::make_shared<ProcessingCoreImpl>(500);
+    processingCore1->m_chunkResultHashes["RESULT_CHANNEL_ID1"] = { 0 };
+    processingCore1->m_chunkResultHashes["RESULT_CHANNEL_ID2"] = { 1 };
+
+
+    // The processing core 2 has invalid chunk result hashes
+    auto processingCore2 = std::make_shared<ProcessingCoreImpl>(100);
+    processingCore2->m_chunkResultHashes["RESULT_CHANNEL_ID1"] = { 0 };
+    processingCore2->m_chunkResultHashes["RESULT_CHANNEL_ID2"] = { 0 };
 
     auto nodeId1 = "NODE_1";
+    auto nodeId2 = "NODE_2";
 
     SGProcessing::ProcessingChunk chunk1;
     chunk1.set_chunkid("CHUNK_1");
@@ -354,22 +364,51 @@ TEST(ProcessingEngineTest, InvalidSubTasksRestart)
     }
 
     auto processingQueue1 = std::make_shared<ProcessingSubTaskQueue>(
-        queueChannel, pubs1->GetAsioContext(), nodeId1, processingCore);
+        queueChannel, pubs1->GetAsioContext(), nodeId1, processingCore1);
     processingQueue1->ProcessSubTaskQueueMessage(queue.release());
 
-    ProcessingEngine engine1(pubs1, nodeId1, processingCore);
+    ProcessingEngine engine1(pubs1, nodeId1, processingCore1);
+    ProcessingEngine engine2(pubs1, nodeId2, processingCore2);
 
-    bool isTaskFinalized = false;
+    bool isTaskFinalized1 = false;
     engine1.StartQueueProcessing(
         processingQueue1,
-        [&isTaskFinalized](const SGProcessing::TaskResult&) { isTaskFinalized = true; });
+        [&isTaskFinalized1](const SGProcessing::TaskResult&) { isTaskFinalized1 = true; });
+
+    // Wait for queue processing by node1
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
+    // No task finalization should be called when there are invalid chunk results
+    ASSERT_FALSE(isTaskFinalized1);
+
+    auto processingQueue2 = std::make_shared<ProcessingSubTaskQueue>(
+        queueChannel, pubs1->GetAsioContext(), nodeId2, processingCore2);
+
+    // Change queue owner
+    SGProcessing::SubTaskQueueRequest queueRequest;
+    queueRequest.set_node_id(nodeId2);
+    auto updatedQueue = processingQueue1->ProcessSubTaskQueueRequestMessage(queueRequest);
+
+    // Synchronize the queues
+    processingQueue2->ProcessSubTaskQueueMessage(processingQueue1->GetQueueSnapshot().release());
+    processingQueue1->ProcessSubTaskQueueMessage(processingQueue2->GetQueueSnapshot().release());
+    engine1.StopQueueProcessing();
+
+    // Wait for failed tasks expiration
+    // @todo Automatically mark failed tasks as exired
+    std::this_thread::sleep_for(std::chrono::milliseconds(10000));
+
+    bool isTaskFinalized2 = false;
+    engine2.StartQueueProcessing(
+        processingQueue2, 
+        [&isTaskFinalized2](const SGProcessing::TaskResult&) { isTaskFinalized2 = true; });
+
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
     pubs1->Stop();
 
-    // No task finalization should be called when there are invalid chunk results
-    ASSERT_FALSE(isTaskFinalized);
+    // Task should be finalized because chunks have valid hashes
+    ASSERT_TRUE(isTaskFinalized2);
 }
-
 
 

@@ -112,9 +112,9 @@ void ProcessingEngine::OnResultChannelMessage(
                 // Task processing finished
                 if (m_subTaskQueue->IsProcessed()) 
                 {
-                    if (m_subTaskQueue->HasOwnership())
+                    if (m_subTaskQueue->ValidateResults())
                     {
-                        if (m_subTaskQueue->ValidateResults())
+                        if (m_subTaskQueue->HasOwnership())
                         {
                             SGProcessing::TaskResult taskResult;
                             auto results = taskResult.mutable_subtask_results();
@@ -124,15 +124,16 @@ void ProcessingEngine::OnResultChannelMessage(
                                 result->CopyFrom(r.second);
                             }
                             m_taskResultProcessingSink(taskResult);
+                            // @todo Notify other nodes that the task is finalized
                         }
                         else
                         {
-                            // @todo GrabSubTask? Check if the queue is updated and broadcasted for the case
+                            // @todo Process task finalization expiration
                         }
                     }
                     else
                     {
-                        // @todo Start task finalization timer
+                        m_subTaskQueue->GrabSubTask(std::bind(&ProcessingEngine::OnSubTaskGrabbed, this, std::placeholders::_1));
                     }
                 }
             }
