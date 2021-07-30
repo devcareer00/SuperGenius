@@ -26,9 +26,22 @@ namespace
         {
             for (size_t i = 0; i < m_nSubtasks; ++i)
             {
+                auto subtaskId = (boost::format("%s_subtask_%d") % task.results_channel() % i).str();
                 auto subtask = std::make_unique<SGProcessing::SubTask>();
                 subtask->set_ipfsblock(task.ipfs_block_id());
-                subtask->set_results_channel((boost::format("%s_subtask_%d") % task.results_channel() % i).str());
+                subtask->set_results_channel(subtaskId);
+
+                SGProcessing::ProcessingChunk chunk1;
+                chunk1.set_chunkid("CHUNK_1");
+                chunk1.set_n_subchunks(1);
+                chunk1.set_line_stride(1);
+                chunk1.set_offset(0);
+                chunk1.set_stride(1);
+                chunk1.set_subchunk_height(10);
+                chunk1.set_subchunk_width(10);
+                auto chunk = subtask->add_chunkstoprocess();
+                chunk->CopyFrom(chunk1);
+
                 subTasks.push_back(std::move(subtask));
             }
         }
@@ -41,8 +54,22 @@ namespace
             std::this_thread::sleep_for(std::chrono::milliseconds(m_subTaskProcessingTime));
             std::cout << "SubTask processed. " << subTask.results_channel() << std::endl;
             result.set_ipfs_results_data_id((boost::format("%s_%s") % "RESULT_IPFS" % subTask.results_channel()).str());
+
+            size_t subTaskResultHash = initialHashCode;
+            for (int chunkIdx = 0; chunkIdx < subTask.chunkstoprocess_size(); ++chunkIdx)
+            {
+                const auto& chunk = subTask.chunkstoprocess(chunkIdx);
+                // Chunk result hash should be calculated
+                // Chunk data hash is calculated just as a stub
+                size_t chunkHash = std::hash<std::string>{}(chunk.SerializeAsString());
+
+                result.add_chunk_hashes(chunkHash);
+                boost::hash_combine(subTaskResultHash, chunkHash);
+            }
+
+            result.set_result_hash(subTaskResultHash);
+
         }
-        
     private:
         size_t m_nSubtasks;
         size_t m_subTaskProcessingTime;
