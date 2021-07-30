@@ -124,27 +124,30 @@ int main(int argc, char* argv[])
 
     std::thread iothread([io]() { io->run(); });
 
+    size_t taskIdx = 0;
     for (auto& task : tasks)
     {
+        auto taskKey = (boost::format("tasks/TASK_%d") % taskIdx).str();
         sgns::base::Buffer valueBuffer;
         valueBuffer.put(task.SerializeAsString());
-        auto setKeyResult = globalDB.Put(sgns::crdt::HierarchicalKey("tasks/TASK_1"), valueBuffer);
+        auto setKeyResult = globalDB.Put(sgns::crdt::HierarchicalKey(taskKey), valueBuffer);
         if (setKeyResult.has_failure())
         {
             std::cout << "Unable to put key-value to CRDT datastore." << std::endl;
         }
 
         // Check if data put
-        auto getKeyResult = globalDB.Get(sgns::crdt::HierarchicalKey("tasks/TASK_1"));
+        auto getKeyResult = globalDB.Get(sgns::crdt::HierarchicalKey(taskKey));
         if (getKeyResult.has_failure())
         {
             std::cout << "Unable to find key in CRDT datastore"<< std::endl;
         }
         else
         {
-            std::cout << "[" << "tasks/TASK_1" << "] -> " << std::endl;
+            std::cout << "[" << "taskKey" << "] placed to GlobalDB " << std::endl;
             // getKeyResult.value().toString()
         }
+        ++taskIdx;
     }
 
     // Gracefully shutdown on signal
