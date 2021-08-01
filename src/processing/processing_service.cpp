@@ -80,7 +80,8 @@ void ProcessingServiceImpl::AcceptProcessingChannel(
         if (itNode == processingNodes.end())
         {
             auto node = std::make_shared<ProcessingNode>(
-                m_gossipPubSub, processingChannelCapacity, m_processingCore);
+                m_gossipPubSub, processingChannelCapacity, m_processingCore,
+                std::bind(&ProcessingTaskQueue::CompleteTask, m_taskQueue.get(), channelId, std::placeholders::_1));
             node->AttachTo(channelId);
             processingNodes[channelId] = node;
         }
@@ -150,12 +151,11 @@ void ProcessingServiceImpl::HandleRequestTimeout()
         if (m_taskQueue->GrabTask(taskKey, task))
         {
             auto node = std::make_shared<ProcessingNode>(
-                m_gossipPubSub, m_processingChannelCapacity, m_processingCore);
+                m_gossipPubSub, m_processingChannelCapacity, m_processingCore,
+                std::bind(&ProcessingTaskQueue::CompleteTask, m_taskQueue.get(), taskKey, std::placeholders::_1));
 
             // @todo Figure out if the task is still available for other peers
-            node->CreateProcessingHost(
-                task, 
-                std::bind(&ProcessingTaskQueue::CompleteTask, m_taskQueue.get(), taskKey, std::placeholders::_1));
+            node->CreateProcessingHost(task);
 
             processingNodes[task.ipfs_block_id()] = node;
             m_logger->debug("New processing channel created. {}", task.ipfs_block_id());

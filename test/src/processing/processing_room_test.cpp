@@ -33,12 +33,12 @@ TEST(ProcessingRoomTest, AttachToProcessingRoom)
 
     auto processingCore = std::make_shared<ProcessingCoreImpl>();
 
-    ProcessingNode node1(pubs1, 2, processingCore);
-    ProcessingNode node2(pubs2, 2, processingCore);
+    ProcessingNode node1(pubs1, 2, processingCore, [](const SGProcessing::TaskResult&) {});
+    ProcessingNode node2(pubs2, 2, processingCore, [](const SGProcessing::TaskResult&) {});
 
     SGProcessing::Task task;
     task.set_ipfs_block_id("DATABLOCKID");
-    node1.CreateProcessingHost(task, [](const SGProcessing::TaskResult&) {});
+    node1.CreateProcessingHost(task);
     node2.AttachTo("DATABLOCKID", 500);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(2000));
@@ -71,14 +71,14 @@ TEST(ProcessingRoomTest, RoomSizeLimitExceeded)
     //auto logger = spdlog::get("GossipPubSub");
     //logger->set_level(spdlog::level::debug);
         
-    ProcessingNode node1(pubs1, 2, processingCore);
-    ProcessingNode node2(pubs2, 2, processingCore);
-    ProcessingNode node3(pubs3, 2, processingCore);
+    ProcessingNode node1(pubs1, 2, processingCore, [](const SGProcessing::TaskResult&) {});
+    ProcessingNode node2(pubs2, 2, processingCore, [](const SGProcessing::TaskResult&) {});
+    ProcessingNode node3(pubs3, 2, processingCore, [](const SGProcessing::TaskResult&) {});
 
     SGProcessing::Task task;
     task.set_ipfs_block_id("DATABLOCKID");
 
-    node1.CreateProcessingHost(task, [](const SGProcessing::TaskResult&) {});
+    node1.CreateProcessingHost(task);
     node2.AttachTo("DATABLOCKID", 1000);
     // Wait for room {1, 2} construction
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));

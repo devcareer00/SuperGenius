@@ -26,11 +26,11 @@ public:
     ProcessingEngine(
         std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> gossipPubSub,
         std::string nodeId,
-        std::shared_ptr<ProcessingCore> processingCore);
+        std::shared_ptr<ProcessingCore> processingCore,
+        std::function<void(const SGProcessing::TaskResult&)> taskResultProcessingSink);
 
     void StartQueueProcessing(
-        std::shared_ptr<ProcessingSubTaskQueue> subTaskQueue,
-        std::function<void(const SGProcessing::TaskResult&)> taskResultProcessingSink);
+        std::shared_ptr<ProcessingSubTaskQueue> subTaskQueue);
 
     void StopQueueProcessing();
     bool IsQueueProcessingStarted() const;

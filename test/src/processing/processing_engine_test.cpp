@@ -94,7 +94,7 @@ TEST(ProcessingEngineTest, SubscribtionToResultChannel)
     auto processingCore = std::make_shared<ProcessingCoreImpl>(0);
 
     auto nodeId = "NODE_1";
-    ProcessingEngine engine(pubs1, nodeId, processingCore);
+    ProcessingEngine engine(pubs1, nodeId, processingCore, [](const SGProcessing::TaskResult&) {});
 
     auto queue = std::make_unique<SGProcessing::SubTaskQueue>();
     queue->mutable_processing_queue()->set_owner_node_id("DIFFERENT_NODE_ID");
@@ -108,7 +108,7 @@ TEST(ProcessingEngineTest, SubscribtionToResultChannel)
     // The local queue wrapper doesn't own the queue
     processingQueue->ProcessSubTaskQueueMessage(queue.release());
 
-    engine.StartQueueProcessing(processingQueue, [](const SGProcessing::TaskResult&) {});
+    engine.StartQueueProcessing(processingQueue);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
@@ -143,7 +143,7 @@ TEST(ProcessingEngineTest, SubTaskProcessing)
     auto processingCore = std::make_shared<ProcessingCoreImpl>(0);
 
     auto nodeId = "NODE_1";
-    ProcessingEngine engine(pubs1, nodeId, processingCore);
+    ProcessingEngine engine(pubs1, nodeId, processingCore, [](const SGProcessing::TaskResult&) {});
 
     auto queue = std::make_unique<SGProcessing::SubTaskQueue>();
     // Local queue wrapped owns the queue
@@ -163,7 +163,7 @@ TEST(ProcessingEngineTest, SubTaskProcessing)
         queueChannel, pubs1->GetAsioContext(), nodeId, processingCore);
     processingQueue->ProcessSubTaskQueueMessage(queue.release());
 
-    engine.StartQueueProcessing(processingQueue, [](const SGProcessing::TaskResult&) {});
+    engine.StartQueueProcessing(processingQueue);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(2000));
 
@@ -195,8 +195,8 @@ TEST(ProcessingEngineTest, SharedSubTaskProcessing)
     auto nodeId1 = "NODE_1";
     auto nodeId2 = "NODE_2";
 
-    ProcessingEngine engine1(pubs1, nodeId1, processingCore);
-    ProcessingEngine engine2(pubs1, nodeId2, processingCore);
+    ProcessingEngine engine1(pubs1, nodeId1, processingCore, [](const SGProcessing::TaskResult&) {});
+    ProcessingEngine engine2(pubs1, nodeId2, processingCore, [](const SGProcessing::TaskResult&) {});
 
     auto queue = std::make_unique<SGProcessing::SubTaskQueue>();
     // Local queue wrapped owns the queue
@@ -216,7 +216,7 @@ TEST(ProcessingEngineTest, SharedSubTaskProcessing)
         queueChannel, pubs1->GetAsioContext(), nodeId1, processingCore);
     processingQueue1->ProcessSubTaskQueueMessage(queue.release());
 
-    engine1.StartQueueProcessing(processingQueue1, [](const SGProcessing::TaskResult&) {});
+    engine1.StartQueueProcessing(processingQueue1);
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     auto processingQueue2 = std::make_shared<ProcessingSubTaskQueue>(
@@ -231,7 +231,7 @@ TEST(ProcessingEngineTest, SharedSubTaskProcessing)
     processingQueue2->ProcessSubTaskQueueMessage(processingQueue1->GetQueueSnapshot().release());
     processingQueue1->ProcessSubTaskQueueMessage(processingQueue2->GetQueueSnapshot().release());
 
-    engine2.StartQueueProcessing(processingQueue2, [](const SGProcessing::TaskResult&) {});
+    engine2.StartQueueProcessing(processingQueue2);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
@@ -261,7 +261,9 @@ TEST(ProcessingEngineTest, TaskFinalization)
 
     auto nodeId1 = "NODE_1";
 
-    ProcessingEngine engine1(pubs1, nodeId1, processingCore);
+    bool isTaskFinalized = false;
+    ProcessingEngine engine1(pubs1, nodeId1, processingCore,
+        [&isTaskFinalized](const SGProcessing::TaskResult&) { isTaskFinalized = true; });
     processingCore->m_chunkResultHashes["RESULT_CHANNEL_ID1"] = { 0 };
     processingCore->m_chunkResultHashes["RESULT_CHANNEL_ID2"] = { 0 };
 
@@ -296,10 +298,7 @@ TEST(ProcessingEngineTest, TaskFinalization)
         queueChannel, pubs1->GetAsioContext(), nodeId1, processingCore);
     processingQueue1->ProcessSubTaskQueueMessage(queue.release());
 
-    bool isTaskFinalized = false;
-    engine1.StartQueueProcessing(
-        processingQueue1, 
-        [&isTaskFinalized](const SGProcessing::TaskResult&) { isTaskFinalized = true; });
+    engine1.StartQueueProcessing(processingQueue1);
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
     pubs1->Stop();
@@ -367,13 +366,15 @@ TEST(ProcessingEngineTest, InvalidSubTasksRestart)
         queueChannel, pubs1->GetAsioContext(), nodeId1, processingCore1);
     processingQueue1->ProcessSubTaskQueueMessage(queue.release());
 
-    ProcessingEngine engine1(pubs1, nodeId1, processingCore1);
-    ProcessingEngine engine2(pubs1, nodeId2, processingCore2);
-
     bool isTaskFinalized1 = false;
-    engine1.StartQueueProcessing(
-        processingQueue1,
+    ProcessingEngine engine1(pubs1, nodeId1, processingCore1,
         [&isTaskFinalized1](const SGProcessing::TaskResult&) { isTaskFinalized1 = true; });
+
+    bool isTaskFinalized2 = false;
+    ProcessingEngine engine2(pubs1, nodeId2, processingCore2,
+        [&isTaskFinalized2](const SGProcessing::TaskResult&) { isTaskFinalized2 = true; });
+
+    engine1.StartQueueProcessing(processingQueue1);
 
     // Wait for queue processing by node1
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
@@ -398,10 +399,7 @@ TEST(ProcessingEngineTest, InvalidSubTasksRestart)
     // @todo Automatically mark failed tasks as exired
     std::this_thread::sleep_for(std::chrono::milliseconds(10000));
 
-    bool isTaskFinalized2 = false;
-    engine2.StartQueueProcessing(
-        processingQueue2, 
-        [&isTaskFinalized2](const SGProcessing::TaskResult&) { isTaskFinalized2 = true; });
+    engine2.StartQueueProcessing(processingQueue2);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 

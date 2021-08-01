@@ -5,21 +5,20 @@ namespace sgns::processing
 ProcessingEngine::ProcessingEngine(
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> gossipPubSub,
     std::string nodeId,
-    std::shared_ptr<ProcessingCore> processingCore)
+    std::shared_ptr<ProcessingCore> processingCore,
+    std::function<void(const SGProcessing::TaskResult&)> taskResultProcessingSink)
     : m_gossipPubSub(gossipPubSub)
     , m_nodeId(std::move(nodeId))
     , m_processingCore(processingCore)
+    , m_taskResultProcessingSink(taskResultProcessingSink)
 {
 }
 
 void ProcessingEngine::StartQueueProcessing(
-    std::shared_ptr<ProcessingSubTaskQueue> subTaskQueue,
-    std::function<void(const SGProcessing::TaskResult&)> taskResultProcessingSink)
+    std::shared_ptr<ProcessingSubTaskQueue> subTaskQueue)
 {
     std::lock_guard<std::mutex> queueGuard(m_mutexSubTaskQueue);
     m_subTaskQueue = subTaskQueue;
-
-    m_taskResultProcessingSink = taskResultProcessingSink;
 
     auto queue = m_subTaskQueue->GetQueueSnapshot();
     if (queue->subtasks_size() > 0)
