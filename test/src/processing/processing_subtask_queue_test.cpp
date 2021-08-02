@@ -85,7 +85,7 @@ TEST(ProcessingSubTaskQueueTest, QueueCreating)
     ProcessingSubTaskQueue queue(pubs1Channel, pubs1->GetAsioContext(), nodeId, processingCore);
 
     SGProcessing::Task task;
-    queue.CreateQueue(task, false);
+    queue.CreateQueue(task);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1500));
 
@@ -155,7 +155,7 @@ TEST(ProcessingSubTaskQueueTest, QueueOwnershipTransfer)
     ProcessingSubTaskQueue queue(pubs1Channel, pubs1->GetAsioContext(), nodeId1, processingCore);
 
     SGProcessing::Task task;
-    queue.CreateQueue(task, false);
+    queue.CreateQueue(task);
 
     auto nodeId2 = "NEW_QUEUE_OWNER";
     queue.MoveOwnershipTo(nodeId2);
@@ -229,7 +229,7 @@ TEST(ProcessingSubTaskQueueTest, GrabSubTaskWithoutOwnershipTransferring)
     ProcessingSubTaskQueue queue(pubs1Channel, pubs1->GetAsioContext(), nodeId, processingCore);
 
     SGProcessing::Task task;
-    queue.CreateQueue(task, false);
+    queue.CreateQueue(task);
 
     queue.GrabSubTask([](boost::optional<const SGProcessing::SubTask&> subtask) {
         if (subtask)
@@ -335,7 +335,7 @@ TEST(ProcessingSubTaskQueueTest, GrabSubTaskWithOwnershipTransferring)
 
     // Create the queue on node1
     SGProcessing::Task task;
-    queue1.CreateQueue(task, false);
+    queue1.CreateQueue(task);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1500));
     // Grab subtask on Node2
@@ -395,7 +395,7 @@ TEST(ProcessingSubTaskQueueTest, AddUnexpectedResult)
 
     // Create the queue on node1
     SGProcessing::Task task;
-    queue1.CreateQueue(task, false);
+    queue1.CreateQueue(task);
 
     SGProcessing::SubTaskResult subTaskResult;
     ASSERT_TRUE(queue1.AddSubTaskResult("RESULT_CHANNEL_1", subTaskResult));
@@ -436,7 +436,7 @@ TEST(ProcessingSubTaskQueueTest, CheckProcessedQueue)
 
     // Create the queue on node1
     SGProcessing::Task task;
-    queue1.CreateQueue(task, false);
+    queue1.CreateQueue(task);
 
     SGProcessing::SubTaskResult subTaskResult;
     queue1.AddSubTaskResult("RESULT_CHANNEL_1", subTaskResult);
@@ -498,7 +498,7 @@ TEST(ProcessingSubTaskQueueTest, ValidateResults)
 
     // Create the queue on node1
     SGProcessing::Task task;
-    queue1.CreateQueue(task, false);
+    queue1.CreateQueue(task);
 
     SGProcessing::SubTaskResult subTaskResult;
     subTaskResult.add_chunk_hashes(1);
@@ -548,7 +548,7 @@ TEST(ProcessingSubTaskQueueTest, TaskSplitFailed)
 
     // Create the queue on node1
     SGProcessing::Task task;
-    ASSERT_FALSE(queue1.CreateQueue(task, true));
+    ASSERT_FALSE(queue1.CreateQueue(task));
 
     pubs1->Stop();
 }
@@ -602,7 +602,7 @@ TEST(ProcessingSubTaskQueueTest, TaskSplitSucceeded)
 
     // Create the queue on node1
     SGProcessing::Task task;
-    ASSERT_TRUE(queue1.CreateQueue(task, true));
+    ASSERT_TRUE(queue1.CreateQueue(task));
 
     pubs1->Stop();
 }

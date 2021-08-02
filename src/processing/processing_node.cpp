@@ -58,7 +58,7 @@ void ProcessingNode::CreateProcessingHost(
     Initialize(task.ipfs_block_id(), msSubscriptionWaitingDuration);
 
     m_room->Create();
-    m_subtaskQueue->CreateQueue(task, true);
+    m_subtaskQueue->CreateQueue(task);
 
     m_processingEngine->StartQueueProcessing(m_subtaskQueue);
 }

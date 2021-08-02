@@ -20,7 +20,7 @@ ProcessingSubTaskQueue::ProcessingSubTaskQueue(
 {
 }
 
-bool ProcessingSubTaskQueue::CreateQueue(const SGProcessing::Task& task, bool requireChunksDuplication)
+bool ProcessingSubTaskQueue::CreateQueue(const SGProcessing::Task& task)
 {
     using SubTaskList = ProcessingCore::SubTaskList;
 
@@ -28,7 +28,9 @@ bool ProcessingSubTaskQueue::CreateQueue(const SGProcessing::Task& task, bool re
 
     bool hasChunksDuplicates = false;
     SubTaskList subTasks;
+    // @todo add possible errors processing of a task splitting
     m_processingCore->SplitTask(task, subTasks);
+    // @todo if (splitFailed) return false;
 
     auto queue = std::make_shared<SGProcessing::SubTaskQueue>();
     auto queueSubTasks = queue->mutable_subtasks();
@@ -39,11 +41,6 @@ bool ProcessingSubTaskQueue::CreateQueue(const SGProcessing::Task& task, bool re
         processingQueue->add_items();
     }
 
-    if (requireChunksDuplication && !HasChunkDuplicates(*queue))
-    {
-        return false;
-    }
-    
     std::lock_guard<std::mutex> guard(m_queueMutex);
     m_queue = std::move(queue);
     m_sharedQueue.CreateQueue(processingQueue);
@@ -323,71 +320,63 @@ bool ProcessingSubTaskQueue::ValidateResults()
     }
 
     bool areResultsValid = true;
-    if (HasChunkDuplicates(*m_queue))
+    // Compare result hashes for each chunk
+    // If a chunk hashes didn't match each other add the all subtasks with invalid hashes to VALID ITEMS LIST
+    std::map<std::string, std::vector<uint32_t>> chunks;
+    std::set<int> invalidSubtasksIndices;
+    for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks_size(); ++subTaskIdx)
     {
-        // Compare result hashes for each chunk
-        // If a shunk hashes didn't match each other add the all subtasks with invalid hashes to VALID ITEMS LIST
-        std::map<std::string, std::vector<uint32_t>> chunks;
-        std::set<int> invalidSubtasksIndices;
-        for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks_size(); ++subTaskIdx)
+        const auto& subTask = m_queue->subtasks(subTaskIdx);
+        auto itResult = m_results.find(subTask.results_channel());
+        if (itResult != m_results.end())
         {
-            const auto& subTask = m_queue->subtasks(subTaskIdx);
-            auto itResult = m_results.find(subTask.results_channel());
-            if (itResult != m_results.end())
+            if (itResult->second.chunk_hashes_size() != subTask.chunkstoprocess_size())
             {
-                if (itResult->second.chunk_hashes_size() != subTask.chunkstoprocess_size())
-                {
-                    m_logger->error("WRONG_CHANNEL_HASHES_LENGTH {}", subTask.results_channel());
-                    invalidSubtasksIndices.insert(subTaskIdx);
-                }
-                else
-                {
-                    for (int chunkIdx = 0; chunkIdx < subTask.chunkstoprocess_size(); ++chunkIdx)
-                    {
-                        auto it = chunks.insert(std::make_pair(
-                            subTask.chunkstoprocess(chunkIdx).SerializeAsString(), std::vector<uint32_t>()));
-
-                        it.first->second.push_back(itResult->second.chunk_hashes(chunkIdx));
-                    }
-                }
-            }
-            else 
-            {
-                // Since all subtasks are processed a result should be found for all of them
-                m_logger->error("NO_RESULTS_FOUND {}", subTask.results_channel());
+                m_logger->error("WRONG_CHANNEL_HASHES_LENGTH {}", subTask.results_channel());
                 invalidSubtasksIndices.insert(subTaskIdx);
             }
-        }
-
-        for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks_size(); ++subTaskIdx)
-        {
-            const auto& subTask = m_queue->subtasks(subTaskIdx);
-            if ((invalidSubtasksIndices.find(subTaskIdx) == invalidSubtasksIndices.end())
-                && !CheckSubTaskResultHashes(subTask, chunks))
+            else
             {
-                invalidSubtasksIndices.insert(subTaskIdx);
+                for (int chunkIdx = 0; chunkIdx < subTask.chunkstoprocess_size(); ++chunkIdx)
+                {
+                    auto it = chunks.insert(std::make_pair(
+                        subTask.chunkstoprocess(chunkIdx).SerializeAsString(), std::vector<uint32_t>()));
+
+                    it.first->second.push_back(itResult->second.chunk_hashes(chunkIdx));
+                }
             }
         }
-
-        if (!invalidSubtasksIndices.empty())
+        else
         {
-            areResultsValid = false;
-
-            std::vector<int> validItemIndices;
-            for (auto invalidSubTaskIndex : invalidSubtasksIndices)
-            {
-                m_results.erase(m_queue->subtasks(invalidSubTaskIndex).results_channel());
-                validItemIndices.push_back(invalidSubTaskIndex);
-            }
-
-            m_sharedQueue.SetValidItemIndices(std::move(validItemIndices));    
+            // Since all subtasks are processed a result should be found for all of them
+            m_logger->error("NO_RESULTS_FOUND {}", subTask.results_channel());
+            invalidSubtasksIndices.insert(subTaskIdx);
         }
     }
-    else
+
+    for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks_size(); ++subTaskIdx)
     {
-        m_logger->info("CHUNKS_ARE_NOT_DUPLICATED");
+        const auto& subTask = m_queue->subtasks(subTaskIdx);
+        if ((invalidSubtasksIndices.find(subTaskIdx) == invalidSubtasksIndices.end())
+            && !CheckSubTaskResultHashes(subTask, chunks))
+        {
+            invalidSubtasksIndices.insert(subTaskIdx);
+        }
     }
-    
+
+    if (!invalidSubtasksIndices.empty())
+    {
+        areResultsValid = false;
+
+        std::vector<int> validItemIndices;
+        for (auto invalidSubTaskIndex : invalidSubtasksIndices)
+        {
+            m_results.erase(m_queue->subtasks(invalidSubTaskIndex).results_channel());
+            validItemIndices.push_back(invalidSubTaskIndex);
+        }
+
+        m_sharedQueue.SetValidItemIndices(std::move(validItemIndices));
+    }
     return areResultsValid;
 }
 
@@ -412,42 +401,6 @@ void ProcessingSubTaskQueue::LogQueue() const
     }
 }
 
-bool ProcessingSubTaskQueue::HasChunkDuplicates(const SGProcessing::SubTaskQueue& subTaskQueue)
-{
-    std::map<std::string, size_t> chunks;
-    for (int subTaskIdx = 0; subTaskIdx < subTaskQueue.subtasks_size(); ++subTaskIdx)
-    {
-        const auto& subTask = subTaskQueue.subtasks(subTaskIdx);
-        if (subTask.chunkstoprocess_size() == 0)
-        {
-            m_logger->info("No chunks are specified in subtask '{}'", subTask.results_channel());
-            return false;
-        }
-
-        for (int chunkIdx = 0; chunkIdx < subTask.chunkstoprocess_size(); ++chunkIdx)
-        {
-            auto it = chunks.insert(std::make_pair(subTask.chunkstoprocess(chunkIdx).SerializeAsString(), 0));
-            it.first->second++;
-        }
-    }
-
-    for (const auto& item : chunks)
-    {
-        if (item.second < 2)
-        {
-            if (m_logger->level() <= spdlog::level::info)
-            {
-                SGProcessing::ProcessingChunk chunk;
-                chunk.ParseFromString(item.first);
-                m_logger->info("No duplicates found for chunk '{}'", chunk.chunkid());
-            }
-            return false;
-        }
-    }
-
-    return true;
-}
-
 bool ProcessingSubTaskQueue::CheckSubTaskResultHashes(
     const SGProcessing::SubTask& subTask,
     const std::map<std::string, std::vector<uint32_t>>& chunks) const
@@ -458,8 +411,9 @@ bool ProcessingSubTaskQueue::CheckSubTaskResultHashes(
         auto it = chunks.find(chunk.SerializeAsString());
         if (it != chunks.end())
         {
-            if ((it->second.size() < 2) 
-                || !std::equal(it->second.begin() + 1, it->second.end(), it->second.begin()))
+            // Check duplicated chunks only
+            if ((it->second.size() >= 2) 
+                && !std::equal(it->second.begin() + 1, it->second.end(), it->second.begin()))
             {
                 m_logger->debug("INVALID_CHUNK_RESULT_HASH. SubTaskResultsChannel {}, ChunkIdx {}, Hashes [{}]", subTask.results_channel(), chunkIdx);
                 return false;
