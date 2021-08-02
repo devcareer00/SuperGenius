@@ -16,14 +16,24 @@ namespace
     class ProcessingCoreImpl : public ProcessingCore
     {
     public:
-        ProcessingCoreImpl(size_t nSubtasks, size_t subTaskProcessingTime)
+        ProcessingCoreImpl(
+            size_t nSubtasks,
+            size_t subTaskProcessingTime,
+            size_t nChunks,
+            bool addValidationSubtask)
             : m_nSubtasks(nSubtasks)
             , m_subTaskProcessingTime(subTaskProcessingTime)
+            , m_nChunks(nChunks)
+            , m_addValidationSubtask(addValidationSubtask)
         {
         }
 
         void SplitTask(const SGProcessing::Task& task, SubTaskList& subTasks) override
         {
+            std::unique_ptr<SGProcessing::SubTask> validationSubtask = m_addValidationSubtask ?
+                std::make_unique<SGProcessing::SubTask>() : nullptr;
+            
+            size_t chunkId = 0;
             for (size_t i = 0; i < m_nSubtasks; ++i)
             {
                 auto subtaskId = (boost::format("%s_subtask_%d") % task.results_channel() % i).str();
@@ -31,18 +41,35 @@ namespace
                 subtask->set_ipfsblock(task.ipfs_block_id());
                 subtask->set_results_channel(subtaskId);
 
-                SGProcessing::ProcessingChunk chunk1;
-                chunk1.set_chunkid("CHUNK_1");
-                chunk1.set_n_subchunks(1);
-                chunk1.set_line_stride(1);
-                chunk1.set_offset(0);
-                chunk1.set_stride(1);
-                chunk1.set_subchunk_height(10);
-                chunk1.set_subchunk_width(10);
-                auto chunk = subtask->add_chunkstoprocess();
-                chunk->CopyFrom(chunk1);
+                for (size_t chunkIdx = 0; chunkIdx < m_nChunks; ++chunkIdx)
+                {
+                    SGProcessing::ProcessingChunk chunk;
+                    chunk.set_chunkid((boost::format("CHUNK_%d") % chunkId).str());
+                    chunk.set_n_subchunks(1);
+                    chunk.set_line_stride(1);
+                    chunk.set_offset(0);
+                    chunk.set_stride(1);
+                    chunk.set_subchunk_height(10);
+                    chunk.set_subchunk_width(10);
 
+                    auto chunkToProcess = subtask->add_chunkstoprocess();
+                    chunkToProcess->CopyFrom(chunk);
+
+                    if (chunkIdx == 0 && validationSubtask)
+                    {
+                        // Add the first chunk of a processing subtask into the validation subtask
+                        auto chunkToValidate = subtask->add_chunkstoprocess();
+                        chunkToValidate->CopyFrom(chunk);
+                    }
+
+                    ++chunkId;
+                }
                 subTasks.push_back(std::move(subtask));
+            }
+
+            if (validationSubtask)
+            {
+                subTasks.push_back(std::move(validationSubtask));
             }
         }
 
@@ -61,7 +88,8 @@ namespace
                 const auto& chunk = subTask.chunkstoprocess(chunkIdx);
                 // Chunk result hash should be calculated
                 // Chunk data hash is calculated just as a stub
-                size_t chunkHash = std::hash<std::string>{}(chunk.SerializeAsString());
+                size_t chunkHash = (chunkIdx < m_chunkResulHashes.size()) ?
+                    m_chunkResulHashes[chunkIdx] : std::hash<std::string>{}(chunk.SerializeAsString());
 
                 result.add_chunk_hashes(chunkHash);
                 boost::hash_combine(subTaskResultHash, chunkHash);
@@ -70,9 +98,14 @@ namespace
             result.set_result_hash(subTaskResultHash);
 
         }
+
+        std::vector<size_t> m_chunkResulHashes;
+
     private:
         size_t m_nSubtasks;
         size_t m_subTaskProcessingTime;
+        size_t m_nChunks;
+        bool m_addValidationSubtask;
     };
 
 
@@ -239,6 +272,9 @@ namespace
         size_t channelListRequestTimeout = 5000;
         // optional remote peer to connect to
         std::optional<std::string> remote;
+        size_t nchunks = 1;
+        std::vector<size_t> chunkResultHashes;
+        bool addValidationSubtask = false;
     };
 
     boost::optional<Options> parseCommandLine(int argc, char** argv) {
@@ -256,7 +292,11 @@ namespace
                 ("disconnect,d", po::value(&o.disconnect), "disconnect after (ms)")
                 ("nsubtasks,n", po::value(&o.nSubTasks), "number of subtasks that task is split to")
                 ("channellisttimeout,t", po::value(&o.channelListRequestTimeout), "chnnel list request timeout (ms)")
-                ("serviceindex,i", po::value(&o.serviceIndex), "index of the service in computational grid (has to be a unique value)");
+                ("serviceindex,i", po::value(&o.serviceIndex), "index of the service in computational grid (has to be a unique value)")
+                ("addvalidationsubtask,v", po::value(&o.addValidationSubtask),
+                    "add a subtask that contains a randon (actually first) chunk of each of processing subtasks")
+                ("nchunks,c", po::value(&o.nSubTasks), "number of chunks in each processing subtask")
+                ("chunkresulthashes,h", po::value<std::vector<size_t>>()->multitoken(), "chunk result hashes");
 
             po::variables_map vm;
             po::store(parse_command_line(argc, argv, desc), vm);
@@ -289,6 +329,16 @@ namespace
             if (!remote.empty())
             {
                 o.remote = remote;
+            }
+
+            if (!vm["chunkresulthashes"].empty()) 
+            {
+                o.chunkResultHashes = vm["chunkresulthashes"].as<std::vector<size_t>>();
+                if (o.chunkResultHashes.size() != o.nchunks)
+                {
+                    std::cerr << "Number of chunks doesn't match the number of result hashes\n";
+                    return boost::none;
+                }
             }
 
             return o;
@@ -373,7 +423,13 @@ int main(int argc, char* argv[])
 
     auto taskQueue = std::make_shared<ProcessingTaskQueueImpl>(globalDB);
 
-    auto processingCore = std::make_shared<ProcessingCoreImpl>(options->nSubTasks, options->subTaskProcessingTime);
+    auto processingCore = std::make_shared<ProcessingCoreImpl>(
+        options->nSubTasks, 
+        options->subTaskProcessingTime,
+        options->nchunks,
+        options->addValidationSubtask);
+    processingCore->m_chunkResulHashes = options->chunkResultHashes;
+    
     ProcessingServiceImpl processingService(pubs, maximalNodesCount, options->roomSize, taskQueue, processingCore);
 
     processingService.Listen(processingGridChannel);
@@ -395,4 +451,3 @@ int main(int argc, char* argv[])
 
     return 0;
 }
-
