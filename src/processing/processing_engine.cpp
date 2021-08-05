@@ -111,7 +111,9 @@ void ProcessingEngine::OnResultChannelMessage(
                 // Task processing finished
                 if (m_subTaskQueue->IsProcessed()) 
                 {
-                    if (m_subTaskQueue->ValidateResults())
+                    bool valid = m_subTaskQueue->ValidateResults();
+                    m_logger->debug("RESULTS_VALIDATED: {}", valid ? "VALID" : "INVALID");
+                    if (valid)
                     {
                         if (m_subTaskQueue->HasOwnership())
                         {

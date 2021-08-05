@@ -77,9 +77,7 @@ namespace
             const SGProcessing::SubTask& subTask, SGProcessing::SubTaskResult& result,
             uint32_t initialHashCode) override 
         {
-            std::cout << "SubTask processing started. " << subTask.results_channel() << std::endl;
             std::this_thread::sleep_for(std::chrono::milliseconds(m_subTaskProcessingTime));
-            std::cout << "SubTask processed. " << subTask.results_channel() << std::endl;
             result.set_ipfs_results_data_id((boost::format("%s_%s") % "RESULT_IPFS" % subTask.results_channel()).str());
 
             size_t subTaskResultHash = initialHashCode;
@@ -96,7 +94,6 @@ namespace
             }
 
             result.set_result_hash(subTaskResultHash);
-
         }
 
         std::vector<size_t> m_chunkResulHashes;
@@ -374,6 +371,9 @@ int main(int argc, char* argv[])
     auto loggerProcessingSubTaskQueue = libp2p::common::createLogger("ProcessingSubTaskQueue");
     loggerProcessingSubTaskQueue->set_level(spdlog::level::debug);
     
+    auto loggerProcessingSharedQueue = libp2p::common::createLogger("ProcessingSharedQueue");
+    loggerProcessingSharedQueue->set_level(spdlog::level::debug);
+
     auto loggerGlobalDB = libp2p::common::createLogger("GlobalDB");
     loggerGlobalDB->set_level(spdlog::level::debug);
 

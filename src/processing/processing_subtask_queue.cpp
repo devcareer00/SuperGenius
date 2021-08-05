@@ -415,13 +415,13 @@ bool ProcessingSubTaskQueue::CheckSubTaskResultHashes(
             if ((it->second.size() >= 2) 
                 && !std::equal(it->second.begin() + 1, it->second.end(), it->second.begin()))
             {
-                m_logger->debug("INVALID_CHUNK_RESULT_HASH. SubTaskResultsChannel {}, ChunkIdx {}", subTask.results_channel(), chunkIdx);
+                m_logger->debug("INVALID_CHUNK_RESULT_HASH [{}, {}]", subTask.results_channel(), chunk.chunkid());
                 return false;
             }
         }
         else
         {
-            m_logger->debug("NO_CHUNK_RESULT_FOUND. SubTaskResultsChannel {}, ChunkIdx {}", subTask.results_channel(), chunkIdx);
+            m_logger->debug("NO_CHUNK_RESULT_FOUND [{}, {}]", subTask.results_channel(), chunk.chunkid());
             return false;
         }
     }
