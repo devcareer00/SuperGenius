@@ -269,7 +269,7 @@ namespace
         size_t channelListRequestTimeout = 5000;
         // optional remote peer to connect to
         std::optional<std::string> remote;
-        size_t nchunks = 1;
+        size_t nChunks = 1;
         std::vector<size_t> chunkResultHashes;
         bool addValidationSubtask = false;
     };
@@ -292,7 +292,7 @@ namespace
                 ("serviceindex,i", po::value(&o.serviceIndex), "index of the service in computational grid (has to be a unique value)")
                 ("addvalidationsubtask,v", po::value(&o.addValidationSubtask),
                     "add a subtask that contains a randon (actually first) chunk of each of processing subtasks")
-                ("nchunks,c", po::value(&o.nSubTasks), "number of chunks in each processing subtask")
+                ("nchunks,c", po::value(&o.nChunks), "number of chunks in each processing subtask")
                 ("chunkresulthashes,h", po::value<std::vector<size_t>>()->multitoken(), "chunk result hashes");
 
             po::variables_map vm;
@@ -331,9 +331,20 @@ namespace
             if (!vm["chunkresulthashes"].empty()) 
             {
                 o.chunkResultHashes = vm["chunkresulthashes"].as<std::vector<size_t>>();
-                if (o.chunkResultHashes.size() != o.nchunks)
+                if (o.chunkResultHashes.size() != o.nChunks)
                 {
-                    std::cerr << "Number of chunks doesn't match the number of result hashes\n";
+                    std::cerr << 
+                        (boost::format("Number of chunks (%d) doesn't match the number of result hashes (%d)") 
+                        % o.nChunks
+                        % o.chunkResultHashes.size()).str() << std::endl;
+
+                    for (auto v : o.chunkResultHashes)
+                    {
+                        std::cerr << v << ";";
+                    }
+
+                    std::cerr << std::endl;
+
                     return boost::none;
                 }
             }
@@ -426,7 +437,7 @@ int main(int argc, char* argv[])
     auto processingCore = std::make_shared<ProcessingCoreImpl>(
         options->nSubTasks, 
         options->subTaskProcessingTime,
-        options->nchunks,
+        options->nChunks,
         options->addValidationSubtask);
     processingCore->m_chunkResulHashes = options->chunkResultHashes;
     
