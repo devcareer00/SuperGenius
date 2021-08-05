@@ -36,7 +36,7 @@ namespace
             size_t chunkId = 0;
             for (size_t i = 0; i < m_nSubtasks; ++i)
             {
-                auto subtaskId = (boost::format("%s_subtask_%d") % task.results_channel() % i).str();
+                auto subtaskId = (boost::format("subtask_%d") % i).str();
                 auto subtask = std::make_unique<SGProcessing::SubTask>();
                 subtask->set_ipfsblock(task.ipfs_block_id());
                 subtask->set_results_channel(subtaskId);
@@ -44,7 +44,7 @@ namespace
                 for (size_t chunkIdx = 0; chunkIdx < m_nChunks; ++chunkIdx)
                 {
                     SGProcessing::ProcessingChunk chunk;
-                    chunk.set_chunkid((boost::format("CHUNK_%d") % chunkId).str());
+                    chunk.set_chunkid((boost::format("CHUNK_%d_%d") % i % chunkId).str());
                     chunk.set_n_subchunks(1);
                     chunk.set_line_stride(1);
                     chunk.set_offset(0);
@@ -55,11 +55,14 @@ namespace
                     auto chunkToProcess = subtask->add_chunkstoprocess();
                     chunkToProcess->CopyFrom(chunk);
 
-                    if (chunkIdx == 0 && validationSubtask)
+                    if (validationSubtask)
                     {
-                        // Add the first chunk of a processing subtask into the validation subtask
-                        auto chunkToValidate = subtask->add_chunkstoprocess();
-                        chunkToValidate->CopyFrom(chunk);
+                        if (chunkIdx == 0)
+                        {
+                            // Add the first chunk of a processing subtask into the validation subtask
+                            auto chunkToValidate = validationSubtask->add_chunkstoprocess();
+                            chunkToValidate->CopyFrom(chunk);
+                        }
                     }
 
                     ++chunkId;
@@ -69,6 +72,9 @@ namespace
 
             if (validationSubtask)
             {
+                auto subtaskId = (boost::format("subtask_validation")).str();
+                validationSubtask->set_ipfsblock(task.ipfs_block_id());
+                validationSubtask->set_results_channel(subtaskId);
                 subTasks.push_back(std::move(validationSubtask));
             }
         }
@@ -80,14 +86,25 @@ namespace
             std::this_thread::sleep_for(std::chrono::milliseconds(m_subTaskProcessingTime));
             result.set_ipfs_results_data_id((boost::format("%s_%s") % "RESULT_IPFS" % subTask.results_channel()).str());
 
+            bool isValidationSubTask = (subTask.results_channel() == "subtask_validation");
             size_t subTaskResultHash = initialHashCode;
             for (int chunkIdx = 0; chunkIdx < subTask.chunkstoprocess_size(); ++chunkIdx)
             {
                 const auto& chunk = subTask.chunkstoprocess(chunkIdx);
+
                 // Chunk result hash should be calculated
                 // Chunk data hash is calculated just as a stub
-                size_t chunkHash = (chunkIdx < m_chunkResulHashes.size()) ?
-                    m_chunkResulHashes[chunkIdx] : std::hash<std::string>{}(chunk.SerializeAsString());
+                size_t chunkHash = 0;
+                if (isValidationSubTask)
+                {
+                    chunkHash = (chunkIdx < m_validationChunkHashes.size()) ?
+                        m_validationChunkHashes[chunkIdx] : std::hash<std::string>{}(chunk.SerializeAsString());
+                }
+                else
+                {
+                    chunkHash = (chunkIdx < m_chunkResulHashes.size()) ?
+                        m_chunkResulHashes[chunkIdx] : std::hash<std::string>{}(chunk.SerializeAsString());
+                }
 
                 result.add_chunk_hashes(chunkHash);
                 boost::hash_combine(subTaskResultHash, chunkHash);
@@ -97,6 +114,7 @@ namespace
         }
 
         std::vector<size_t> m_chunkResulHashes;
+        std::vector<size_t> m_validationChunkHashes;
 
     private:
         size_t m_nSubtasks;
@@ -272,6 +290,7 @@ namespace
         size_t nChunks = 1;
         std::vector<size_t> chunkResultHashes;
         bool addValidationSubtask = false;
+        std::vector<size_t> validationChunkHashes;
     };
 
     boost::optional<Options> parseCommandLine(int argc, char** argv) {
@@ -293,7 +312,8 @@ namespace
                 ("addvalidationsubtask,v", po::value(&o.addValidationSubtask),
                     "add a subtask that contains a randon (actually first) chunk of each of processing subtasks")
                 ("nchunks,c", po::value(&o.nChunks), "number of chunks in each processing subtask")
-                ("chunkresulthashes,h", po::value<std::vector<size_t>>()->multitoken(), "chunk result hashes");
+                ("chunkresulthashes,h", po::value<std::vector<size_t>>()->multitoken(), "chunk result hashes")
+                ("validationchunkhashes", po::value<std::vector<size_t>>()->multitoken(), "validation chunk result hashes");
 
             po::variables_map vm;
             po::store(parse_command_line(argc, argv, desc), vm);
@@ -339,6 +359,27 @@ namespace
                         % o.chunkResultHashes.size()).str() << std::endl;
 
                     for (auto v : o.chunkResultHashes)
+                    {
+                        std::cerr << v << ";";
+                    }
+
+                    std::cerr << std::endl;
+
+                    return boost::none;
+                }
+            }
+
+            if (!vm["validationchunkhashes"].empty())
+            {
+                o.validationChunkHashes = vm["validationchunkhashes"].as<std::vector<size_t>>();
+                if (o.validationChunkHashes.size() != o.nSubTasks)
+                {
+                    std::cerr <<
+                        (boost::format("Number of subtasks (%d) doesn't match the number of validation result hashes (%d)")
+                            % o.nSubTasks
+                            % o.validationChunkHashes.size()).str() << std::endl;
+
+                    for (auto v : o.validationChunkHashes)
                     {
                         std::cerr << v << ";";
                     }
@@ -440,6 +481,7 @@ int main(int argc, char* argv[])
         options->nChunks,
         options->addValidationSubtask);
     processingCore->m_chunkResulHashes = options->chunkResultHashes;
+    processingCore->m_validationChunkHashes = options->validationChunkHashes;
     
     ProcessingServiceImpl processingService(pubs, maximalNodesCount, options->roomSize, taskQueue, processingCore);
 
