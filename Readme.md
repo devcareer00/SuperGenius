@@ -74,10 +74,57 @@ You can use Debug configuration to debug in Visual Studio.
     cmake ../build/Linux -DCMAKE_BUILD_TYPE=Release -DTHIRDPARTY_DIR=[ABSOLUTE_PATH_TO_THIRDPARTY_BUILD_RELEASE] 
     cmake --build . --config Release
 
+# Build on Linux for Android cross compile
+## Preinstall
+- CMake 
+- Android NDK Latest LTS Version (r21e) [(link)](https://developer.android.com/ndk/downloads#lts-downloads)
+- ([Build thirdparty project](../thirdparty/README.md))
+## Building
+	○ export ANDROID_NDK=/path/to/android-ndk-r21e
+	○ export ANDROID_TOOLCHAIN="$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
+	○ export PATH="$ANDROID_TOOLCHAIN":"$PATH" 
+* armeabi-v7a
+```
+○ mkdir .build/Android.armeabi-v7a
+○ cd ./.build/Android.armeabi-v7a
+○ cmake ../../build/Android/ -DANDROID_ABI="armeabi-v7a" -DCMAKE_ANDROID_NDK=$ANDROID_NDK -DANDROID_TOOLCHAIN=clang -DTHIRDPARTY_DIR=[ABSOLUTE_PATH_TO_THIRDPARTY_BUILD_Android.armeabi-v7a] 
+○ make -j4
+```	
+* arm64-v8a
+```
+○ mkdir .build/Android.arm64-v8a
+○ cd ./.build/Android.arm64-v8a
+○ cmake ../../build/Android/ -DANDROID_ABI="arm64-v8a" -DCMAKE_ANDROID_NDK=$ANDROID_NDK -DANDROID_TOOLCHAIN=clang -DTHIRDPARTY_DIR=[ABSOLUTE_PATH_TO_THIRDPARTY_BUILD_Android.arm64-v8a] 
+○ make -j4
+```
+* x86
+```
+○ mkdir .build/Android.x86
+○ cd ./.build/Android.x86
+○ cmake ../../build/Android/ -DANDROID_ABI="x86" -DCMAKE_ANDROID_NDK=$ANDROID_NDK -DANDROID_TOOLCHAIN=clang -DTHIRDPARTY_DIR=[ABSOLUTE_PATH_TO_THIRDPARTY_BUILD_Android.x86]
+○ make -j4
+```
+* x86_64
+```
+○ mkdir .build/Android.x86_64
+○ cd ./.build/Android.x86_64
+○ cmake ../../build/Android/ -DANDROID_ABI="x86_64" -DCMAKE_ANDROID_NDK=$ANDROID_NDK -DANDROID_TOOLCHAIN=clang -DTHIRDPARTY_DIR=[ABSOLUTE_PATH_TO_THIRDPARTY_BUILD_Android.x86_64]
+○ make -j4
+```
 # Build on OSX 
+```
+○ cd SuperGenius 
+○ mkdir .build/OSX 
+○ cd .build/OSX
+○ cmake ../../build/OSX -DCMAKE_BUILD_TYPE=Release -DTHIRDPARTY_DIR=[ABSOLUTE_PATH_TO_THIRDPARTY_BUILD_RELEASE] 
+○ make -j4
+```
+# Build on OSX for iOS cross compile 
 
-    cd SuperGenius 
-    mkdir .build 
-    cd .build 
-    cmake ../build/OSX -DCMAKE_BUILD_TYPE=Release -DTHIRDPARTY_DIR=[ABSOLUTE_PATH_TO_THIRDPARTY_BUILD_RELEASE] 
-    cmake --build . --config Release
+```
+○ cd SuperGenius 
+○ mkdir .build/iOS 
+○ cd .build/iOS
+○ cmake ../../build/iOS -DCMAKE_BUILD_TYPE=Release -DTHIRDPARTY_DIR=[ABSOLUTE_PATH_TO_THIRDPARTY_BUILD_RELEASE] -DCMAKE_TOOLCHAIN_FILE=[/ABSOLUTE/PATH/TO/GeniusTokens/SuperGenius/build/iOS/iOS.cmake] -DiOS_ABI=arm64-v8a -DIOS_ARCH="arm64" -DENABLE_ARC=0 -DENABLE_BITCODE=0 -DENABLE_VISIBILITY=1  -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_SYSTEM_PROCESSOR=arm64
+○ make -j4
+```

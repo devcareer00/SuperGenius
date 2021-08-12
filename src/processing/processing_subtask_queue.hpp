@@ -9,7 +9,7 @@
 #include "processing_shared_queue.hpp"
 #include "processing_core.hpp"
 
-#include "SGProcessing.pb.h"
+#include <processing/proto/SGProcessing.pb.h>
 
 #include <ipfs_pubsub/gossip_pubsub_topic.hpp>
 

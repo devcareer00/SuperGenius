@@ -38,9 +38,9 @@ function(addtest_part test_name)
       )
 endfunction()
 
-function(compile_proto_to_cpp PB_H PB_CC PROTO)
+function(compile_proto_to_cpp PB_H PB_CC PB_REL_PATH PROTO)
   get_target_property(Protobuf_INCLUDE_DIR protobuf::libprotobuf INTERFACE_INCLUDE_DIRECTORIES)
-  get_target_property(Protobuf_PROTOC_EXECUTABLE protobuf::protoc IMPORTED_LOCATION_RELEASE)
+  get_target_property(Protobuf_PROTOC_EXECUTABLE protobuf::protoc IMPORTED_LOCATION)
 
   if (NOT Protobuf_PROTOC_EXECUTABLE)
     message(FATAL_ERROR "Protobuf_PROTOC_EXECUTABLE is empty")
@@ -50,6 +50,7 @@ function(compile_proto_to_cpp PB_H PB_CC PROTO)
   endif ()
 
   get_filename_component(PROTO_ABS "${PROTO}" REALPATH)
+
   # get relative (to CMAKE_BINARY_DIR) path of current proto file
   file(RELATIVE_PATH SCHEMA_REL "${CMAKE_BINARY_DIR}/src" "${CMAKE_CURRENT_BINARY_DIR}")
   set(SCHEMA_OUT_DIR ${CMAKE_BINARY_DIR}/generated)
@@ -64,7 +65,7 @@ function(compile_proto_to_cpp PB_H PB_CC PROTO)
   add_custom_command(
       OUTPUT ${SCHEMA_OUT_DIR}/${SCHEMA_REL}/${GEN_PB_HEADER} ${SCHEMA_OUT_DIR}/${SCHEMA_REL}/${GEN_PB}
       COMMAND ${GEN_COMMAND}
-      ARGS -I${PROJECT_SOURCE_DIR}/src -I${GEN_ARGS} --cpp_out=${SCHEMA_OUT_DIR} ${PROTO_ABS}
+      ARGS -I${PROJECT_ROOT}/src -I${GEN_ARGS} --cpp_out=${SCHEMA_OUT_DIR} ${PROTO_ABS}
       WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
       DEPENDS protobuf::protoc
       VERBATIM
@@ -72,17 +73,23 @@ function(compile_proto_to_cpp PB_H PB_CC PROTO)
 
   set(${PB_H} ${SCHEMA_OUT_DIR}/${SCHEMA_REL}/${GEN_PB_HEADER} PARENT_SCOPE)
   set(${PB_CC} ${SCHEMA_OUT_DIR}/${SCHEMA_REL}/${GEN_PB} PARENT_SCOPE)
+  set(${PB_REL_PATH} ${SCHEMA_REL} PARENT_SCOPE)
 endfunction()
 
+if(NOT TARGET generated)
 add_custom_target(generated
     COMMENT "Building generated files..."
     )
+endif()
 
 function(add_proto_library NAME)
   set(SOURCES "")
+  set(HEADERS "")
+  set(PB_REL_PATH "")
   foreach (PROTO IN ITEMS ${ARGN})
-    compile_proto_to_cpp(H C ${PROTO})
+    compile_proto_to_cpp(H C PB_REL_PATH ${PROTO})
     list(APPEND SOURCES ${H} ${C})
+    list(APPEND HEADERS ${H})
   endforeach ()
 
   add_library(${NAME}
@@ -92,8 +99,20 @@ function(add_proto_library NAME)
       protobuf::libprotobuf
       )
   target_include_directories(${NAME} PUBLIC
-      ${CMAKE_BINARY_DIR}/generated/
+      $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/generated/>
+      $<INSTALL_INTERFACE:include> 
+  )
+  #target_include_directories(${NAME} PUBLIC
+  #    ${CMAKE_BINARY_DIR}/generated/
+  #    )
+  foreach (H IN ITEMS ${HEADERS})
+    set_target_properties(${NAME} PROPERTIES PUBLIC_HEADER "${H}")
+  endforeach ()
+
+  install(TARGETS ${NAME} EXPORT supergeniusTargets
+      PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PB_REL_PATH}
       )
+
   disable_clang_tidy(${NAME})
 
   add_dependencies(generated ${NAME})
@@ -105,4 +124,8 @@ function(add_flag flag)
   if (FLAG_${flag} EQUAL 1)
     add_compile_options(${flag})
   endif ()
+endfunction()
+
+function(print)
+  message(STATUS "[${CMAKE_PROJECT_NAME}] ${ARGV}")
 endfunction()

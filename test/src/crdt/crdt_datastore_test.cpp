@@ -10,7 +10,7 @@
 #include <string>
 #include <boost/asio/error.hpp>
 #include <thread>
-#include <proto/bcast.pb.h>
+#include <crdt/proto/bcast.pb.h>
 
 namespace sgns::crdt
 {
@@ -85,7 +85,7 @@ namespace sgns::crdt
     * Send {@param buff} payload to other replicas.
     * @return outcome::success on success or outcome::failure on error
     */
-    virtual outcome::result<void> CustomBroadcaster::Broadcast(const base::Buffer& buff) override
+    virtual outcome::result<void> Broadcast(const base::Buffer& buff) override
     {
       if (!buff.empty())
       {
@@ -99,7 +99,7 @@ namespace sgns::crdt
     * Obtain the next {@return} payload received from the network.
     * @return buffer value or outcome::failure on error
     */
-    virtual outcome::result<base::Buffer> CustomBroadcaster::Next() override
+    virtual outcome::result<base::Buffer> Next() override
     {
       if (listOfBroadcasts_.empty())
       {

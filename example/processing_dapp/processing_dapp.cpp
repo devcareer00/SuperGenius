@@ -1,4 +1,4 @@
-#include "SGProcessing.pb.h"
+#include "processing/proto/SGProcessing.pb.h"
 
 #include <crdt/globaldb/globaldb.hpp>
 #include <crdt/globaldb/keypair_file_storage.hpp>
