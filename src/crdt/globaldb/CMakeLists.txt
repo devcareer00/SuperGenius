@@ -1,6 +1,4 @@
-set(PROTO_SRC_DIR ${CMAKE_CURRENT_BINARY_DIR}/proto)
-
-file(MAKE_DIRECTORY ${PROTO_SRC_DIR})
+add_proto_library(crdt_globaldb_proto proto/broadcast.proto)
 
 add_library(crdt_globaldb 
     globaldb.cpp
@@ -9,19 +7,12 @@ add_library(crdt_globaldb
     keypair_file_storage.cpp
     )
 
-target_include_directories(crdt_globaldb PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-
-protobuf_generate(
-    LANGUAGE cpp
-    TARGET crdt_globaldb
-    PROTOS ${CMAKE_CURRENT_SOURCE_DIR}/proto/broadcast.proto
-    IMPORT_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/proto"
-    PROTOC_OUT_DIR ${PROTO_SRC_DIR}
-    )
+set_target_properties(crdt_globaldb PROPERTIES PUBLIC_HEADER "globaldb.hpp")
 
 target_link_libraries(crdt_globaldb
     crdt_datastore
     crdt_graphsync_dagsyncer
+    crdt_globaldb_proto
     ipfs-pubsub
     ipfs-lite-cpp::ipfs_datastore_rocksdb
     p2p::p2p_peer_address
