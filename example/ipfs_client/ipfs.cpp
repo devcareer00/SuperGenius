@@ -119,7 +119,7 @@ namespace
             objects;
         objects.second = injector.template create<std::shared_ptr<libp2p::Host>>();
         auto scheduler = std::make_shared<libp2p::protocol::AsioScheduler>(
-            *io, libp2p::protocol::SchedulerConfig{});
+            io, libp2p::protocol::SchedulerConfig{});
         objects.first =
             std::make_shared<sgns::ipfs_lite::ipfs::graphsync::GraphsyncImpl>(objects.second, std::move(scheduler));
         return objects;
@@ -307,14 +307,14 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    auto loggerPubSub = libp2p::common::createLogger("GossipPubSub");
+    auto loggerPubSub = libp2p::log::createLogger("GossipPubSub");
     //loggerPubSub->set_level(spdlog::level::trace);
 
-    auto loggerDAGSyncer = libp2p::common::createLogger("GraphsyncDAGSyncer");
-    loggerDAGSyncer->set_level(spdlog::level::trace);
+    auto loggerDAGSyncer = libp2p::log::createLogger("GraphsyncDAGSyncer");
+    loggerDAGSyncer->setLevel(soralog::Level::TRACE);
 
-    auto loggerBroadcaster = libp2p::common::createLogger("PubSubBroadcasterExt");
-    loggerBroadcaster->set_level(spdlog::level::debug);
+    auto loggerBroadcaster = libp2p::log::createLogger("PubSubBroadcasterExt");
+    loggerBroadcaster->setLevel(soralog::Level::DEBUG);
 
     const std::string processingGridChannel = "GRID_CHANNEL_ID";
 

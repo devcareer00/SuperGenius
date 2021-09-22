@@ -65,25 +65,25 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    auto loggerPubSub = libp2p::common::createLogger("GossipPubSub");
+    auto loggerPubSub = libp2p::log::createLogger("GossipPubSub");
     //loggerPubSub->set_level(spdlog::level::trace);
 
-    auto loggerProcessingEngine = libp2p::common::createLogger("ProcessingEngine");
+    auto loggerProcessingEngine = sgns::base::createLogger("ProcessingEngine");
     loggerProcessingEngine->set_level(spdlog::level::trace);
 
-    auto loggerProcessingService = libp2p::common::createLogger("ProcessingService");
+    auto loggerProcessingService = sgns::base::createLogger("ProcessingService");
     loggerProcessingService->set_level(spdlog::level::trace);
 
-    auto loggerProcessingQueue = libp2p::common::createLogger("ProcessingSubTaskQueue");
+    auto loggerProcessingQueue = sgns::base::createLogger("ProcessingSubTaskQueue");
     loggerProcessingQueue->set_level(spdlog::level::debug);
     
-    auto loggerGlobalDB = libp2p::common::createLogger("GlobalDB");
+    auto loggerGlobalDB = sgns::base::createLogger("GlobalDB");
     loggerGlobalDB->set_level(spdlog::level::debug);
 
-    auto loggerDAGSyncer = libp2p::common::createLogger("GraphsyncDAGSyncer");
+    auto loggerDAGSyncer = sgns::base::createLogger("GraphsyncDAGSyncer");
     loggerDAGSyncer->set_level(spdlog::level::trace);
 
-    auto loggerBroadcaster = libp2p::common::createLogger("PubSubBroadcasterExt");
+    auto loggerBroadcaster = sgns::base::createLogger("PubSubBroadcasterExt");
     loggerBroadcaster->set_level(spdlog::level::debug);
 
     const std::string processingGridChannel = "GRID_CHANNEL_ID";
