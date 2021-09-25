@@ -62,7 +62,7 @@ namespace sgns::network {
                    size_t bytes,
                    WriteCallbackFunc cb) override;
 
-    void LoopbackStream::deferWriteCallback(std::error_code ec, WriteCallbackFunc cb) override;
+    void deferWriteCallback(std::error_code ec, WriteCallbackFunc cb) override;
   private:
     void read(gsl::span<uint8_t> out,
               size_t bytes,
