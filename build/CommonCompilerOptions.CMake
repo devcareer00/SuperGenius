@@ -85,3 +85,5 @@ if(NOT EXISTS "${_THIRDPARTY_DIR}/build")
   message(FATAL_ERROR "Unable to find thirdparty source folder relative to build folder ${_THIRDPARTY_BUILD_DIR}")
 endif()
 print("THIRDPARTY SRC DIR: ${_THIRDPARTY_DIR}")
+
+add_compile_definitions(SPDLOG_FMT_EXTERNAL)

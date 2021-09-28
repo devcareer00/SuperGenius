@@ -74,6 +74,13 @@ set(GSL_INCLUDE_DIR "${_THIRDPARTY_BUILD_DIR}/GSL/include")
 include_directories(${GSL_INCLUDE_DIR})
 
 # --------------------------------------------------------
+# Set config of fmt
+set(fmt_DIR "${_THIRDPARTY_BUILD_DIR}/fmt/lib/cmake/fmt")
+set(fmt_INCLUDE_DIR "${_THIRDPARTY_BUILD_DIR}/fmt/include")
+find_package(fmt CONFIG REQUIRED)
+include_directories(${fmt_INCLUDE_DIR})
+
+# --------------------------------------------------------
 # Set config of spdlog v1.4.2
 set(spdlog_DIR "${_THIRDPARTY_BUILD_DIR}/spdlog/lib/cmake/spdlog")
 set(spdlog_INCLUDE_DIR "${_THIRDPARTY_BUILD_DIR}/spdlog/include")
@@ -86,13 +93,6 @@ set(soralog_DIR "${_THIRDPARTY_BUILD_DIR}/soralog/lib/cmake/soralog")
 set(soralog_INCLUDE_DIR "${_THIRDPARTY_BUILD_DIR}/soralog/include")
 find_package(soralog CONFIG REQUIRED)
 include_directories(${soralog_INCLUDE_DIR})
-
-# --------------------------------------------------------
-# Set config of fmt
-set(fmt_DIR "${_THIRDPARTY_BUILD_DIR}/fmt/lib/cmake/fmt")
-set(fmt_INCLUDE_DIR "${_THIRDPARTY_BUILD_DIR}/fmt/include")
-find_package(fmt CONFIG REQUIRED)
-include_directories(${fmt_INCLUDE_DIR})
 
 # --------------------------------------------------------
 # Set config of cares
