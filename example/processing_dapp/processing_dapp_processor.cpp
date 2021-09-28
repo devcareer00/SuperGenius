@@ -3,6 +3,8 @@
 #include <crdt/globaldb/globaldb.hpp>
 
 #include <libp2p/multi/multibase_codec/multibase_codec_impl.hpp>
+#include <libp2p/log/configurator.hpp>
+#include <libp2p/log/logger.hpp>
 
 #include <boost/program_options.hpp>
 #include <boost/format.hpp>
@@ -407,6 +409,33 @@ int main(int argc, char* argv[])
     {
         return 1;
     }
+
+    const std::string logger_config(R"(
+    # ----------------
+    sinks:
+      - name: console
+        type: console
+        color: true
+    groups:
+      - name: processing_dapp_processor
+        sink: console
+        level: info
+        children:
+          - name: libp2p
+          - name: Gossip
+    # ----------------
+    )");
+
+    // prepare log system
+    auto logging_system = std::make_shared<soralog::LoggingSystem>(
+        std::make_shared<soralog::ConfiguratorFromYAML>(
+            // Original LibP2P logging config
+            std::make_shared<libp2p::log::Configurator>(),
+            // Additional logging config for application
+            logger_config));
+    logging_system->configure();
+
+    libp2p::log::setLoggingSystem(logging_system);
 
     auto loggerPubSub = libp2p::log::createLogger("GossipPubSub");
     //loggerPubSub->set_level(spdlog::level::trace);

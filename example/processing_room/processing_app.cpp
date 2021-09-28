@@ -4,6 +4,8 @@
 #include <boost/program_options.hpp>
 #include <boost/format.hpp>
 #include <libp2p/multi/multibase_codec/multibase_codec_impl.hpp>
+#include <libp2p/log/configurator.hpp>
+#include <libp2p/log/logger.hpp>
 
 using namespace sgns::processing;
 
@@ -159,7 +161,7 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    auto loggerPubSub = libp2p::log::createLogger("GossipPubSub");
+    auto loggerPubSub = sgns::base::createLogger("GossipPubSub");
     //loggerPubSub->set_level(spdlog::level::trace);
 
     auto loggerProcessingEngine = sgns::base::createLogger("ProcessingEngine");
@@ -171,8 +173,34 @@ int main(int argc, char* argv[])
     auto loggerProcessingQueue = sgns::base::createLogger("ProcessingSubTaskQueue");
     loggerProcessingQueue->set_level(spdlog::level::debug);
 
-
     const std::string processingGridChannel = "GRID_CHANNEL_ID";
+
+    const std::string logger_config(R"(
+    # ----------------
+    sinks:
+      - name: console
+        type: console
+        color: true
+    groups:
+      - name: processing_app
+        sink: console
+        level: info
+        children:
+          - name: libp2p
+          - name: Gossip
+    # ----------------
+    )");
+
+    // prepare log system
+    auto logging_system = std::make_shared<soralog::LoggingSystem>(
+        std::make_shared<soralog::ConfiguratorFromYAML>(
+            // Original LibP2P logging config
+            std::make_shared<libp2p::log::Configurator>(),
+            // Additional logging config for application
+            logger_config));
+    logging_system->configure();
+
+    libp2p::log::setLoggingSystem(logging_system);
 
     auto pubs = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();
 
