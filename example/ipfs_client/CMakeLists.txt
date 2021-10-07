@@ -17,7 +17,15 @@ target_link_libraries(ipfs_client
 #    ipfs-lite-cpp::ipld_node
 #    ipfs-lite-cpp::ipfs_merkledag_service
 #    ipfs-lite-cpp::graphsync
+    p2p::p2p_basic_host
+    p2p::p2p_default_network
+    p2p::p2p_peer_repository
+    p2p::p2p_inmem_address_repository
+    p2p::p2p_inmem_key_repository
+    p2p::p2p_inmem_protocol_repository
+    p2p::p2p_literals
+    p2p::p2p_kademlia
     Boost::Boost.DI
-    crdt_globaldb
     Boost::program_options    
+    ${WIN_CRYPT_LIBRARY}
     )
