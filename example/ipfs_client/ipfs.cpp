@@ -152,6 +152,45 @@ int main(int argc, char* argv[])
             return v;
         }();
 
+        auto cid = libp2p::multi::ContentIdentifierCodec::fromString("QmWATWQ7fVPP2EFGu71UkfnqhYXDYH566qy47CnJDgvs8u").value();
+
+        auto kadCID = libp2p::protocol::kademlia::ContentId::fromWire(
+            libp2p::multi::ContentIdentifierCodec::encode(cid).value());
+        if (!kadCID.has_value())
+        {
+            std::cout
+                << libp2p::peer::PeerId::fromHash(cid.content_address).value().toBase58()
+                << " FAILED TO CONVERT TO CID" << std::endl;
+            return EXIT_FAILURE;
+        }
+
+        auto& scheduler = injector.create<libp2p::protocol::Scheduler&>();
+
+        std::function<void()> find_providers = [&] {
+            [[maybe_unused]] auto res1 = kademlia->findProviders(
+                kadCID.value(), 0,
+                [&](libp2p::outcome::result<std::vector<libp2p::peer::PeerInfo>>
+                    res) {
+                        //scheduler
+                        //    .schedule(libp2p::protocol::scheduler::toTicks(
+                        //        kademlia_config.randomWalk.interval),
+                        //        find_providers)
+                        //    .detach();
+
+                        if (!res) {
+                            std::cerr << "Cannot find providers: " << res.error().message()
+                                << std::endl;
+                            return;
+                        }
+
+                        std::cout << "Providers: " << std::endl;
+                        auto& providers = res.value();
+                        for (auto& provider : providers) {
+                            std::cout << provider.id.toBase58() << std::endl;
+                        }
+                });
+        };
+
         auto peer_id = libp2p::peer::PeerId::fromBase58("12D3KooWSGCJYbM6uCvCF7cGWSitXSJTgEb7zjVCaxDyYNASTa8i").value();
 
         io->post([&] {
@@ -187,7 +226,7 @@ int main(int argc, char* argv[])
                 //provide();
 
                 // Ask provider from world
-                //find_providers();
+                find_providers();
 
                 //kademlia->start();
                 });
