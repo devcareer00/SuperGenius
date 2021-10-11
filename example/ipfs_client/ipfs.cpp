@@ -4,6 +4,9 @@
 #include <libp2p/host/host.hpp>
 #include <libp2p/protocol/common/asio/asio_scheduler.hpp>
 #include <libp2p/multi/content_identifier_codec.hpp>
+#include <libp2p/protocol/identify/identify.hpp>
+#include <libp2p/log/configurator.hpp>
+#include <libp2p/log/logger.hpp>
 
 #include <ipfs_lite/ipfs/graphsync/graphsync.hpp>
 #include <ipfs_lite/ipfs/graphsync/impl/graphsync_impl.hpp>
@@ -12,9 +15,6 @@
 #include <boost/program_options.hpp>
 #include <boost/format.hpp>
 #include <boost/di/extension/scopes/shared.hpp>
-
-#include <libp2p/log/configurator.hpp>
-#include <libp2p/log/logger.hpp>
 
 #include <iostream>
 
@@ -78,11 +78,11 @@ int main(int argc, char* argv[])
     sinks:
       - name: console
         type: console
-        color: true
+        color: false
     groups:
       - name: main
         sink: console
-        level: info
+        level: debug
         children:
           - name: libp2p
           - name: kademlia
@@ -191,8 +191,37 @@ int main(int argc, char* argv[])
                 });
         };
 
-        auto peer_id = libp2p::peer::PeerId::fromBase58("12D3KooWSGCJYbM6uCvCF7cGWSitXSJTgEb7zjVCaxDyYNASTa8i").value();
+        //auto peer_id = libp2p::peer::PeerId::fromBase58("12D3KooWSGCJYbM6uCvCF7cGWSitXSJTgEb7zjVCaxDyYNASTa8i").value();
 
+        // The peer is is received in findProviders response.
+        auto peer_id = libp2p::peer::PeerId::fromBase58("QmRXP6S7qwSH4vjSrZeJUGT68ww8rQVhoFWU5Kp7UkVkPN").value();
+        // Peers addresses: 
+        // /ip4/127.0.0.1/udp/4001/quic;
+        // /ip4/54.89.142.24/udp/4001/quic;
+        // /ip4/54.89.142.24/tcp/1031;
+        // /ip4/54.89.142.24/tcp/4001;
+        // /ip6/::1/tcp/4001;
+        // /ip4/10.0.65.121/udp/4001/quic;
+        // /ip4/100.118.94.0/tcp/4001;
+        // /ip6/::1/udp/4001/quic;
+        // /ip4/10.0.65.121/tcp/4001;
+        // /ip4/127.0.0.1/tcp/4001;
+        // /ip4/54.89.142.24/tcp/1024;
+        auto peer_address = 
+            libp2p::multi::Multiaddress::create(
+                "/ip4/10.0.65.121/tcp/4001/p2p/QmRXP6S7qwSH4vjSrZeJUGT68ww8rQVhoFWU5Kp7UkVkPN"
+                //"/ip4/54.89.142.24/tcp/4001/p2p/QmRXP6S7qwSH4vjSrZeJUGT68ww8rQVhoFWU5Kp7UkVkPN"
+            ).value();
+
+
+        auto identityManager = injector.create<std::shared_ptr<libp2p::peer::IdentityManager>>();
+        auto keyMarshaller = injector.create<std::shared_ptr<libp2p::crypto::marshaller::KeyMarshaller>>();
+
+        auto identifyMessageProcessor = std::make_shared<libp2p::protocol::IdentifyMessageProcessor>(
+            *host, host->getNetwork().getConnectionManager(), *identityManager, keyMarshaller);
+        auto identify = std::make_shared<libp2p::protocol::Identify>(*host, identifyMessageProcessor, host->getBus());
+
+        ////////////////////////////////////////////////////////////////////////////////
         io->post([&] {
             auto listen = host->listen(ma);
             if (!listen) {
@@ -205,6 +234,7 @@ int main(int argc, char* argv[])
                 kademlia->addPeer(bootstrap_node, true);
             }
 
+            identify->start();
             host->start();
 
             auto res = kademlia->findPeer(peer_id, [&](libp2p::outcome::result<libp2p::peer::PeerInfo> pi) {

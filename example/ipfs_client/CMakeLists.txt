@@ -25,6 +25,7 @@ target_link_libraries(ipfs_client
     p2p::p2p_inmem_protocol_repository
     p2p::p2p_literals
     p2p::p2p_kademlia
+    p2p::p2p_identify
     Boost::Boost.DI
     Boost::program_options    
     ${WIN_CRYPT_LIBRARY}
