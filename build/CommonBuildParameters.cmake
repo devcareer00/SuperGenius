@@ -140,6 +140,13 @@ find_package(ipfs-pubsub CONFIG REQUIRED)
 include_directories(${ipfs-pubsub_INCLUDE_DIR})
 
 # --------------------------------------------------------
+# Set config of ipfs-bitswap-cpp
+set(ipfs-bitswap-cpp_INCLUDE_DIR "${_THIRDPARTY_BUILD_DIR}/ipfs-bitswap-cpp/include")
+set(ipfs-bitswap-cpp_DIR "${_THIRDPARTY_BUILD_DIR}/ipfs-bitswap-cpp/lib/cmake/ipfs-bitswap-cpp")
+find_package(ipfs-bitswap-cpp CONFIG REQUIRED)
+include_directories(${ipfs-bitswap-cpp_INCLUDE_DIR})
+
+# --------------------------------------------------------
 # Set config of Boost.DI
 set(Boost.DI_INCLUDE_DIR "${_THIRDPARTY_BUILD_DIR}/Boost.DI/include")
 set(Boost.DI_DIR "${_THIRDPARTY_BUILD_DIR}/Boost.DI/lib/cmake/Boost.DI")
