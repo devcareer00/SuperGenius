@@ -1,3 +1,5 @@
+#include "ping_session.hpp"
+
 #include <libp2p/multi/multibase_codec/multibase_codec_impl.hpp>
 #include <libp2p/injector/host_injector.hpp>
 #include <libp2p/injector/kademlia_injector.hpp>
@@ -100,8 +102,8 @@ int main(int argc, char* argv[])
 
     libp2p::log::setLoggingSystem(logging_system);
 
-    auto loggerDAGSyncer = libp2p::log::createLogger("GraphsyncDAGSyncer");
-    loggerDAGSyncer->setLevel(soralog::Level::TRACE);
+    auto loggerIdentifyMsgProcessor = libp2p::log::createLogger("IdentifyMsgProcessor");
+    loggerIdentifyMsgProcessor->setLevel(soralog::Level::DEBUG);
 
     const std::string processingGridChannel = "GRID_CHANNEL_ID";
 
@@ -221,6 +223,9 @@ int main(int argc, char* argv[])
             *host, host->getNetwork().getConnectionManager(), *identityManager, keyMarshaller);
         auto identify = std::make_shared<libp2p::protocol::Identify>(*host, identifyMessageProcessor, host->getBus());
 
+        auto pingSession = std::make_shared<PingSession>(io, host);
+        pingSession->Init();
+
         ////////////////////////////////////////////////////////////////////////////////
         io->post([&] {
             auto listen = host->listen(ma);
@@ -261,7 +266,7 @@ int main(int argc, char* argv[])
                 //kademlia->start();
                 });
 
-            }); // 
+            }); // io->post()
 
         boost::asio::signal_set signals(*io, SIGINT, SIGTERM);
         signals.async_wait(

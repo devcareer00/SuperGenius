@@ -1,5 +1,7 @@
 add_executable(ipfs_client
     ipfs.cpp
+    ping_session.cpp
+    ping_session.hpp
     )
 
 
@@ -26,6 +28,7 @@ target_link_libraries(ipfs_client
     p2p::p2p_literals
     p2p::p2p_kademlia
     p2p::p2p_identify
+    p2p::p2p_ping
     Boost::Boost.DI
     Boost::program_options    
     ${WIN_CRYPT_LIBRARY}
