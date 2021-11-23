@@ -2,6 +2,8 @@ add_executable(ipfs_client
     ipfs.cpp
     ping_session.cpp
     ping_session.hpp
+    ipfs_dht.cpp
+    ipfs_dht.hpp
     )
 
 
@@ -19,6 +21,7 @@ target_link_libraries(ipfs_client
 #    ipfs-lite-cpp::ipld_node
 #    ipfs-lite-cpp::ipfs_merkledag_service
 #    ipfs-lite-cpp::graphsync
+    logger
     p2p::p2p_basic_host
     p2p::p2p_default_network
     p2p::p2p_peer_repository

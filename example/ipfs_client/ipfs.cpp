@@ -1,4 +1,5 @@
 #include "ping_session.hpp"
+#include "ipfs_dht.hpp"
 
 #include <libp2p/multi/multibase_codec/multibase_codec_impl.hpp>
 #include <libp2p/injector/host_injector.hpp>
@@ -10,8 +11,6 @@
 #include <libp2p/log/configurator.hpp>
 #include <libp2p/log/logger.hpp>
 
-#include <ipfs_lite/ipfs/graphsync/graphsync.hpp>
-#include <ipfs_lite/ipfs/graphsync/impl/graphsync_impl.hpp>
 #include <ipfs_lite/ipld/impl/ipld_node_impl.hpp>
 
 #include <boost/program_options.hpp>
@@ -84,7 +83,7 @@ int main(int argc, char* argv[])
     groups:
       - name: main
         sink: console
-        level: debug
+        level: info
         children:
           - name: libp2p
           - name: kademlia
@@ -103,7 +102,7 @@ int main(int argc, char* argv[])
     libp2p::log::setLoggingSystem(logging_system);
 
     auto loggerIdentifyMsgProcessor = libp2p::log::createLogger("IdentifyMsgProcessor");
-    loggerIdentifyMsgProcessor->setLevel(soralog::Level::DEBUG);
+    loggerIdentifyMsgProcessor->setLevel(soralog::Level::ERROR_);
 
     const std::string processingGridChannel = "GRID_CHANNEL_ID";
 
@@ -128,74 +127,16 @@ int main(int argc, char* argv[])
             injector
             .create<std::shared_ptr<libp2p::protocol::kademlia::Kademlia>>();
 
-        auto bootstrap_nodes = [] {
-            std::vector<std::string> addresses = {
-                "/ip4/202.61.244.123/tcp/4001/p2p/QmUikGKv3RysyCYZxNoGWjf8Y1qPjhrp8NeV4fYyNyqcDQ",
-            };
-            std::unordered_map<libp2p::peer::PeerId,
-                std::vector<libp2p::multi::Multiaddress>>
-                addresses_by_peer_id;
-
-            for (auto& address : addresses) {
-                auto ma = libp2p::multi::Multiaddress::create(address).value();
-                auto peer_id_base58 = ma.getPeerId().value();
-                auto peer_id = libp2p::peer::PeerId::fromBase58(peer_id_base58).value();
-
-                addresses_by_peer_id[std::move(peer_id)].emplace_back(std::move(ma));
-            }
-
-            std::vector<libp2p::peer::PeerInfo> v;
-            v.reserve(addresses_by_peer_id.size());
-            for (auto& i : addresses_by_peer_id) {
-                v.emplace_back(libp2p::peer::PeerInfo{
-                    /*.id =*/ i.first, /*.addresses =*/ {std::move(i.second)} });
-            }
-
-            return v;
-        }();
-
-        auto cid = libp2p::multi::ContentIdentifierCodec::fromString("QmWATWQ7fVPP2EFGu71UkfnqhYXDYH566qy47CnJDgvs8u").value();
-
-        auto kadCID = libp2p::protocol::kademlia::ContentId::fromWire(
-            libp2p::multi::ContentIdentifierCodec::encode(cid).value());
-        if (!kadCID.has_value())
-        {
-            std::cout
-                << libp2p::peer::PeerId::fromHash(cid.content_address).value().toBase58()
-                << " FAILED TO CONVERT TO CID" << std::endl;
-            return EXIT_FAILURE;
-        }
-
-        auto& scheduler = injector.create<libp2p::protocol::Scheduler&>();
-
-        std::function<void()> find_providers = [&] {
-            [[maybe_unused]] auto res1 = kademlia->findProviders(
-                kadCID.value(), 0,
-                [&](libp2p::outcome::result<std::vector<libp2p::peer::PeerInfo>>
-                    res) {
-                        //scheduler
-                        //    .schedule(libp2p::protocol::scheduler::toTicks(
-                        //        kademlia_config.randomWalk.interval),
-                        //        find_providers)
-                        //    .detach();
-
-                        if (!res) {
-                            std::cerr << "Cannot find providers: " << res.error().message()
-                                << std::endl;
-                            return;
-                        }
-
-                        std::cout << "Providers: " << std::endl;
-                        auto& providers = res.value();
-                        for (auto& provider : providers) {
-                            std::cout << provider.id.toBase58() << std::endl;
-                        }
-                });
+        std::vector<std::string> bootstrapAddresses = {
+            "/ip4/202.61.244.123/tcp/4001/p2p/QmUikGKv3RysyCYZxNoGWjf8Y1qPjhrp8NeV4fYyNyqcDQ",
         };
+
+        // Hello world
+        auto cid = libp2p::multi::ContentIdentifierCodec::fromString("QmWATWQ7fVPP2EFGu71UkfnqhYXDYH566qy47CnJDgvs8u").value();
 
         //auto peer_id = libp2p::peer::PeerId::fromBase58("12D3KooWSGCJYbM6uCvCF7cGWSitXSJTgEb7zjVCaxDyYNASTa8i").value();
 
-        // The peer is is received in findProviders response.
+        // The peer id is received in findProviders response.
         auto peer_id = libp2p::peer::PeerId::fromBase58("QmRXP6S7qwSH4vjSrZeJUGT68ww8rQVhoFWU5Kp7UkVkPN").value();
         // Peers addresses: 
         // /ip4/127.0.0.1/udp/4001/quic;
@@ -226,6 +167,8 @@ int main(int argc, char* argv[])
         auto pingSession = std::make_shared<PingSession>(io, host);
         pingSession->Init();
 
+        auto dht = std::make_shared<sgns::IpfsDHT>(kademlia, bootstrapAddresses);
+
         ////////////////////////////////////////////////////////////////////////////////
         io->post([&] {
             auto listen = host->listen(ma);
@@ -235,38 +178,24 @@ int main(int argc, char* argv[])
                 std::exit(EXIT_FAILURE);
             }
 
-            for (auto& bootstrap_node : bootstrap_nodes) {
-                kademlia->addPeer(bootstrap_node, true);
-            }
-
             identify->start();
             host->start();
+            dht->Start();
 
-            auto res = kademlia->findPeer(peer_id, [&](libp2p::outcome::result<libp2p::peer::PeerInfo> pi) {
-                if (!pi.has_failure())
-                {
-                    std::cout << "Peer found: " << pi.value().id.toBase58() << std::endl;
-                    std::cout << "Peers addresses: ";
-                    for (auto& address : pi.value().addresses)
-                    {
-                        std::cout << address.getStringAddress() << ";";
-                    }
+            dht->FindProviders(cid, [](libp2p::outcome::result<std::vector<libp2p::peer::PeerInfo>> res) {
+                if (!res) {
+                    std::cerr << "Cannot find providers: " << res.error().message() << std::endl;
+                    return;
                 }
-                else
-                {
-                    std::cout << "Peer not found. Peer: " << peer_id.toBase58()
-                        << ", Reason: " << pi.error().message() << std::endl;
+
+                std::cout << "Providers: " << std::endl;
+                auto& providers = res.value();
+                for (auto& provider : providers) {
+                    std::cout << provider.id.toBase58() << std::endl;
                 }
-                // Say to world about his providing
-                //provide();
+            });
 
-                // Ask provider from world
-                find_providers();
-
-                //kademlia->start();
-                });
-
-            }); // io->post()
+        }); // io->post()
 
         boost::asio::signal_set signals(*io, SIGINT, SIGTERM);
         signals.async_wait(
