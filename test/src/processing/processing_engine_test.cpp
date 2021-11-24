@@ -6,6 +6,7 @@
 #include <libp2p/log/logger.hpp>
 
 #include <iostream>
+#include <boost/functional/hash.hpp>
 
 using namespace sgns::processing;
 

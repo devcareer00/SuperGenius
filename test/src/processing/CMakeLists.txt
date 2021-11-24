@@ -13,6 +13,6 @@ target_link_libraries(processing_service_test
     logger
     )
 
-if(FORCE_MULTILE)
-    set_target_properties(processing_service_test PROPERTIES LINK_FLAGS "${MULTIPLE_OPTION}")
-endif()
+#if(FORCE_MULTILE)
+# set_target_properties(processing_service_test PROPERTIES LINK_FLAGS "${MULTIPLE_OPTION}")
+#endif()
