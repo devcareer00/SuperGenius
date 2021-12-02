@@ -1,5 +1,6 @@
 #include "ping_session.hpp"
 #include "ipfs_dht.hpp"
+#include <bitswap.hpp>
 
 #include <libp2p/multi/multibase_codec/multibase_codec_impl.hpp>
 #include <libp2p/injector/host_injector.hpp>
@@ -83,7 +84,7 @@ int main(int argc, char* argv[])
     groups:
       - name: main
         sink: console
-        level: info
+        level: error
         children:
           - name: libp2p
           - name: kademlia
@@ -103,6 +104,9 @@ int main(int argc, char* argv[])
 
     auto loggerIdentifyMsgProcessor = libp2p::log::createLogger("IdentifyMsgProcessor");
     loggerIdentifyMsgProcessor->setLevel(soralog::Level::ERROR_);
+
+    auto loggerBitswap = sgns::ipfs_bitswap::createLogger("Bitswap");
+    loggerBitswap->set_level(spdlog::level::debug);
 
     const std::string processingGridChannel = "GRID_CHANNEL_ID";
 
@@ -134,10 +138,10 @@ int main(int argc, char* argv[])
         // Hello world
         auto cid = libp2p::multi::ContentIdentifierCodec::fromString("QmWATWQ7fVPP2EFGu71UkfnqhYXDYH566qy47CnJDgvs8u").value();
 
-        //auto peer_id = libp2p::peer::PeerId::fromBase58("12D3KooWSGCJYbM6uCvCF7cGWSitXSJTgEb7zjVCaxDyYNASTa8i").value();
-
         // The peer id is received in findProviders response.
-        auto peer_id = libp2p::peer::PeerId::fromBase58("QmRXP6S7qwSH4vjSrZeJUGT68ww8rQVhoFWU5Kp7UkVkPN").value();
+        //auto peer_id = libp2p::peer::PeerId::fromBase58("QmRXP6S7qwSH4vjSrZeJUGT68ww8rQVhoFWU5Kp7UkVkPN").value();
+        auto peer_id = libp2p::peer::PeerId::fromBase58("QmSrq3jnqGAja4z96Jq9SMQFJ8TzbRAgrMLi1sTR6Ane6W").value();
+
         // Peers addresses: 
         // /ip4/127.0.0.1/udp/4001/quic;
         // /ip4/54.89.142.24/udp/4001/quic;
@@ -152,8 +156,9 @@ int main(int argc, char* argv[])
         // /ip4/54.89.142.24/tcp/1024;
         auto peer_address = 
             libp2p::multi::Multiaddress::create(
-                "/ip4/10.0.65.121/tcp/4001/p2p/QmRXP6S7qwSH4vjSrZeJUGT68ww8rQVhoFWU5Kp7UkVkPN"
+                //"/ip4/10.0.65.121/tcp/4001/p2p/QmRXP6S7qwSH4vjSrZeJUGT68ww8rQVhoFWU5Kp7UkVkPN"
                 //"/ip4/54.89.142.24/tcp/4001/p2p/QmRXP6S7qwSH4vjSrZeJUGT68ww8rQVhoFWU5Kp7UkVkPN"
+                "/ip4/54.89.112.218/tcp/4001/p2p/QmSrq3jnqGAja4z96Jq9SMQFJ8TzbRAgrMLi1sTR6Ane6W"
             ).value();
 
 
@@ -169,6 +174,9 @@ int main(int argc, char* argv[])
 
         auto dht = std::make_shared<sgns::IpfsDHT>(kademlia, bootstrapAddresses);
 
+        // Bitswap setup
+        auto bitswap = std::make_shared<sgns::ipfs_bitswap::Bitswap>(*host, host->getBus());
+
         ////////////////////////////////////////////////////////////////////////////////
         io->post([&] {
             auto listen = host->listen(ma);
@@ -179,10 +187,26 @@ int main(int argc, char* argv[])
             }
 
             identify->start();
+            bitswap->start();
             host->start();
+
+            /*
+            bitswap->RequestBlock(peer_id, peer_address, cid,
+                [](libp2p::outcome::result<std::string> data)
+                {
+                    if (data)
+                    {
+                        std::cout << "Bitswap data received: " << data.value() << std::endl;
+                    }
+                    else
+                    {
+                        std::cout << "CANNOT FIND REQUESTED DATA: " << data.error().message() << std::endl;
+                    }
+                });
+            /*/
             dht->Start();
 
-            dht->FindProviders(cid, [](libp2p::outcome::result<std::vector<libp2p::peer::PeerInfo>> res) {
+            dht->FindProviders(cid, [bitswap, &cid](libp2p::outcome::result<std::vector<libp2p::peer::PeerInfo>> res) {
                 if (!res) {
                     std::cerr << "Cannot find providers: " << res.error().message() << std::endl;
                     return;
@@ -190,10 +214,43 @@ int main(int argc, char* argv[])
 
                 std::cout << "Providers: " << std::endl;
                 auto& providers = res.value();
-                for (auto& provider : providers) {
-                    std::cout << provider.id.toBase58() << std::endl;
+                if (!providers.empty())
+                {
+                    for (auto& provider : providers) {
+                        std::cout << provider.id.toBase58() << std::endl;
+                    }
+
+                    const auto& pi = providers.front();
+                    std::cout << "Trying to request a block from peer: " << pi.id.toBase58();
+                    std::cout << "Addresses: [";
+                    std::string sep = "";
+                    for (auto& address : pi.addresses)
+                    {
+                        std::cout << sep << address.getStringAddress();
+                        sep = ",";
+                    }
+                    std::cout << std::endl;
+
+                    bitswap->RequestBlock(pi, cid,
+                        [](libp2p::outcome::result<std::string> data)
+                        {
+                            if (data)
+                            {
+                                std::cout << "Bitswap data received: " << data.value() << std::endl;
+                            }
+                            else
+                            {
+                                std::cout << "CANNOT FIND REQUESTED DATA: " << data.error().message() << std::endl;
+                            }
+                        });
+                }
+                else
+                {
+                    std::cout << "Empty providers list received" << std::endl;
+                    std::exit(EXIT_FAILURE);
                 }
             });
+            //*/
 
         }); // io->post()
 
