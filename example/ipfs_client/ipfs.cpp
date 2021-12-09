@@ -21,9 +21,9 @@
 #include <iostream>
 
 namespace
-{  
+{
     // cmd line options
-    struct Options 
+    struct Options
     {
         // optional remote peer to connect to
         std::optional<std::string> remote;
@@ -31,7 +31,7 @@ namespace
 
     boost::optional<Options> parseCommandLine(int argc, char** argv) {
         namespace po = boost::program_options;
-        try 
+        try
         {
             Options o;
             std::string remote;
@@ -45,7 +45,7 @@ namespace
             po::store(parse_command_line(argc, argv, desc), vm);
             po::notify(vm);
 
-            if (vm.count("help") != 0 || argc == 1) 
+            if (vm.count("help") != 0 || argc == 1)
             {
                 std::cerr << desc << "\n";
                 return boost::none;
@@ -58,13 +58,70 @@ namespace
 
             return o;
         }
-        catch (const std::exception& e) 
+        catch (const std::exception& e)
         {
             std::cerr << e.what() << std::endl;
         }
         return boost::none;
     }
-    
+
+    class BlockRequestor
+    {
+    public:
+        BlockRequestor(
+            std::shared_ptr<sgns::ipfs_bitswap::Bitswap> bitswap,
+            const sgns::ipfs_bitswap::CID& cid,
+            const std::vector<libp2p::peer::PeerInfo>& providers);
+
+        bool RequestBlock();
+    private:
+        bool RequestBlock(
+            std::vector<libp2p::peer::PeerInfo>::iterator addressBeginIt,
+            std::vector<libp2p::peer::PeerInfo>::iterator addressEndIt);
+
+        std::shared_ptr<sgns::ipfs_bitswap::Bitswap> bitswap_;
+        sgns::ipfs_bitswap::CID cid_;
+        std::vector<libp2p::peer::PeerInfo> providers_;
+    };
+
+    BlockRequestor::BlockRequestor(
+        std::shared_ptr<sgns::ipfs_bitswap::Bitswap> bitswap,
+        const sgns::ipfs_bitswap::CID& cid,
+        const std::vector<libp2p::peer::PeerInfo>& providers)
+        : bitswap_(std::move(bitswap))
+        , cid_(cid)
+        , providers_(providers)
+    {
+    }
+
+    bool BlockRequestor::RequestBlock()
+    {
+        return RequestBlock(providers_.begin(), providers_.end());
+    }
+
+    bool BlockRequestor::RequestBlock(
+        std::vector<libp2p::peer::PeerInfo>::iterator addressBeginIt,
+        std::vector<libp2p::peer::PeerInfo>::iterator addressEndIt)
+    {
+        if (addressBeginIt != addressEndIt)
+        {
+            bitswap_->RequestBlock(*addressBeginIt, cid_,
+                [this, addressBeginIt, addressEndIt](libp2p::outcome::result<std::string> data)
+                {
+                    if (data)
+                    {
+                        std::cout << "Bitswap data received: " << data.value() << std::endl;
+                        return true;
+                    }
+                    else
+                    {
+                        return RequestBlock(addressBeginIt + 1, addressEndIt);
+                    }
+                });
+        }
+
+        return false;
+    }
 }
 
 int main(int argc, char* argv[])
@@ -120,7 +177,7 @@ int main(int argc, char* argv[])
         libp2p::injector::makeKademliaInjector(
             libp2p::injector::useKademliaConfig(kademlia_config)));
 
-    try
+    //try
     {
         auto ma = libp2p::multi::Multiaddress::create("/ip4/127.0.0.1/tcp/40000").value();  // NOLINT
 
@@ -184,7 +241,9 @@ int main(int argc, char* argv[])
         auto dht = std::make_shared<sgns::IpfsDHT>(kademlia, bootstrapAddresses);
 
         // Bitswap setup
-        auto bitswap = std::make_shared<sgns::ipfs_bitswap::Bitswap>(*host, host->getBus());
+        auto bitswap = std::make_shared<sgns::ipfs_bitswap::Bitswap>(*host, host->getBus(), io);
+
+        std::shared_ptr<BlockRequestor> blockRequestor;
 
         ////////////////////////////////////////////////////////////////////////////////
         io->post([&] {
@@ -215,7 +274,7 @@ int main(int argc, char* argv[])
             /*/
             dht->Start();
 
-            dht->FindProviders(cid, [bitswap, &cid](libp2p::outcome::result<std::vector<libp2p::peer::PeerInfo>> res) {
+            dht->FindProviders(cid, [bitswap, &cid, &blockRequestor](libp2p::outcome::result<std::vector<libp2p::peer::PeerInfo>> res) {
                 if (!res) {
                     std::cerr << "Cannot find providers: " << res.error().message() << std::endl;
                     return;
@@ -230,7 +289,7 @@ int main(int argc, char* argv[])
                     }
 
                     const auto& pi = providers.front();
-                    std::cout << "Trying to request a block from peer: " << pi.id.toBase58();
+                    std::cout << "Trying to request a block from peer: " << pi.id.toBase58() << std::endl;
                     std::cout << "Addresses: [";
                     std::string sep = "";
                     for (auto& address : pi.addresses)
@@ -240,18 +299,11 @@ int main(int argc, char* argv[])
                     }
                     std::cout << std::endl;
 
-                    bitswap->RequestBlock(pi, cid,
-                        [](libp2p::outcome::result<std::string> data)
-                        {
-                            if (data)
-                            {
-                                std::cout << "Bitswap data received: " << data.value() << std::endl;
-                            }
-                            else
-                            {
-                                std::cout << "CANNOT FIND REQUESTED DATA: " << data.error().message() << std::endl;
-                            }
-                        });
+                    blockRequestor = std::make_shared<BlockRequestor>(bitswap, cid, providers);
+                    if (!blockRequestor->RequestBlock())
+                    {
+                        std::cout << "CANNOT GET REQUESTED DATA: " << std::endl;
+                    }
                 }
                 else
                 {
@@ -268,11 +320,11 @@ int main(int argc, char* argv[])
             [&io](const boost::system::error_code&, int) { io->stop(); });
         io->run();
     }
-    catch (const std::exception& e)
-    {
-        std::cerr << "Exception: " << e.what() << std::endl;
-        return EXIT_FAILURE;
-    }
+    //catch (const std::exception& e)
+    //{
+    //    std::cerr << "Exception: " << e.what() << std::endl;
+    //    return EXIT_FAILURE;
+    //}
 
     return EXIT_SUCCESS;
 }
