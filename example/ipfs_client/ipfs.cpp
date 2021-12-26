@@ -177,7 +177,7 @@ int main(int argc, char* argv[])
         libp2p::injector::makeKademliaInjector(
             libp2p::injector::useKademliaConfig(kademlia_config)));
 
-    //try
+    try
     {
         auto ma = libp2p::multi::Multiaddress::create("/ip4/127.0.0.1/tcp/40000").value();  // NOLINT
 
@@ -320,11 +320,11 @@ int main(int argc, char* argv[])
             [&io](const boost::system::error_code&, int) { io->stop(); });
         io->run();
     }
-    //catch (const std::exception& e)
-    //{
-    //    std::cerr << "Exception: " << e.what() << std::endl;
-    //    return EXIT_FAILURE;
-    //}
+    catch (const std::exception& e)
+    {
+        std::cerr << "Exception: " << e.what() << std::endl;
+        return EXIT_FAILURE;
+    }
 
     return EXIT_SUCCESS;
 }
