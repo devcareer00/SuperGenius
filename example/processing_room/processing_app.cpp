@@ -170,8 +170,8 @@ int main(int argc, char* argv[])
     auto loggerProcessingService = sgns::base::createLogger("ProcessingService");
     loggerProcessingService->set_level(spdlog::level::trace);
 
-    auto loggerProcessingQueue = sgns::base::createLogger("ProcessingSubTaskQueue");
-    loggerProcessingQueue->set_level(spdlog::level::debug);
+    auto loggerProcessingQueueManager = sgns::base::createLogger("ProcessingSubTaskQueueManager");
+    loggerProcessingQueueManager->set_level(spdlog::level::debug);
 
     const std::string processingGridChannel = "GRID_CHANNEL_ID";
 

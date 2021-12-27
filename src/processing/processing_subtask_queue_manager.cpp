@@ -1,9 +1,9 @@
-#include "processing_subtask_queue.hpp"
+#include "processing_subtask_queue_manager.hpp"
 
 namespace sgns::processing
 {
 ////////////////////////////////////////////////////////////////////////////////
-ProcessingSubTaskQueue::ProcessingSubTaskQueue(
+ProcessingSubTaskQueueManager::ProcessingSubTaskQueueManager(
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSubTopic> queueChannel,
     std::shared_ptr<boost::asio::io_context> context,
     const std::string& localNodeId)
@@ -18,7 +18,7 @@ ProcessingSubTaskQueue::ProcessingSubTaskQueue(
 {
 }
 
-bool ProcessingSubTaskQueue::CreateQueue(ProcessingCore::SubTaskList& subTasks)
+bool ProcessingSubTaskQueueManager::CreateQueue(ProcessingCore::SubTaskList& subTasks)
 {
     auto timestamp = std::chrono::system_clock::now();
 
@@ -42,7 +42,7 @@ bool ProcessingSubTaskQueue::CreateQueue(ProcessingCore::SubTaskList& subTasks)
     return true;
 }
 
-bool ProcessingSubTaskQueue::UpdateQueue(SGProcessing::SubTaskQueue* pQueue)
+bool ProcessingSubTaskQueueManager::UpdateQueue(SGProcessing::SubTaskQueue* pQueue)
 {
     if (pQueue)
     {
@@ -67,7 +67,7 @@ bool ProcessingSubTaskQueue::UpdateQueue(SGProcessing::SubTaskQueue* pQueue)
     return false;
 }
 
-void ProcessingSubTaskQueue::ProcessPendingSubTaskGrabbing()
+void ProcessingSubTaskQueueManager::ProcessPendingSubTaskGrabbing()
 {
     // The method has to be called in scoped lock of queue mutex
     m_dltGrabSubTaskTimeout.expires_at(boost::posix_time::pos_infin);
@@ -113,7 +113,7 @@ void ProcessingSubTaskQueue::ProcessPendingSubTaskGrabbing()
                 boost::posix_time::milliseconds(grabSubTaskTimeout.count()));
 
             m_dltGrabSubTaskTimeout.async_wait(std::bind(
-                &ProcessingSubTaskQueue::HandleGrabSubTaskTimeout, this, std::placeholders::_1));
+                &ProcessingSubTaskQueueManager::HandleGrabSubTaskTimeout, this, std::placeholders::_1));
         }
         else
         {
@@ -128,7 +128,7 @@ void ProcessingSubTaskQueue::ProcessPendingSubTaskGrabbing()
     }
 }
 
-void ProcessingSubTaskQueue::HandleGrabSubTaskTimeout(const boost::system::error_code& ec)
+void ProcessingSubTaskQueueManager::HandleGrabSubTaskTimeout(const boost::system::error_code& ec)
 {
     if (ec != boost::asio::error::operation_aborted)
     {
@@ -143,14 +143,14 @@ void ProcessingSubTaskQueue::HandleGrabSubTaskTimeout(const boost::system::error
     }
 }
 
-void ProcessingSubTaskQueue::GrabSubTask(SubTaskGrabbedCallback onSubTaskGrabbedCallback)
+void ProcessingSubTaskQueueManager::GrabSubTask(SubTaskGrabbedCallback onSubTaskGrabbedCallback)
 {
     std::lock_guard<std::mutex> guard(m_queueMutex);
     m_onSubTaskGrabbedCallbacks.push_back(std::move(onSubTaskGrabbedCallback));
     GrabSubTasks();
 }
 
-void ProcessingSubTaskQueue::GrabSubTasks()
+void ProcessingSubTaskQueueManager::GrabSubTasks()
 {
     if (m_sharedQueue.HasOwnership())
     {
@@ -166,7 +166,7 @@ void ProcessingSubTaskQueue::GrabSubTasks()
     }
 }
 
-bool ProcessingSubTaskQueue::MoveOwnershipTo(const std::string& nodeId)
+bool ProcessingSubTaskQueueManager::MoveOwnershipTo(const std::string& nodeId)
 {
     std::lock_guard<std::mutex> guard(m_queueMutex);
     if (m_sharedQueue.MoveOwnershipTo(nodeId))
@@ -178,13 +178,13 @@ bool ProcessingSubTaskQueue::MoveOwnershipTo(const std::string& nodeId)
     return false;
 }
 
-bool ProcessingSubTaskQueue::HasOwnership() const
+bool ProcessingSubTaskQueueManager::HasOwnership() const
 {
     std::lock_guard<std::mutex> guard(m_queueMutex);
     return m_sharedQueue.HasOwnership();
 }
 
-void ProcessingSubTaskQueue::PublishSubTaskQueue() const
+void ProcessingSubTaskQueueManager::PublishSubTaskQueue() const
 {
     SGProcessing::ProcessingChannelMessage message;
     message.set_allocated_subtask_queue(m_queue.get());
@@ -193,7 +193,7 @@ void ProcessingSubTaskQueue::PublishSubTaskQueue() const
     m_logger->debug("QUEUE_PUBLISHED");
 }
 
-bool ProcessingSubTaskQueue::ProcessSubTaskQueueMessage(SGProcessing::SubTaskQueue* queue)
+bool ProcessingSubTaskQueueManager::ProcessSubTaskQueueMessage(SGProcessing::SubTaskQueue* queue)
 {
     std::lock_guard<std::mutex> guard(m_queueMutex);
     m_dltQueueResponseTimeout.expires_at(boost::posix_time::pos_infin);
@@ -206,7 +206,7 @@ bool ProcessingSubTaskQueue::ProcessSubTaskQueueMessage(SGProcessing::SubTaskQue
     return queueChanged;
 }
 
-bool ProcessingSubTaskQueue::ProcessSubTaskQueueRequestMessage(
+bool ProcessingSubTaskQueueManager::ProcessSubTaskQueueRequestMessage(
     const SGProcessing::SubTaskQueueRequest& request)
 {
     std::lock_guard<std::mutex> guard(m_queueMutex);
@@ -220,12 +220,12 @@ bool ProcessingSubTaskQueue::ProcessSubTaskQueueRequestMessage(
     m_logger->debug("QUEUE_REQUEST_RECEIVED");
     m_dltQueueResponseTimeout.expires_from_now(m_queueResponseTimeout);
     m_dltQueueResponseTimeout.async_wait(std::bind(
-        &ProcessingSubTaskQueue::HandleQueueRequestTimeout, this, std::placeholders::_1));
+        &ProcessingSubTaskQueueManager::HandleQueueRequestTimeout, this, std::placeholders::_1));
 
     return false;
 }
 
-void ProcessingSubTaskQueue::HandleQueueRequestTimeout(const boost::system::error_code& ec)
+void ProcessingSubTaskQueueManager::HandleQueueRequestTimeout(const boost::system::error_code& ec)
 {
     if (ec != boost::asio::error::operation_aborted)
     {
@@ -245,7 +245,7 @@ void ProcessingSubTaskQueue::HandleQueueRequestTimeout(const boost::system::erro
     }
 }
 
-std::unique_ptr<SGProcessing::SubTaskQueue> ProcessingSubTaskQueue::GetQueueSnapshot() const
+std::unique_ptr<SGProcessing::SubTaskQueue> ProcessingSubTaskQueueManager::GetQueueSnapshot() const
 {
     auto queue = std::make_unique<SGProcessing::SubTaskQueue>();
 
@@ -257,7 +257,7 @@ std::unique_ptr<SGProcessing::SubTaskQueue> ProcessingSubTaskQueue::GetQueueSnap
     return std::move(queue);
 }
 
-bool ProcessingSubTaskQueue::AddSubTaskResult(
+bool ProcessingSubTaskQueueManager::AddSubTaskResult(
     const std::string& resultChannel, const SGProcessing::SubTaskResult& subTaskResult)
 {
     std::lock_guard<std::mutex> guard(m_queueMutex);
@@ -296,14 +296,14 @@ bool ProcessingSubTaskQueue::AddSubTaskResult(
     return true;
 }
 
-bool ProcessingSubTaskQueue::IsProcessed() const
+bool ProcessingSubTaskQueueManager::IsProcessed() const
 {
     std::lock_guard<std::mutex> guard(m_queueMutex);
     // The queue can contain only valid results
     return (m_results.size() == (size_t)m_queue->subtasks_size());
 }
 
-bool ProcessingSubTaskQueue::ValidateResults()
+bool ProcessingSubTaskQueueManager::ValidateResults()
 {
     std::lock_guard<std::mutex> guard(m_queueMutex);
     if ((m_results.size() != (size_t)m_queue->subtasks_size()))
@@ -372,7 +372,7 @@ bool ProcessingSubTaskQueue::ValidateResults()
     return areResultsValid;
 }
 
-void ProcessingSubTaskQueue::LogQueue() const
+void ProcessingSubTaskQueueManager::LogQueue() const
 {
     if (m_logger->level() <= spdlog::level::trace)
     {
@@ -393,7 +393,7 @@ void ProcessingSubTaskQueue::LogQueue() const
     }
 }
 
-bool ProcessingSubTaskQueue::CheckSubTaskResultHashes(
+bool ProcessingSubTaskQueueManager::CheckSubTaskResultHashes(
     const SGProcessing::SubTask& subTask,
     const std::map<std::string, std::vector<uint32_t>>& chunks) const
 {

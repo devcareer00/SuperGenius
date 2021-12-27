@@ -141,12 +141,12 @@ TEST_F(ProcessingEngineTest, SubscribtionToResultChannel)
     auto subTask = queue->add_subtasks();
     subTask->set_results_channel("RESULT_CHANNEL_ID");
 
-    auto processingQueue = std::make_shared<ProcessingSubTaskQueue>(
+    auto processingQueueManager = std::make_shared<ProcessingSubTaskQueueManager>(
         queueChannel, pubs1->GetAsioContext(), nodeId);
     // The local queue wrapper doesn't own the queue
-    processingQueue->ProcessSubTaskQueueMessage(queue.release());
+    processingQueueManager->ProcessSubTaskQueueMessage(queue.release());
 
-    engine.StartQueueProcessing(processingQueue);
+    engine.StartQueueProcessing(processingQueueManager);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
@@ -197,11 +197,11 @@ TEST_F(ProcessingEngineTest, SubTaskProcessing)
         subTask->set_results_channel("RESULT_CHANNEL_ID2");
     }
 
-    auto processingQueue = std::make_shared<ProcessingSubTaskQueue>(
+    auto processingQueueManager = std::make_shared<ProcessingSubTaskQueueManager>(
         queueChannel, pubs1->GetAsioContext(), nodeId);
-    processingQueue->ProcessSubTaskQueueMessage(queue.release());
+    processingQueueManager->ProcessSubTaskQueueMessage(queue.release());
 
-    engine.StartQueueProcessing(processingQueue);
+    engine.StartQueueProcessing(processingQueueManager);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(2000));
 
@@ -250,26 +250,26 @@ TEST_F(ProcessingEngineTest, SharedSubTaskProcessing)
         subTask->set_results_channel("RESULT_CHANNEL_ID2");
     }
 
-    auto processingQueue1 = std::make_shared<ProcessingSubTaskQueue>(
+    auto processingQueueManager1 = std::make_shared<ProcessingSubTaskQueueManager>(
         queueChannel, pubs1->GetAsioContext(), nodeId1);
-    processingQueue1->ProcessSubTaskQueueMessage(queue.release());
+    processingQueueManager1->ProcessSubTaskQueueMessage(queue.release());
 
-    engine1.StartQueueProcessing(processingQueue1);
+    engine1.StartQueueProcessing(processingQueueManager1);
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    auto processingQueue2 = std::make_shared<ProcessingSubTaskQueue>(
+    auto processingQueueManager2 = std::make_shared<ProcessingSubTaskQueueManager>(
         queueChannel, pubs1->GetAsioContext(), nodeId2);
 
     // Change queue owner
     SGProcessing::SubTaskQueueRequest queueRequest;
     queueRequest.set_node_id(nodeId2);
-    auto updatedQueue = processingQueue1->ProcessSubTaskQueueRequestMessage(queueRequest);
+    auto updatedQueue = processingQueueManager1->ProcessSubTaskQueueRequestMessage(queueRequest);
 
     // Synchronize the queues
-    processingQueue2->ProcessSubTaskQueueMessage(processingQueue1->GetQueueSnapshot().release());
-    processingQueue1->ProcessSubTaskQueueMessage(processingQueue2->GetQueueSnapshot().release());
+    processingQueueManager2->ProcessSubTaskQueueMessage(processingQueueManager1->GetQueueSnapshot().release());
+    processingQueueManager1->ProcessSubTaskQueueMessage(processingQueueManager2->GetQueueSnapshot().release());
 
-    engine2.StartQueueProcessing(processingQueue2);
+    engine2.StartQueueProcessing(processingQueueManager2);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
@@ -332,11 +332,11 @@ TEST_F(ProcessingEngineTest, TaskFinalization)
         chunk->CopyFrom(chunk1);
     }
 
-    auto processingQueue1 = std::make_shared<ProcessingSubTaskQueue>(
+    auto processingQueueManager1 = std::make_shared<ProcessingSubTaskQueueManager>(
         queueChannel, pubs1->GetAsioContext(), nodeId1);
-    processingQueue1->ProcessSubTaskQueueMessage(queue.release());
+    processingQueueManager1->ProcessSubTaskQueueMessage(queue.release());
 
-    engine1.StartQueueProcessing(processingQueue1);
+    engine1.StartQueueProcessing(processingQueueManager1);
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
     pubs1->Stop();
@@ -400,9 +400,9 @@ TEST_F(ProcessingEngineTest, InvalidSubTasksRestart)
         chunk->CopyFrom(chunk1);
     }
 
-    auto processingQueue1 = std::make_shared<ProcessingSubTaskQueue>(
+    auto processingQueueManager1 = std::make_shared<ProcessingSubTaskQueueManager>(
         queueChannel, pubs1->GetAsioContext(), nodeId1);
-    processingQueue1->ProcessSubTaskQueueMessage(queue.release());
+    processingQueueManager1->ProcessSubTaskQueueMessage(queue.release());
 
     bool isTaskFinalized1 = false;
     ProcessingEngine engine1(pubs1, nodeId1, processingCore1,
@@ -412,7 +412,7 @@ TEST_F(ProcessingEngineTest, InvalidSubTasksRestart)
     ProcessingEngine engine2(pubs1, nodeId2, processingCore2,
         [&isTaskFinalized2](const SGProcessing::TaskResult&) { isTaskFinalized2 = true; });
 
-    engine1.StartQueueProcessing(processingQueue1);
+    engine1.StartQueueProcessing(processingQueueManager1);
 
     // Wait for queue processing by node1
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
@@ -420,24 +420,24 @@ TEST_F(ProcessingEngineTest, InvalidSubTasksRestart)
     // No task finalization should be called when there are invalid chunk results
     ASSERT_FALSE(isTaskFinalized1);
 
-    auto processingQueue2 = std::make_shared<ProcessingSubTaskQueue>(
+    auto processingQueueManager2 = std::make_shared<ProcessingSubTaskQueueManager>(
         queueChannel, pubs1->GetAsioContext(), nodeId2);
 
     // Change queue owner
     SGProcessing::SubTaskQueueRequest queueRequest;
     queueRequest.set_node_id(nodeId2);
-    auto updatedQueue = processingQueue1->ProcessSubTaskQueueRequestMessage(queueRequest);
+    auto updatedQueue = processingQueueManager1->ProcessSubTaskQueueRequestMessage(queueRequest);
 
     // Synchronize the queues
-    processingQueue2->ProcessSubTaskQueueMessage(processingQueue1->GetQueueSnapshot().release());
-    processingQueue1->ProcessSubTaskQueueMessage(processingQueue2->GetQueueSnapshot().release());
+    processingQueueManager2->ProcessSubTaskQueueMessage(processingQueueManager1->GetQueueSnapshot().release());
+    processingQueueManager1->ProcessSubTaskQueueMessage(processingQueueManager2->GetQueueSnapshot().release());
     engine1.StopQueueProcessing();
 
     // Wait for failed tasks expiration
     // @todo Automatically mark failed tasks as exired
     std::this_thread::sleep_for(std::chrono::milliseconds(10000));
 
-    engine2.StartQueueProcessing(processingQueue2);
+    engine2.StartQueueProcessing(processingQueueManager2);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 

@@ -15,12 +15,12 @@ ProcessingEngine::ProcessingEngine(
 }
 
 void ProcessingEngine::StartQueueProcessing(
-    std::shared_ptr<ProcessingSubTaskQueue> subTaskQueue)
+    std::shared_ptr<ProcessingSubTaskQueueManager> subTaskQueueManager)
 {
     std::lock_guard<std::mutex> queueGuard(m_mutexSubTaskQueue);
-    m_subTaskQueue = subTaskQueue;
+    m_subTaskQueueManager = subTaskQueueManager;
 
-    auto queue = m_subTaskQueue->GetQueueSnapshot();
+    auto queue = m_subTaskQueueManager->GetQueueSnapshot();
     if (queue->subtasks_size() > 0)
     {
         for (size_t subTaskIdx = 0; subTaskIdx < (size_t)queue->subtasks_size(); ++subTaskIdx)
@@ -29,20 +29,20 @@ void ProcessingEngine::StartQueueProcessing(
             AddResultChannel(subTask.results_channel());
         }
 
-        m_subTaskQueue->GrabSubTask(std::bind(&ProcessingEngine::OnSubTaskGrabbed, this, std::placeholders::_1));
+        m_subTaskQueueManager->GrabSubTask(std::bind(&ProcessingEngine::OnSubTaskGrabbed, this, std::placeholders::_1));
     }
 }
 
 void ProcessingEngine::StopQueueProcessing()
 {
     std::lock_guard<std::mutex> queueGuard(m_mutexSubTaskQueue);
-    m_subTaskQueue.reset();
+    m_subTaskQueueManager.reset();
 }
 
 bool ProcessingEngine::IsQueueProcessingStarted() const
 {
     std::lock_guard<std::mutex> queueGuard(m_mutexSubTaskQueue);
-    return (m_subTaskQueue.get() != nullptr);
+    return (m_subTaskQueueManager.get() != nullptr);
 }
 
 void ProcessingEngine::OnSubTaskGrabbed(boost::optional<const SGProcessing::SubTask&> subTask)
@@ -69,10 +69,10 @@ void ProcessingEngine::ProcessSubTask(SGProcessing::SubTask subTask)
         m_logger->debug("[RESULT_SENT]. ({}).", subTask.results_channel());
 
         std::lock_guard<std::mutex> queueGuard(m_mutexSubTaskQueue);
-        if (m_subTaskQueue)
+        if (m_subTaskQueueManager)
         {
             // @todo Should a new subtask be grabbed once the perivious one is processed?
-            m_subTaskQueue->GrabSubTask(std::bind(&ProcessingEngine::OnSubTaskGrabbed, this, std::placeholders::_1));
+            m_subTaskQueueManager->GrabSubTask(std::bind(&ProcessingEngine::OnSubTaskGrabbed, this, std::placeholders::_1));
         }
     });
     thread.detach();
@@ -104,18 +104,18 @@ void ProcessingEngine::OnResultChannelMessage(
             m_logger->debug("[RESULT_RECEIVED]. ({}).", result.ipfs_results_data_id());
 
             std::lock_guard<std::mutex> queueGuard(m_mutexSubTaskQueue);
-            if (m_subTaskQueue)
+            if (m_subTaskQueueManager)
             {
-                m_subTaskQueue->AddSubTaskResult(message->topics[0], result);
+                m_subTaskQueueManager->AddSubTaskResult(message->topics[0], result);
 
                 // Task processing finished
-                if (m_subTaskQueue->IsProcessed()) 
+                if (m_subTaskQueueManager->IsProcessed()) 
                 {
-                    bool valid = m_subTaskQueue->ValidateResults();
+                    bool valid = m_subTaskQueueManager->ValidateResults();
                     m_logger->debug("RESULTS_VALIDATED: {}", valid ? "VALID" : "INVALID");
                     if (valid)
                     {
-                        if (m_subTaskQueue->HasOwnership())
+                        if (m_subTaskQueueManager->HasOwnership())
                         {
                             SGProcessing::TaskResult taskResult;
                             auto results = taskResult.mutable_subtask_results();
@@ -134,7 +134,7 @@ void ProcessingEngine::OnResultChannelMessage(
                     }
                     else
                     {
-                        m_subTaskQueue->GrabSubTask(std::bind(&ProcessingEngine::OnSubTaskGrabbed, this, std::placeholders::_1));
+                        m_subTaskQueueManager->GrabSubTask(std::bind(&ProcessingEngine::OnSubTaskGrabbed, this, std::placeholders::_1));
                     }
                 }
             }

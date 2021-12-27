@@ -67,7 +67,7 @@ private:
 
     std::unique_ptr<ProcessingRoom> m_room;
     std::unique_ptr<ProcessingEngine> m_processingEngine;
-    std::shared_ptr<ProcessingSubTaskQueue> m_subtaskQueue;
+    std::shared_ptr<ProcessingSubTaskQueueManager> m_subtaskQueueManager;
     std::function<void(const SGProcessing::TaskResult&)> m_taskResultProcessingSink;
 };
 }

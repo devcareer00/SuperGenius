@@ -4,7 +4,7 @@ add_library(processing_service
     processing_service.cpp
     processing_engine.cpp
     processing_shared_queue.cpp
-    processing_subtask_queue.cpp
+    processing_subtask_queue_manager.cpp
     )
 
 

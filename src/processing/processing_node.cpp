@@ -30,7 +30,7 @@ void ProcessingNode::Initialize(const std::string& processingChannelId, size_t m
     m_room = std::make_unique<ProcessingRoom>(
         m_processingChannel, m_gossipPubSub->GetAsioContext(), m_nodeId, m_processingChannelCapacity);
 
-    m_subtaskQueue = std::make_shared<ProcessingSubTaskQueue>(
+    m_subtaskQueueManager = std::make_shared<ProcessingSubTaskQueueManager>(
         m_processingChannel, m_gossipPubSub->GetAsioContext(), m_nodeId);
     m_processingEngine = std::make_unique<ProcessingEngine>(
         m_gossipPubSub, m_nodeId, m_processingCore, m_taskResultProcessingSink);
@@ -61,9 +61,9 @@ void ProcessingNode::CreateProcessingHost(
     m_processingCore->SplitTask(task, subTasks);
     // @todo Handle splitting errors
 
-    m_subtaskQueue->CreateQueue(subTasks);
+    m_subtaskQueueManager->CreateQueue(subTasks);
 
-    m_processingEngine->StartQueueProcessing(m_subtaskQueue);
+    m_processingEngine->StartQueueProcessing(m_subtaskQueueManager);
 }
 
 void ProcessingNode::OnProcessingChannelMessage(boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message)
@@ -128,7 +128,7 @@ void ProcessingNode::HandleProcessingRoom(SGProcessing::ProcessingChannelMessage
             {
                 if (m_processingEngine && !m_processingEngine->IsQueueProcessingStarted())
                 {
-                    m_processingEngine->StartQueueProcessing(m_subtaskQueue);
+                    m_processingEngine->StartQueueProcessing(m_subtaskQueueManager);
                 }
             }
         }
@@ -137,18 +137,18 @@ void ProcessingNode::HandleProcessingRoom(SGProcessing::ProcessingChannelMessage
 
 void ProcessingNode::HandleSubTaskQueueRequest(SGProcessing::ProcessingChannelMessage& channelMesssage)
 {
-    if (m_subtaskQueue)
+    if (m_subtaskQueueManager)
     {
-        m_subtaskQueue->ProcessSubTaskQueueRequestMessage(
+        m_subtaskQueueManager->ProcessSubTaskQueueRequestMessage(
             channelMesssage.subtask_queue_request());
     }
 }
 
 void ProcessingNode::HandleSubTaskQueue(SGProcessing::ProcessingChannelMessage& channelMesssage)
 {
-    if (m_subtaskQueue)
+    if (m_subtaskQueueManager)
     {
-        m_subtaskQueue->ProcessSubTaskQueueMessage(
+        m_subtaskQueueManager->ProcessSubTaskQueueMessage(
             channelMesssage.release_subtask_queue());
     }
 }

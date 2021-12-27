@@ -3,8 +3,8 @@
 * @author creativeid00
 */
 
-#ifndef SUPERGENIUS_PROCESSING_SUBTASK_QUEUE_HPP
-#define SUPERGENIUS_PROCESSING_SUBTASK_QUEUE_HPP
+#ifndef SUPERGENIUS_PROCESSING_SUBTASK_QUEUE_MANAGER_HPP
+#define SUPERGENIUS_PROCESSING_SUBTASK_QUEUE_MANAGER_HPP
 
 #include <processing/processing_shared_queue.hpp>
 #include <processing/processing_core.hpp>
@@ -17,7 +17,7 @@ namespace sgns::processing
 {
 /** Distributed subtask queue implementation
 */
-class ProcessingSubTaskQueue
+class ProcessingSubTaskQueueManager
 {
 public:
     typedef std::function<void(boost::optional<const SGProcessing::SubTask&>)> SubTaskGrabbedCallback;
@@ -27,7 +27,7 @@ public:
     * @param context - io context to handle timers
     * @param localNodeId local processing node ID
     */
-    ProcessingSubTaskQueue(
+    ProcessingSubTaskQueueManager(
         std::shared_ptr<sgns::ipfs_pubsub::GossipPubSubTopic> queueChannel,
         std::shared_ptr<boost::asio::io_context> context,
         const std::string& localNodeId);
@@ -124,8 +124,8 @@ private:
     SharedQueue m_sharedQueue;
     std::chrono::system_clock::duration m_processingTimeout;
 
-    base::Logger m_logger = base::createLogger("ProcessingSubTaskQueue");
+    base::Logger m_logger = base::createLogger("ProcessingSubTaskQueueManager");
 };
 }
 
-#endif // SUPERGENIUS_PROCESSING_SUBTASK_QUEUE_HPP
+#endif // SUPERGENIUS_PROCESSING_SUBTASK_QUEUE_MANAGER_HPP

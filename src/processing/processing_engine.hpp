@@ -6,8 +6,8 @@
 #ifndef GRPC_FOR_SUPERGENIUS_PROCESSING_ENGINE_HPP
 #define GRPC_FOR_SUPERGENIUS_PROCESSING_ENGINE_HPP
 
-#include "processing_core.hpp"
-#include "processing_subtask_queue.hpp"
+#include <processing/processing_core.hpp>
+#include <processing/processing_subtask_queue_manager.hpp>
 
 #include <ipfs_pubsub/gossip_pubsub_topic.hpp>
 
@@ -30,7 +30,7 @@ public:
         std::function<void(const SGProcessing::TaskResult&)> taskResultProcessingSink);
 
     void StartQueueProcessing(
-        std::shared_ptr<ProcessingSubTaskQueue> subTaskQueue);
+        std::shared_ptr<ProcessingSubTaskQueueManager> subTaskQueueManager);
 
     void StopQueueProcessing();
     bool IsQueueProcessingStarted() const;
@@ -52,7 +52,7 @@ private:
     std::string m_nodeId;
     std::shared_ptr<ProcessingCore> m_processingCore;
 
-    std::shared_ptr<ProcessingSubTaskQueue> m_subTaskQueue;
+    std::shared_ptr<ProcessingSubTaskQueueManager> m_subTaskQueueManager;
     std::function<void(const SGProcessing::TaskResult&)> m_taskResultProcessingSink;
     std::map<std::string, SGProcessing::SubTaskResult> m_results;
     std::map<std::string, std::shared_ptr<sgns::ipfs_pubsub::GossipPubSubTopic>> m_resultChannels;
