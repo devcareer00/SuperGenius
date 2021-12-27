@@ -1,4 +1,4 @@
-#include "processing_shared_queue.hpp"
+#include "processing_subtask_queue.hpp"
 
 #include <numeric>
 #include <sstream>
@@ -6,14 +6,14 @@
 namespace sgns::processing
 {
 ////////////////////////////////////////////////////////////////////////////////
-SharedQueue::SharedQueue(
+ProcessingSubTaskQueue::ProcessingSubTaskQueue(
     const std::string& localNodeId)
     : m_localNodeId(localNodeId)
     , m_queue(nullptr)
 {
 }
 
-void SharedQueue::CreateQueue(SGProcessing::ProcessingQueue* queue)
+void ProcessingSubTaskQueue::CreateQueue(SGProcessing::ProcessingQueue* queue)
 {
     m_queue = queue;
     m_validItemIndices = std::vector<int>(m_queue->items_size());
@@ -21,7 +21,7 @@ void SharedQueue::CreateQueue(SGProcessing::ProcessingQueue* queue)
     ChangeOwnershipTo(m_localNodeId);
 }
 
-bool SharedQueue::UpdateQueue(SGProcessing::ProcessingQueue* queue)
+bool ProcessingSubTaskQueue::UpdateQueue(SGProcessing::ProcessingQueue* queue)
 {
     if (!m_queue
         || (m_queue->last_update_timestamp() < queue->last_update_timestamp()))
@@ -33,7 +33,7 @@ bool SharedQueue::UpdateQueue(SGProcessing::ProcessingQueue* queue)
     return false;
 }
 
-bool SharedQueue::LockItem(size_t& lockedItemIndex)
+bool ProcessingSubTaskQueue::LockItem(size_t& lockedItemIndex)
 {
     // The method has to be called in scoped lock of queue mutex
     for (auto itemIdx : m_validItemIndices)
@@ -57,7 +57,7 @@ bool SharedQueue::LockItem(size_t& lockedItemIndex)
     return false;
 }
 
-bool SharedQueue::GrabItem(size_t& grabbedItemIndex)
+bool ProcessingSubTaskQueue::GrabItem(size_t& grabbedItemIndex)
 {
     if (HasOwnership())
     {
@@ -67,7 +67,7 @@ bool SharedQueue::GrabItem(size_t& grabbedItemIndex)
     return false;
 }
 
-bool SharedQueue::MoveOwnershipTo(const std::string& nodeId)
+bool ProcessingSubTaskQueue::MoveOwnershipTo(const std::string& nodeId)
 {
     if (HasOwnership())
     {
@@ -77,7 +77,7 @@ bool SharedQueue::MoveOwnershipTo(const std::string& nodeId)
     return false;
 }
 
-void SharedQueue::ChangeOwnershipTo(const std::string& nodeId)
+void ProcessingSubTaskQueue::ChangeOwnershipTo(const std::string& nodeId)
 {
     auto timestamp = std::chrono::system_clock::now();
     m_queue->set_owner_node_id(nodeId);
@@ -85,7 +85,7 @@ void SharedQueue::ChangeOwnershipTo(const std::string& nodeId)
     LogQueue();
 }
 
-bool SharedQueue::RollbackOwnership()
+bool ProcessingSubTaskQueue::RollbackOwnership()
 {
     if (HasOwnership())
     {
@@ -159,12 +159,12 @@ bool SharedQueue::RollbackOwnership()
     return true;
 }
 
-bool SharedQueue::HasOwnership() const
+bool ProcessingSubTaskQueue::HasOwnership() const
 {
     return (m_queue && m_queue->owner_node_id() == m_localNodeId);
 }
 
-bool SharedQueue::UnlockExpiredItems(std::chrono::system_clock::duration expirationTimeout)
+bool ProcessingSubTaskQueue::UnlockExpiredItems(std::chrono::system_clock::duration expirationTimeout)
 {
 
     bool unlocked = false;
@@ -201,7 +201,7 @@ bool SharedQueue::UnlockExpiredItems(std::chrono::system_clock::duration expirat
     return unlocked;
 }
 
-std::chrono::system_clock::time_point SharedQueue::GetLastLockTimestamp() const
+std::chrono::system_clock::time_point ProcessingSubTaskQueue::GetLastLockTimestamp() const
 {
     std::chrono::system_clock::time_point lastLockTimestamp;
 
@@ -219,12 +219,12 @@ std::chrono::system_clock::time_point SharedQueue::GetLastLockTimestamp() const
     return lastLockTimestamp;
 }
 
-void SharedQueue::SetValidItemIndices(std::vector<int>&& indices)
+void ProcessingSubTaskQueue::SetValidItemIndices(std::vector<int>&& indices)
 {
     m_validItemIndices = std::move(indices);
 }
 
-void SharedQueue::LogQueue() const
+void ProcessingSubTaskQueue::LogQueue() const
 {
     if (m_logger->level() <= spdlog::level::trace)
     {

@@ -13,7 +13,7 @@ ProcessingSubTaskQueueManager::ProcessingSubTaskQueueManager(
     , m_dltQueueResponseTimeout(*m_context.get())
     , m_queueResponseTimeout(boost::posix_time::seconds(5))
     , m_dltGrabSubTaskTimeout(*m_context.get())
-    , m_sharedQueue(localNodeId)
+    , m_processingQueue(localNodeId)
     , m_processingTimeout(std::chrono::seconds(10))
 {
 }
@@ -35,7 +35,7 @@ bool ProcessingSubTaskQueueManager::CreateQueue(ProcessingCore::SubTaskList& sub
 
     std::lock_guard<std::mutex> guard(m_queueMutex);
     m_queue = std::move(queue);
-    m_sharedQueue.CreateQueue(processingQueue);
+    m_processingQueue.CreateQueue(processingQueue);
 
     PublishSubTaskQueue();
 
@@ -47,7 +47,7 @@ bool ProcessingSubTaskQueueManager::UpdateQueue(SGProcessing::SubTaskQueue* pQue
     if (pQueue)
     {
         std::shared_ptr<SGProcessing::SubTaskQueue> queue(pQueue);
-        if (m_sharedQueue.UpdateQueue(queue->mutable_processing_queue()))
+        if (m_processingQueue.UpdateQueue(queue->mutable_processing_queue()))
         {
             m_queue.swap(queue);
             std::vector<int> validItemIndices;
@@ -59,7 +59,7 @@ bool ProcessingSubTaskQueueManager::UpdateQueue(SGProcessing::SubTaskQueue* pQue
                     validItemIndices.push_back(subTaskIdx);
                 }
             }
-            m_sharedQueue.SetValidItemIndices(std::move(validItemIndices));
+            m_processingQueue.SetValidItemIndices(std::move(validItemIndices));
             LogQueue();
             return true;
         }
@@ -74,7 +74,7 @@ void ProcessingSubTaskQueueManager::ProcessPendingSubTaskGrabbing()
     while (!m_onSubTaskGrabbedCallbacks.empty())
     {
         size_t itemIdx;
-        if (m_sharedQueue.GrabItem(itemIdx))
+        if (m_processingQueue.GrabItem(itemIdx))
         {
             LogQueue();
             PublishSubTaskQueue();
@@ -85,7 +85,7 @@ void ProcessingSubTaskQueueManager::ProcessPendingSubTaskGrabbing()
         else
         {
             // No available subtasks found
-            auto unlocked = m_sharedQueue.UnlockExpiredItems(m_processingTimeout);
+            auto unlocked = m_processingQueue.UnlockExpiredItems(m_processingTimeout);
             if (!unlocked)
             {
                 break;
@@ -99,7 +99,7 @@ void ProcessingSubTaskQueueManager::ProcessPendingSubTaskGrabbing()
         {
             // Wait for subtasks are processed
             auto timestamp = std::chrono::system_clock::now();
-            auto lastLockTimestamp = m_sharedQueue.GetLastLockTimestamp();
+            auto lastLockTimestamp = m_processingQueue.GetLastLockTimestamp();
             auto lastExpirationTime = lastLockTimestamp + m_processingTimeout;
 
             std::chrono::milliseconds grabSubTaskTimeout =
@@ -152,7 +152,7 @@ void ProcessingSubTaskQueueManager::GrabSubTask(SubTaskGrabbedCallback onSubTask
 
 void ProcessingSubTaskQueueManager::GrabSubTasks()
 {
-    if (m_sharedQueue.HasOwnership())
+    if (m_processingQueue.HasOwnership())
     {
         ProcessPendingSubTaskGrabbing();
     }
@@ -169,7 +169,7 @@ void ProcessingSubTaskQueueManager::GrabSubTasks()
 bool ProcessingSubTaskQueueManager::MoveOwnershipTo(const std::string& nodeId)
 {
     std::lock_guard<std::mutex> guard(m_queueMutex);
-    if (m_sharedQueue.MoveOwnershipTo(nodeId))
+    if (m_processingQueue.MoveOwnershipTo(nodeId))
     {
         LogQueue();
         PublishSubTaskQueue();
@@ -181,7 +181,7 @@ bool ProcessingSubTaskQueueManager::MoveOwnershipTo(const std::string& nodeId)
 bool ProcessingSubTaskQueueManager::HasOwnership() const
 {
     std::lock_guard<std::mutex> guard(m_queueMutex);
-    return m_sharedQueue.HasOwnership();
+    return m_processingQueue.HasOwnership();
 }
 
 void ProcessingSubTaskQueueManager::PublishSubTaskQueue() const
@@ -199,7 +199,7 @@ bool ProcessingSubTaskQueueManager::ProcessSubTaskQueueMessage(SGProcessing::Sub
     m_dltQueueResponseTimeout.expires_at(boost::posix_time::pos_infin);
 
     bool queueChanged = UpdateQueue(queue);
-    if (queueChanged && m_sharedQueue.HasOwnership())
+    if (queueChanged && m_processingQueue.HasOwnership())
     {
         ProcessPendingSubTaskGrabbing();
     }
@@ -210,7 +210,7 @@ bool ProcessingSubTaskQueueManager::ProcessSubTaskQueueRequestMessage(
     const SGProcessing::SubTaskQueueRequest& request)
 {
     std::lock_guard<std::mutex> guard(m_queueMutex);
-    if (m_sharedQueue.MoveOwnershipTo(request.node_id()))
+    if (m_processingQueue.MoveOwnershipTo(request.node_id()))
     {
         LogQueue();
         PublishSubTaskQueue();
@@ -232,12 +232,12 @@ void ProcessingSubTaskQueueManager::HandleQueueRequestTimeout(const boost::syste
         std::lock_guard<std::mutex> guard(m_queueMutex);
         m_logger->debug("QUEUE_REQUEST_TIMEOUT");
         m_dltQueueResponseTimeout.expires_at(boost::posix_time::pos_infin);
-        if (m_sharedQueue.RollbackOwnership())
+        if (m_processingQueue.RollbackOwnership())
         {
             LogQueue();
             PublishSubTaskQueue();
 
-            if (m_sharedQueue.HasOwnership())
+            if (m_processingQueue.HasOwnership())
             {
                 ProcessPendingSubTaskGrabbing();
             }
@@ -291,7 +291,7 @@ bool ProcessingSubTaskQueueManager::AddSubTaskResult(
             validItemIndices.push_back(subTaskIdx);
         }
     }
-    m_sharedQueue.SetValidItemIndices(std::move(validItemIndices));
+    m_processingQueue.SetValidItemIndices(std::move(validItemIndices));
 
     return true;
 }
@@ -367,7 +367,7 @@ bool ProcessingSubTaskQueueManager::ValidateResults()
             validItemIndices.push_back(invalidSubTaskIndex);
         }
 
-        m_sharedQueue.SetValidItemIndices(std::move(validItemIndices));
+        m_processingQueue.SetValidItemIndices(std::move(validItemIndices));
     }
     return areResultsValid;
 }

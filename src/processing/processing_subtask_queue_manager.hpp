@@ -6,7 +6,7 @@
 #ifndef SUPERGENIUS_PROCESSING_SUBTASK_QUEUE_MANAGER_HPP
 #define SUPERGENIUS_PROCESSING_SUBTASK_QUEUE_MANAGER_HPP
 
-#include <processing/processing_shared_queue.hpp>
+#include <processing/processing_subtask_queue.hpp>
 #include <processing/processing_core.hpp>
 
 #include <processing/proto/SGProcessing.pb.h>
@@ -121,7 +121,7 @@ private:
 
     boost::asio::deadline_timer m_dltGrabSubTaskTimeout;
 
-    SharedQueue m_sharedQueue;
+    ProcessingSubTaskQueue m_processingQueue;
     std::chrono::system_clock::duration m_processingTimeout;
 
     base::Logger m_logger = base::createLogger("ProcessingSubTaskQueueManager");

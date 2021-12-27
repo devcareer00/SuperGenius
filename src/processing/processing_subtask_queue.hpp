@@ -3,8 +3,8 @@
 * @author creativeid00
 */
 
-#ifndef SUPERGENIUS_PROCESSING_SHARED_QUEUE_HPP
-#define SUPERGENIUS_PROCESSING_SHARED_QUEUE_HPP
+#ifndef SUPERGENIUS_PROCESSING_SUBTASK_QUEUE_HPP
+#define SUPERGENIUS_PROCESSING_SUBTASK_QUEUE_HPP
 
 #include <processing/proto/SGProcessing.pb.h>
 #include <base/logger.hpp>
@@ -13,13 +13,13 @@ namespace sgns::processing
 {
 /** Distributed queue implementation
 */
-class SharedQueue
+class ProcessingSubTaskQueue
 {
 public:
     /** Construct an empty queue
     * @param localNodeId local processing node ID
     */
-    SharedQueue(const std::string& localNodeId);
+    ProcessingSubTaskQueue(const std::string& localNodeId);
 
     /** Create a subtask queue by splitting the task to subtasks using the processing code
     * @param task - task that should be split into subtasks
@@ -78,8 +78,8 @@ private:
 
     std::vector<int> m_validItemIndices;
 
-    base::Logger m_logger = base::createLogger("ProcessingSharedQueue");
+    base::Logger m_logger = base::createLogger("ProcessingSubTaskQueue");
 };
 }
 
-#endif // SUPERGENIUS_PROCESSING_SHARED_QUEUE_HPP
+#endif // SUPERGENIUS_PROCESSING_SUBTASK_QUEUE_HPP

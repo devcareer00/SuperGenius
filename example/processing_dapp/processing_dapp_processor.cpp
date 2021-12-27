@@ -462,8 +462,8 @@ int main(int argc, char* argv[])
     auto loggerProcessingSubTaskQueueManager = sgns::base::createLogger("ProcessingSubTaskQueueManager");
     loggerProcessingSubTaskQueueManager->set_level(spdlog::level::debug);
     
-    auto loggerProcessingSharedQueue = sgns::base::createLogger("ProcessingSharedQueue");
-    loggerProcessingSharedQueue->set_level(spdlog::level::debug);
+    auto loggerProcessingSubTaskQueue = sgns::base::createLogger("ProcessingSubTaskQueue");
+    loggerProcessingSubTaskQueue->set_level(spdlog::level::debug);
 
     auto loggerGlobalDB = sgns::base::createLogger("GlobalDB");
     loggerGlobalDB->set_level(spdlog::level::debug);
