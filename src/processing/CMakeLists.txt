@@ -1,5 +1,4 @@
 add_library(processing_service
-    processing_room.cpp
     processing_node.cpp
     processing_service.cpp
     processing_engine.cpp

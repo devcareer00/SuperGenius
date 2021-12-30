@@ -293,7 +293,6 @@ namespace
     {
         size_t serviceIndex = 0;
         size_t subTaskProcessingTime = 0; // ms
-        size_t roomSize = 0;
         size_t disconnect = 0;
         size_t nSubTasks = 5;
         size_t channelListRequestTimeout = 5000;
@@ -316,7 +315,6 @@ namespace
             desc.add_options()("help,h", "print usage message")
                 ("remote,r", po::value(&remote), "remote service multiaddress to connect to")
                 ("processingtime,p", po::value(&o.subTaskProcessingTime), "subtask processing time (ms)")
-                ("roomsize,s", po::value(&o.roomSize), "subtask processing time (ms)")
                 ("disconnect,d", po::value(&o.disconnect), "disconnect after (ms)")
                 ("nsubtasks,n", po::value(&o.nSubTasks), "number of subtasks that task is split to")
                 ("channellisttimeout,t", po::value(&o.channelListRequestTimeout), "chnnel list request timeout (ms)")
@@ -346,12 +344,6 @@ namespace
             if (o.subTaskProcessingTime == 0)
             {
                 std::cerr << "SubTask processing time should be > 0\n";
-                return boost::none;
-            }
-
-            if (o.roomSize == 0)
-            {
-                std::cerr << "Processing room size should be > 0\n";
                 return boost::none;
             }
 
@@ -523,7 +515,7 @@ int main(int argc, char* argv[])
     processingCore->m_chunkResulHashes = options->chunkResultHashes;
     processingCore->m_validationChunkHashes = options->validationChunkHashes;
     
-    ProcessingServiceImpl processingService(pubs, maximalNodesCount, options->roomSize, taskQueue, processingCore);
+    ProcessingServiceImpl processingService(pubs, maximalNodesCount, taskQueue, processingCore);
 
     processingService.Listen(processingGridChannel);
     processingService.SetChannelListRequestTimeout(boost::posix_time::milliseconds(options->channelListRequestTimeout));

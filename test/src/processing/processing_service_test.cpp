@@ -81,7 +81,7 @@ TEST_F(ProcessingServiceTest, ProcessingSlotsAreAvailable)
 
     auto processingCore = std::make_shared<ProcessingCoreImpl>();
     auto taskQueue = std::make_shared<ProcessingTaskQueueImpl>();
-    ProcessingServiceImpl processingService(pubs, 1, 1, taskQueue, processingCore);
+    ProcessingServiceImpl processingService(pubs, 1, taskQueue, processingCore);
 
 
     sgns::ipfs_pubsub::GossipPubSubTopic gridChannel(pubs, "GRID_CHANNEL_ID");
@@ -109,14 +109,16 @@ TEST_F(ProcessingServiceTest, ProcessingSlotsAreAvailable)
  * @when A room without available slots is received
  * @then No new processing node is created
  */
-TEST_F(ProcessingServiceTest, NoProcessingSlotsAvailable)
+// The test disabled due to processing room handling removed
+// No room capacity is checked
+TEST_F(ProcessingServiceTest, DISABLED_NoProcessingSlotsAvailable)
 {
     auto pubs = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();
     pubs->Start(40001, {});
 
     auto processingManager = std::make_shared<ProcessingCoreImpl>();
     auto taskQueue = std::make_shared<ProcessingTaskQueueImpl>();
-    ProcessingServiceImpl processingService(pubs, 1, 1, taskQueue, processingManager);
+    ProcessingServiceImpl processingService(pubs, 1, taskQueue, processingManager);
 
 
     sgns::ipfs_pubsub::GossipPubSubTopic gridChannel(pubs, "GRID_CHANNEL_ID");

@@ -14,12 +14,10 @@ public:
     /** Constructs a processing service.
     * @param gossipPubSub - pubsub service
     * @param maximalNodesCount - maximal number of processing nodes allowed to be handled by the service
-    * @param processingChannelCapacity - maximal number of nodes that can be joined to a processing channel
     */
     ProcessingServiceImpl(
         std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> gossipPubSub, 
         size_t maximalNodesCount,
-        size_t processingChannelCapacity,
         std::shared_ptr<ProcessingTaskQueue> taskQueue,
         std::shared_ptr<ProcessingCore> processingCore);
 
@@ -44,7 +42,7 @@ private:
     */
     void OnMessage(boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message);
 
-    void AcceptProcessingChannel(const std::string& channelId, size_t channelCapacity);
+    void AcceptProcessingChannel(const std::string& channelId);
 
     void PublishLocalChannelList();
 
@@ -53,7 +51,6 @@ private:
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> m_gossipPubSub;
     std::shared_ptr<boost::asio::io_context> m_context;
     size_t m_maximalNodesCount;
-    size_t m_processingChannelCapacity;
 
     std::shared_ptr<ProcessingTaskQueue> m_taskQueue;
     std::shared_ptr<ProcessingCore> m_processingCore;

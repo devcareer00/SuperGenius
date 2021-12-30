@@ -6,8 +6,7 @@
 #ifndef GRPC_FOR_SUPERGENIUS_PROCESSING_NODE
 #define GRPC_FOR_SUPERGENIUS_PROCESSING_NODE
 
-#include "processing_engine.hpp"
-#include "processing_room.hpp"
+#include <processing/processing_engine.hpp>
 
 #include <ipfs_pubsub/gossip_pubsub_topic.hpp>
 
@@ -25,47 +24,34 @@ public:
     */
     ProcessingNode(
         std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> gossipPubSub,
-        size_t processingChannelCapacity,
         std::shared_ptr<ProcessingCore> processingCore,
         std::function<void(const SGProcessing::TaskResult&)> taskResultProcessingSink);
 
     ~ProcessingNode();
     /** Attaches the node to the processing channel
-    * @param processingChannelId - identifier of a processing room channel
+    * @param processingQueueChannelId - identifier of a processing queue channel
     * @return flag indicating if the room is joined for block data processing
     */
-    void AttachTo(const std::string& processingChannelId, size_t msSubscriptionWaitingDuration = 0);
+    void AttachTo(const std::string& processingQueueChannelId, size_t msSubscriptionWaitingDuration = 0);
     void CreateProcessingHost(
         const SGProcessing::Task& task, 
         size_t msSubscriptionWaitingDuration = 0);
 
-    /** Returns true if a peer is joined a room
-    * @return true if if the current peer in a room
-    */
-    bool IsRoommate() const;
-    bool IsRoomHost() const;
-
-    bool IsAttachingToProcessingRoom() const;
-
-    const ProcessingRoom* GetRoom() const;
+    bool HasQueueOwnership() const;
 
 private:
-    void Initialize(const std::string& processingChannelId, size_t msSubscriptionWaitingDuration);    
+    void Initialize(const std::string& processingQueueChannelId, size_t msSubscriptionWaitingDuration);
     void OnProcessingChannelMessage(boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message);
 
-    void HandleProcessingRoomRequest(SGProcessing::ProcessingChannelMessage& channelMesssage);
-    void HandleProcessingRoom(SGProcessing::ProcessingChannelMessage& channelMesssage);
     void HandleSubTaskQueueRequest(SGProcessing::ProcessingChannelMessage& channelMesssage);
     void HandleSubTaskQueue(SGProcessing::ProcessingChannelMessage& channelMesssage);
 
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> m_gossipPubSub;
-    std::shared_ptr<sgns::ipfs_pubsub::GossipPubSubTopic> m_processingChannel;
+    std::shared_ptr<sgns::ipfs_pubsub::GossipPubSubTopic> m_processingQueueChannel;
 
     std::string m_nodeId;
-    size_t m_processingChannelCapacity;
     std::shared_ptr<ProcessingCore> m_processingCore;
 
-    std::unique_ptr<ProcessingRoom> m_room;
     std::unique_ptr<ProcessingEngine> m_processingEngine;
     std::shared_ptr<ProcessingSubTaskQueueManager> m_subtaskQueueManager;
     std::function<void(const SGProcessing::TaskResult&)> m_taskResultProcessingSink;
