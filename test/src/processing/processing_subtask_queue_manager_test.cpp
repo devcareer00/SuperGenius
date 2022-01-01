@@ -7,6 +7,35 @@
 
 using namespace sgns::processing;
 
+namespace
+{
+    class ProcessingSubTaskQueueChannelImpl : public ProcessingSubTaskQueueChannel
+    {
+    public:
+        typedef std::function<void(const std::string& nodeId)> QueueOwnershipRequestSink;
+        typedef std::function<void(std::shared_ptr<SGProcessing::SubTaskQueue> queue)> QueuePublishingSink;
+
+        void RequestQueueOwnership(const std::string& nodeId) override
+        {
+            if (queueOwnershipRequestSink)
+            {
+                queueOwnershipRequestSink(nodeId);
+            }
+        }
+
+        void PublishQueue(std::shared_ptr<SGProcessing::SubTaskQueue> queue) override
+        {
+            if (queuePublishingSink)
+            {
+                queuePublishingSink(queue);
+            }
+        }
+
+        QueueOwnershipRequestSink queueOwnershipRequestSink;
+        QueuePublishingSink queuePublishingSink;
+    };
+}
+
 const std::string logger_config(R"(
 # ----------------
 sinks:
@@ -23,7 +52,7 @@ groups:
 # ----------------
   )");
 
-class ProcessingSubTaskQueueTest : public ::testing::Test
+class ProcessingSubTaskQueueManagerTest : public ::testing::Test
 {
 public:
     virtual void SetUp() override
@@ -48,40 +77,19 @@ public:
  * @then The created queue is published to processing channel.
  * The queue has specified owner, no subtasks are locked by default.
  */
-TEST_F(ProcessingSubTaskQueueTest, QueueCreating)
+TEST_F(ProcessingSubTaskQueueManagerTest, QueueCreating)
 {
+    auto context = std::make_shared<boost::asio::io_context>();
+
+    std::vector<std::string> requestedOwnerIds;
     std::vector<SGProcessing::SubTaskQueue> queueSnapshotSet;
-
-    auto pubs1 = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();;
-    pubs1->Start(40001, {});
-
-    auto pubs2 = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();;
-    pubs2->Start(40001, { pubs1->GetLocalAddress() });
-
-    auto pubs1Channel = std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubs1, "PROCESSING_CHANNEL_ID");
-    pubs1Channel->Subscribe([](boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message)
-    {     
-    });
-
-    auto pubs2Channel = std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubs1, "PROCESSING_CHANNEL_ID");
-    pubs2Channel->Subscribe([&queueSnapshotSet](
-        boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message)
-    {
-        if (message)
-        {
-            SGProcessing::ProcessingChannelMessage channelMessage;
-            if (channelMessage.ParseFromArray(message->data.data(), static_cast<int>(message->data.size())))
-            {
-                if (channelMessage.has_subtask_queue())
-                {
-                    queueSnapshotSet.push_back(channelMessage.subtask_queue());
-                }
-            }
-
-        }
-    });
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    auto queueChannel = std::make_shared<ProcessingSubTaskQueueChannelImpl>();
+    queueChannel->queueOwnershipRequestSink = [&requestedOwnerIds](const std::string& nodeId) {
+        requestedOwnerIds.push_back(nodeId);
+    };
+    queueChannel->queuePublishingSink = [&queueSnapshotSet](std::shared_ptr<SGProcessing::SubTaskQueue> queue) {
+            queueSnapshotSet.push_back(*queue);
+    };
 
     ProcessingCore::SubTaskList subTasks;
     {
@@ -95,15 +103,12 @@ TEST_F(ProcessingSubTaskQueueTest, QueueCreating)
         subTasks.push_back(std::move(subtask));
     }
 
-    auto nodeId = pubs1->GetLocalAddress();
-    ProcessingSubTaskQueueManager queueManager(pubs1Channel, pubs1->GetAsioContext(), nodeId);
+    std::string nodeId = "SOME_ID";
+    ProcessingSubTaskQueueManager queueManager(queueChannel, context, nodeId);
 
     queueManager.CreateQueue(subTasks);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(1500));
-
-    pubs1->Stop();
-
+    ASSERT_EQ(0, requestedOwnerIds.size());
     ASSERT_EQ(1, queueSnapshotSet.size());
     EXPECT_EQ(nodeId, queueSnapshotSet[0].processing_queue().owner_node_id());
     ASSERT_EQ(2, queueSnapshotSet[0].processing_queue().items_size());
@@ -116,40 +121,18 @@ TEST_F(ProcessingSubTaskQueueTest, QueueCreating)
  * @when Queue owner is changed
  * @then The queue with updated owner is published.
  */
-TEST_F(ProcessingSubTaskQueueTest, QueueOwnershipTransfer)
+TEST_F(ProcessingSubTaskQueueManagerTest, QueueOwnershipTransfer)
 {
+    auto context = std::make_shared<boost::asio::io_context>();
+    std::vector<std::string> requestedOwnerIds;
     std::vector<SGProcessing::SubTaskQueue> queueSnapshotSet;
-
-    auto pubs1 = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();;
-    pubs1->Start(40001, {});
-
-    auto pubs2 = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();;
-    pubs2->Start(40001, { pubs1->GetLocalAddress() });
-
-    auto pubs1Channel = std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubs1, "PROCESSING_CHANNEL_ID");
-    pubs1Channel->Subscribe([](boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message)
-    {
-    });
-
-    auto pubs2Channel = std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubs1, "PROCESSING_CHANNEL_ID");
-    pubs2Channel->Subscribe([&queueSnapshotSet](
-        boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message)
-        {
-            if (message)
-            {
-                SGProcessing::ProcessingChannelMessage channelMessage;
-                if (channelMessage.ParseFromArray(message->data.data(), static_cast<int>(message->data.size())))
-                {
-                    if (channelMessage.has_subtask_queue())
-                    {
-                        queueSnapshotSet.push_back(channelMessage.subtask_queue());
-                    }
-                }
-
-            }
-        });
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    auto queueChannel = std::make_shared<ProcessingSubTaskQueueChannelImpl>();
+    queueChannel->queueOwnershipRequestSink = [&requestedOwnerIds](const std::string& nodeId) {
+        requestedOwnerIds.push_back(nodeId);
+    };
+    queueChannel->queuePublishingSink = [&queueSnapshotSet](std::shared_ptr<SGProcessing::SubTaskQueue> queue) {
+        queueSnapshotSet.push_back(*queue);
+    };
 
     ProcessingCore::SubTaskList subTasks;
     {
@@ -164,17 +147,13 @@ TEST_F(ProcessingSubTaskQueueTest, QueueOwnershipTransfer)
         subTasks.push_back(std::move(subtask));
     }
 
-    auto nodeId1 = pubs1->GetLocalAddress();
-    ProcessingSubTaskQueueManager queueManager(pubs1Channel, pubs1->GetAsioContext(), nodeId1);
+    auto nodeId1 = "OLD_QUEUE_OWNER";
+    ProcessingSubTaskQueueManager queueManager(queueChannel, context, nodeId1);
 
     queueManager.CreateQueue(subTasks);
 
     auto nodeId2 = "NEW_QUEUE_OWNER";
     queueManager.MoveOwnershipTo(nodeId2);
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(1500));
-
-    pubs1->Stop();
 
     ASSERT_EQ(2, queueSnapshotSet.size());
     EXPECT_EQ(nodeId2, queueSnapshotSet[1].processing_queue().owner_node_id());
@@ -189,40 +168,18 @@ TEST_F(ProcessingSubTaskQueueTest, QueueOwnershipTransfer)
  * @when New subtask is being grabbed
  * @then Queue snapshot is published that contains a lock on the grabbed subtask.
  */
-TEST_F(ProcessingSubTaskQueueTest, GrabSubTaskWithoutOwnershipTransferring)
+TEST_F(ProcessingSubTaskQueueManagerTest, GrabSubTaskWithoutOwnershipTransferring)
 {
+    auto context = std::make_shared<boost::asio::io_context>();
+    std::vector<std::string> requestedOwnerIds;
     std::vector<SGProcessing::SubTaskQueue> queueSnapshotSet;
-
-    auto pubs1 = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();;
-    pubs1->Start(40001, {});
-
-    auto pubs2 = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();;
-    pubs2->Start(40001, { pubs1->GetLocalAddress() });
-
-    auto pubs1Channel = std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubs1, "PROCESSING_CHANNEL_ID");
-    pubs1Channel->Subscribe([](boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message)
-        {
-        });
-
-    auto pubs2Channel = std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubs1, "PROCESSING_CHANNEL_ID");
-    pubs2Channel->Subscribe([&queueSnapshotSet](
-        boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message)
-        {
-            if (message)
-            {
-                SGProcessing::ProcessingChannelMessage channelMessage;
-                if (channelMessage.ParseFromArray(message->data.data(), static_cast<int>(message->data.size())))
-                {
-                    if (channelMessage.has_subtask_queue())
-                    {
-                        queueSnapshotSet.push_back(channelMessage.subtask_queue());
-                    }
-                }
-
-            }
-        });
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    auto queueChannel = std::make_shared<ProcessingSubTaskQueueChannelImpl>();
+    queueChannel->queueOwnershipRequestSink = [&requestedOwnerIds](const std::string& nodeId) {
+        requestedOwnerIds.push_back(nodeId);
+    };
+    queueChannel->queuePublishingSink = [&queueSnapshotSet](std::shared_ptr<SGProcessing::SubTaskQueue> queue) {
+        queueSnapshotSet.push_back(*queue);
+    };
 
     ProcessingCore::SubTaskList subTasks;
     {
@@ -237,8 +194,8 @@ TEST_F(ProcessingSubTaskQueueTest, GrabSubTaskWithoutOwnershipTransferring)
         subTasks.push_back(std::move(subtask));
     }
 
-    auto nodeId = pubs1->GetLocalAddress();
-    ProcessingSubTaskQueueManager queueManager(pubs1Channel, pubs1->GetAsioContext(), nodeId);
+    auto nodeId = "SOME_ID";
+    ProcessingSubTaskQueueManager queueManager(queueChannel, context, nodeId);
 
     queueManager.CreateQueue(subTasks);
 
@@ -248,10 +205,6 @@ TEST_F(ProcessingSubTaskQueueTest, GrabSubTaskWithoutOwnershipTransferring)
             // process subtask
         }
         });
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(1500));
-
-    pubs1->Stop();
 
     ASSERT_EQ(2, queueSnapshotSet.size());
     EXPECT_EQ(nodeId, queueSnapshotSet[1].processing_queue().owner_node_id());
@@ -268,16 +221,10 @@ TEST_F(ProcessingSubTaskQueueTest, GrabSubTaskWithoutOwnershipTransferring)
  * @then Queue snapshot is published that contains a lock on the grabbed subtask.
  * Ownership is moved to the local node.
  */
-TEST_F(ProcessingSubTaskQueueTest, GrabSubTaskWithOwnershipTransferring)
+TEST_F(ProcessingSubTaskQueueManagerTest, GrabSubTaskWithOwnershipTransferring)
 {
-    std::vector<SGProcessing::SubTaskQueue> queueSnapshotSet1;
-    std::vector<SGProcessing::SubTaskQueue> queueSnapshotSet2;
-
-    auto pubs1 = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();;
-    pubs1->Start(40001, {});
-
-    auto pubs2 = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();;
-    pubs2->Start(40001, { pubs1->GetLocalAddress() });
+    auto context = std::make_shared<boost::asio::io_context>();
+    auto queueChannel1 = std::make_shared<ProcessingSubTaskQueueChannelImpl>();
 
     ProcessingCore::SubTaskList subTasks;
     {
@@ -285,69 +232,63 @@ TEST_F(ProcessingSubTaskQueueTest, GrabSubTaskWithOwnershipTransferring)
         subtask->set_results_channel("RESULT_CHANNEL_1");
         subTasks.push_back(std::move(subtask));
     }
-
     {
         auto subtask = std::make_unique<SGProcessing::SubTask>();
         subtask->set_results_channel("RESULT_CHANNEL_2");
         subTasks.push_back(std::move(subtask));
     }
 
-    auto pubs1Channel = std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubs1, "PROCESSING_CHANNEL_ID");
-    auto nodeId1 = pubs1->GetLocalAddress();
+    auto nodeId1 = "NODE1_ID";
 
-    ProcessingSubTaskQueueManager queueManager1(pubs1Channel, pubs1->GetAsioContext(), nodeId1);
-    pubs1Channel->Subscribe([&queueManager1, &queueSnapshotSet1](
-        boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message) {
-            if (message)
-            {
-                SGProcessing::ProcessingChannelMessage channelMessage;
-                if (channelMessage.ParseFromArray(message->data.data(), static_cast<int>(message->data.size())))
-                {
-                    if (channelMessage.has_subtask_queue())
-                    {
-                        queueSnapshotSet1.push_back(channelMessage.subtask_queue());
-                        queueManager1.ProcessSubTaskQueueMessage(channelMessage.release_subtask_queue());
-                    }
-                    else if (channelMessage.has_subtask_queue_request())
-                    {
-                        queueManager1.ProcessSubTaskQueueRequestMessage(channelMessage.subtask_queue_request());
-                    }
-                }
-            }
+    ProcessingSubTaskQueueManager queueManager1(queueChannel1, context, nodeId1);
+
+    std::vector<std::string> requestedOwnerIds;
+    std::vector<SGProcessing::SubTaskQueue> queueSnapshotSet;
+    auto queueChannel2 = std::make_shared<ProcessingSubTaskQueueChannelImpl>();
+    queueChannel2->queueOwnershipRequestSink = 
+        [context, &requestedOwnerIds, &queueManager1](const std::string& nodeId) {
+            requestedOwnerIds.push_back(nodeId);
+            context->post([&queueManager1, nodeId]() {
+                SGProcessing::SubTaskQueueRequest request;
+                request.set_node_id(nodeId);
+                queueManager1.ProcessSubTaskQueueRequestMessage(request);
+            });
+        };
+    queueChannel2->queuePublishingSink = 
+        [context, &queueSnapshotSet, &queueManager1](std::shared_ptr<SGProcessing::SubTaskQueue> queue) {
+        queueSnapshotSet.push_back(*queue);
+        context->post([&queueManager1, queue]() {
+            auto pQueue = std::make_unique<SGProcessing::SubTaskQueue>();
+            pQueue->CopyFrom(*queue);
+            queueManager1.ProcessSubTaskQueueMessage(pQueue.release());
         });
+    };
 
-    auto pubs2Channel = std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubs2, "PROCESSING_CHANNEL_ID");
-    auto nodeId2 = pubs2->GetLocalAddress();
+    auto nodeId2 = "NODE2_ID";
+    ProcessingSubTaskQueueManager queueManager2(queueChannel2, context, nodeId2);
 
-    ProcessingSubTaskQueueManager queueManager2(pubs2Channel, pubs2->GetAsioContext(), nodeId2);
-    pubs2Channel->Subscribe([&queueSnapshotSet2, &queueManager2](
-        boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message) {
-            if (message)
-            {
-                SGProcessing::ProcessingChannelMessage channelMessage;
-                if (channelMessage.ParseFromArray(message->data.data(), static_cast<int>(message->data.size())))
-                {
-                    if (channelMessage.has_subtask_queue())
-                    {
-                        queueSnapshotSet2.push_back(channelMessage.subtask_queue());
-                        queueManager2.ProcessSubTaskQueueMessage(channelMessage.release_subtask_queue());
-                    }
-                    else if (channelMessage.has_subtask_queue_request())
-                    {
-                        queueManager2.ProcessSubTaskQueueRequestMessage(channelMessage.subtask_queue_request());
-                    }
-
-                }
-            }
-        });
-
-    // Wait for subscription
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    queueChannel1->queueOwnershipRequestSink =
+        [context, &requestedOwnerIds, &queueManager2](const std::string& nodeId) {
+            requestedOwnerIds.push_back(nodeId);
+            context->post([&queueManager2, nodeId]() {
+                SGProcessing::SubTaskQueueRequest request;
+                request.set_node_id(nodeId);
+                queueManager2.ProcessSubTaskQueueRequestMessage(request);
+                });
+        };
+    queueChannel1->queuePublishingSink = 
+        [context, &queueSnapshotSet, &queueManager2](std::shared_ptr<SGProcessing::SubTaskQueue> queue) {
+            queueSnapshotSet.push_back(*queue);
+            context->post([&queueManager2, queue]() {
+                auto pQueue = std::make_unique<SGProcessing::SubTaskQueue>();
+                pQueue->CopyFrom(*queue);
+                queueManager2.ProcessSubTaskQueueMessage(pQueue.release());
+            });
+        };
 
     // Create the queue on node1
     queueManager1.CreateQueue(subTasks);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(1500));
     // Grab subtask on Node2
     queueManager2.GrabSubTask([](boost::optional<const SGProcessing::SubTask&> subtask) {
         if (subtask)
@@ -356,20 +297,17 @@ TEST_F(ProcessingSubTaskQueueTest, GrabSubTaskWithOwnershipTransferring)
         }
         });
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+    context->run();
 
-    pubs1->Stop();
-    pubs2->Stop();
-
-    ASSERT_EQ(3, queueSnapshotSet2.size());
+    ASSERT_EQ(3, queueSnapshotSet.size());
 
     // Ownership is transferred to node2
-    ASSERT_EQ(2, queueSnapshotSet2[2].processing_queue().items_size());
-    EXPECT_EQ(nodeId2, queueSnapshotSet2[2].processing_queue().owner_node_id());
+    ASSERT_EQ(2, queueSnapshotSet[2].processing_queue().items_size());
+    EXPECT_EQ(nodeId2, queueSnapshotSet[2].processing_queue().owner_node_id());
 
     // The subtask is locked by node2
-    EXPECT_EQ(nodeId2, queueSnapshotSet2[2].processing_queue().items(0).lock_node_id());
-    EXPECT_EQ("", queueSnapshotSet2[2].processing_queue().items(1).lock_node_id());
+    EXPECT_EQ(nodeId2, queueSnapshotSet[2].processing_queue().items(0).lock_node_id());
+    EXPECT_EQ("", queueSnapshotSet[2].processing_queue().items(1).lock_node_id());
 }
 
 /**
@@ -377,13 +315,9 @@ TEST_F(ProcessingSubTaskQueueTest, GrabSubTaskWithOwnershipTransferring)
  * @when New results added
  * @then Queue ignores results that are not relevant to subtasks located in the queue.
  */
-TEST_F(ProcessingSubTaskQueueTest, AddUnexpectedResult)
+TEST_F(ProcessingSubTaskQueueManagerTest, AddUnexpectedResult)
 {
-    std::vector<SGProcessing::SubTaskQueue> queueSnapshotSet1;
-
-    auto pubs1 = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();;
-    pubs1->Start(40001, {});
-
+    auto context = std::make_shared<boost::asio::io_context>();
 
     ProcessingCore::SubTaskList subTasks;
     {
@@ -398,10 +332,10 @@ TEST_F(ProcessingSubTaskQueueTest, AddUnexpectedResult)
         subTasks.push_back(std::move(subtask));
     }
 
-    auto pubs1Channel = std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubs1, "PROCESSING_CHANNEL_ID");
-    auto nodeId1 = pubs1->GetLocalAddress();
+    auto queueChannel1 = std::make_shared<ProcessingSubTaskQueueChannelImpl>();
+    auto nodeId1 = "NODE1_ID";
 
-    ProcessingSubTaskQueueManager queueManager1(pubs1Channel, pubs1->GetAsioContext(), nodeId1);
+    ProcessingSubTaskQueueManager queueManager1(queueChannel1, context, nodeId1);
 
     // Create the queue on node1
     queueManager1.CreateQueue(subTasks);
@@ -409,8 +343,6 @@ TEST_F(ProcessingSubTaskQueueTest, AddUnexpectedResult)
     SGProcessing::SubTaskResult subTaskResult;
     ASSERT_TRUE(queueManager1.AddSubTaskResult("RESULT_CHANNEL_1", subTaskResult));
     ASSERT_FALSE(queueManager1.AddSubTaskResult("RESULT_CHANNEL_UNKNOWN", subTaskResult));
-
-    pubs1->Stop();
 }
 
 /**
@@ -418,13 +350,9 @@ TEST_F(ProcessingSubTaskQueueTest, AddUnexpectedResult)
  * @when Results for all subtasks added
  * @then Queue is marked as processed.
  */
-TEST_F(ProcessingSubTaskQueueTest, CheckProcessedQueue)
+TEST_F(ProcessingSubTaskQueueManagerTest, CheckProcessedQueue)
 {
-    std::vector<SGProcessing::SubTaskQueue> queueSnapshotSet1;
-
-    auto pubs1 = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();;
-    pubs1->Start(40001, {});
-
+    auto context = std::make_shared<boost::asio::io_context>();
 
     ProcessingCore::SubTaskList subTasks;
     {
@@ -438,10 +366,10 @@ TEST_F(ProcessingSubTaskQueueTest, CheckProcessedQueue)
         subTasks.push_back(std::move(subtask));
     }
 
-    auto pubs1Channel = std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubs1, "PROCESSING_CHANNEL_ID");
-    auto nodeId1 = pubs1->GetLocalAddress();
+    auto queueChannel1 = std::make_shared<ProcessingSubTaskQueueChannelImpl>();
+    auto nodeId1 = "NODE1_ID";
 
-    ProcessingSubTaskQueueManager queueManager1(pubs1Channel, pubs1->GetAsioContext(), nodeId1);
+    ProcessingSubTaskQueueManager queueManager1(queueChannel1, context, nodeId1);
 
     // Create the queue on node1
     queueManager1.CreateQueue(subTasks);
@@ -454,8 +382,6 @@ TEST_F(ProcessingSubTaskQueueTest, CheckProcessedQueue)
     queueManager1.AddSubTaskResult("RESULT_CHANNEL_2", subTaskResult);
 
     ASSERT_TRUE(queueManager1.IsProcessed());
-
-    pubs1->Stop();
 }
 
 /**
@@ -463,14 +389,10 @@ TEST_F(ProcessingSubTaskQueueTest, CheckProcessedQueue)
  * @when Results for all subtasks added
  * @then Queue result hashes are valid by default.
  */
-TEST_F(ProcessingSubTaskQueueTest, ValidateResults)
+TEST_F(ProcessingSubTaskQueueManagerTest, ValidateResults)
 {
     // @todo extend the test to get determite invalid result hashes
-    std::vector<SGProcessing::SubTaskQueue> queueSnapshotSet1;
-
-    auto pubs1 = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();;
-    pubs1->Start(40001, {});
-
+    auto context = std::make_shared<boost::asio::io_context>();
 
     ProcessingCore::SubTaskList subTasks;
     // A single chunk is added to 2 subtasks
@@ -499,10 +421,10 @@ TEST_F(ProcessingSubTaskQueueTest, ValidateResults)
         subTasks.push_back(std::move(subtask));
     }
 
-    auto pubs1Channel = std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubs1, "PROCESSING_CHANNEL_ID");
-    auto nodeId1 = pubs1->GetLocalAddress();
+    auto queueChannel1 = std::make_shared<ProcessingSubTaskQueueChannelImpl>();
+    auto nodeId1 = "NODE1_ID";
 
-    ProcessingSubTaskQueueManager queueManager1(pubs1Channel, pubs1->GetAsioContext(), nodeId1);
+    ProcessingSubTaskQueueManager queueManager1(queueChannel1, context, nodeId1);
 
     // Create the queue on node1
     queueManager1.CreateQueue(subTasks);
@@ -517,8 +439,6 @@ TEST_F(ProcessingSubTaskQueueTest, ValidateResults)
     queueManager1.AddSubTaskResult("RESULT_CHANNEL_2", subTaskResult);
 
     ASSERT_TRUE(queueManager1.ValidateResults());
-
-    pubs1->Stop();
 }
 
 /**
@@ -526,13 +446,10 @@ TEST_F(ProcessingSubTaskQueueTest, ValidateResults)
  * @when A task split does not create duplicated chunks
  * @then Queue creation failed.
  */
-TEST_F(ProcessingSubTaskQueueTest, DISABLED_TaskSplitFailed)
+TEST_F(ProcessingSubTaskQueueManagerTest, DISABLED_TaskSplitFailed)
 {
     // @todo extend the test to get determite invalid result hashes
-    std::vector<SGProcessing::SubTaskQueue> queueSnapshotSet1;
-
-    auto pubs1 = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();;
-    pubs1->Start(40001, {});
+    auto context = std::make_shared<boost::asio::io_context>();
 
     ProcessingCore::SubTaskList subTasks;
     {
@@ -547,15 +464,13 @@ TEST_F(ProcessingSubTaskQueueTest, DISABLED_TaskSplitFailed)
         subTasks.push_back(std::move(subtask));
     }
 
-    auto pubs1Channel = std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubs1, "PROCESSING_CHANNEL_ID");
-    auto nodeId1 = pubs1->GetLocalAddress();
+    auto queueChannel1 = std::make_shared<ProcessingSubTaskQueueChannelImpl>();
+    auto nodeId1 = "NODE1_ID";
 
-    ProcessingSubTaskQueueManager queueManager1(pubs1Channel, pubs1->GetAsioContext(), nodeId1);
+    ProcessingSubTaskQueueManager queueManager1(queueChannel1, context, nodeId1);
 
     // Create the queue on node1
     ASSERT_FALSE(queueManager1.CreateQueue(subTasks));
-
-    pubs1->Stop();
 }
 
 /**
@@ -563,14 +478,10 @@ TEST_F(ProcessingSubTaskQueueTest, DISABLED_TaskSplitFailed)
  * @when A task split does not create duplicated chunks
  * @then Queue creation failed.
  */
-TEST_F(ProcessingSubTaskQueueTest, TaskSplitSucceeded)
+TEST_F(ProcessingSubTaskQueueManagerTest, TaskSplitSucceeded)
 {
     // @todo extend the test to get determite invalid result hashes
-    std::vector<SGProcessing::SubTaskQueue> queueSnapshotSet1;
-
-    auto pubs1 = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();;
-    pubs1->Start(40001, {});
-
+    auto context = std::make_shared<boost::asio::io_context>();
 
     ProcessingCore::SubTaskList subTasks;
 
@@ -600,13 +511,11 @@ TEST_F(ProcessingSubTaskQueueTest, TaskSplitSucceeded)
         subTasks.push_back(std::move(subtask));
     }
 
-    auto pubs1Channel = std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubs1, "PROCESSING_CHANNEL_ID");
-    auto nodeId1 = pubs1->GetLocalAddress();
+    auto queueChannel1 = std::make_shared<ProcessingSubTaskQueueChannelImpl>();
+    auto nodeId1 = "NODE1_ID";
 
-    ProcessingSubTaskQueueManager queueManager1(pubs1Channel, pubs1->GetAsioContext(), nodeId1);
+    ProcessingSubTaskQueueManager queueManager1(queueChannel1, context, nodeId1);
 
     // Create the queue on node1
     ASSERT_TRUE(queueManager1.CreateQueue(subTasks));
-
-    pubs1->Stop();
 }

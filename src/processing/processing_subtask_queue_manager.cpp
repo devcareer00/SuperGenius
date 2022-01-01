@@ -4,7 +4,7 @@ namespace sgns::processing
 {
 ////////////////////////////////////////////////////////////////////////////////
 ProcessingSubTaskQueueManager::ProcessingSubTaskQueueManager(
-    std::shared_ptr<sgns::ipfs_pubsub::GossipPubSubTopic> queueChannel,
+    std::shared_ptr<ProcessingSubTaskQueueChannel> queueChannel,
     std::shared_ptr<boost::asio::io_context> context,
     const std::string& localNodeId)
     : m_queueChannel(queueChannel)
@@ -159,10 +159,7 @@ void ProcessingSubTaskQueueManager::GrabSubTasks()
     else
     {
         // Send a request to grab a subtask queue
-        SGProcessing::ProcessingChannelMessage message;
-        auto request = message.mutable_subtask_queue_request();
-        request->set_node_id(m_localNodeId);
-        m_queueChannel->Publish(message.SerializeAsString());
+        m_queueChannel->RequestQueueOwnership(m_localNodeId);
     }
 }
 
@@ -186,10 +183,7 @@ bool ProcessingSubTaskQueueManager::HasOwnership() const
 
 void ProcessingSubTaskQueueManager::PublishSubTaskQueue() const
 {
-    SGProcessing::ProcessingChannelMessage message;
-    message.set_allocated_subtask_queue(m_queue.get());
-    m_queueChannel->Publish(message.SerializeAsString());
-    message.release_subtask_queue();
+    m_queueChannel->PublishQueue(m_queue);
     m_logger->debug("QUEUE_PUBLISHED");
 }
 

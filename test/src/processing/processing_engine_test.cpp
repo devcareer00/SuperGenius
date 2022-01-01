@@ -1,4 +1,5 @@
-#include "processing/processing_engine.hpp"
+#include <processing/processing_engine.hpp>
+#include <processing/processing_subtask_queue_channel_pubsub.hpp>
 
 #include <gtest/gtest.h>
 
@@ -123,9 +124,7 @@ TEST_F(ProcessingEngineTest, SubscribtionToResultChannel)
     {     
     });
 
-    auto queueChannel = std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubs1, "QUEUE_CHANNEL_ID");
-    queueChannel->Subscribe([](boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message) {});
-
+    auto queueChannel = std::make_shared<ProcessingSubTaskQueueChannelPubSub>(pubs1, "QUEUE_CHANNEL_ID");
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
@@ -172,9 +171,7 @@ TEST_F(ProcessingEngineTest, SubTaskProcessing)
     auto pubs1 = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();;
     pubs1->Start(40001, {});
 
-    auto queueChannel = std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubs1, "QUEUE_CHANNEL_ID");
-    queueChannel->Subscribe([](boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message) {});
-
+    auto queueChannel = std::make_shared<ProcessingSubTaskQueueChannelPubSub>(pubs1, "QUEUE_CHANNEL_ID");
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
@@ -222,9 +219,7 @@ TEST_F(ProcessingEngineTest, SharedSubTaskProcessing)
     auto pubs1 = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();;
     pubs1->Start(40001, {});
 
-    auto queueChannel = std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubs1, "QUEUE_CHANNEL_ID");
-    queueChannel->Subscribe([](boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message) {});
-
+    auto queueChannel = std::make_shared<ProcessingSubTaskQueueChannelPubSub>(pubs1, "QUEUE_CHANNEL_ID");
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
@@ -290,8 +285,7 @@ TEST_F(ProcessingEngineTest, TaskFinalization)
     auto pubs1 = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();;
     pubs1->Start(40001, {});
 
-    auto queueChannel = std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubs1, "QUEUE_CHANNEL_ID");
-    queueChannel->Subscribe([](boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message) {});
+    auto queueChannel = std::make_shared<ProcessingSubTaskQueueChannelPubSub>(pubs1, "QUEUE_CHANNEL_ID");
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
@@ -354,8 +348,7 @@ TEST_F(ProcessingEngineTest, InvalidSubTasksRestart)
     auto pubs1 = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();;
     pubs1->Start(40001, {});
 
-    auto queueChannel = std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubs1, "QUEUE_CHANNEL_ID");
-    queueChannel->Subscribe([](boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message) {});
+    auto queueChannel = std::make_shared<ProcessingSubTaskQueueChannelPubSub>(pubs1, "QUEUE_CHANNEL_ID");
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
@@ -446,5 +439,3 @@ TEST_F(ProcessingEngineTest, InvalidSubTasksRestart)
     // Task should be finalized because chunks have valid hashes
     ASSERT_TRUE(isTaskFinalized2);
 }
-
-

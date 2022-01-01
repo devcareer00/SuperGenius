@@ -8,10 +8,12 @@
 
 #include <processing/processing_subtask_queue.hpp>
 #include <processing/processing_core.hpp>
+#include <processing/processing_subtask_queue_channel.hpp>
 
 #include <processing/proto/SGProcessing.pb.h>
 
-#include <ipfs_pubsub/gossip_pubsub_topic.hpp>
+#include <boost/asio.hpp>
+#include <boost/optional.hpp>
 
 namespace sgns::processing
 {
@@ -28,7 +30,7 @@ public:
     * @param localNodeId local processing node ID
     */
     ProcessingSubTaskQueueManager(
-        std::shared_ptr<sgns::ipfs_pubsub::GossipPubSubTopic> queueChannel,
+        std::shared_ptr<ProcessingSubTaskQueueChannel> queueChannel,
         std::shared_ptr<boost::asio::io_context> context,
         const std::string& localNodeId);
 
@@ -106,7 +108,7 @@ private:
         const SGProcessing::SubTask& subTask, 
         const std::map<std::string, std::vector<uint32_t>>& chunks) const;
 
-    std::shared_ptr<sgns::ipfs_pubsub::GossipPubSubTopic> m_queueChannel;
+    std::shared_ptr<ProcessingSubTaskQueueChannel> m_queueChannel;
     std::shared_ptr<boost::asio::io_context> m_context;
     std::string m_localNodeId;
 

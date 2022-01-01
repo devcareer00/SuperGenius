@@ -8,8 +8,6 @@
 
 #include <processing/processing_engine.hpp>
 
-#include <ipfs_pubsub/gossip_pubsub_topic.hpp>
-
 namespace sgns::processing
 {
 /**
@@ -48,12 +46,12 @@ private:
     void HandleSubTaskQueue(SGProcessing::ProcessingChannelMessage& channelMesssage);
 
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> m_gossipPubSub;
-    std::shared_ptr<sgns::ipfs_pubsub::GossipPubSubTopic> m_processingQueueChannel;
 
     std::string m_nodeId;
     std::shared_ptr<ProcessingCore> m_processingCore;
 
     std::unique_ptr<ProcessingEngine> m_processingEngine;
+    std::shared_ptr<ProcessingSubTaskQueueChannel> m_queueChannel;
     std::shared_ptr<ProcessingSubTaskQueueManager> m_subtaskQueueManager;
     std::function<void(const SGProcessing::TaskResult&)> m_taskResultProcessingSink;
 };

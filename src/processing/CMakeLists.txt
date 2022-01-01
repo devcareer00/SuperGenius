@@ -1,8 +1,17 @@
 add_library(processing_service
-    processing_node.cpp
-    processing_service.cpp
+    processing_core.hpp
+    processing_engine.hpp
     processing_engine.cpp
+    processing_node.hpp
+    processing_node.cpp
+    processing_service.hpp
+    processing_service.cpp
+    processing_subtask_queue.hpp
     processing_subtask_queue.cpp
+    processing_subtask_queue_channel.hpp
+    processing_subtask_queue_channel_pubsub.hpp
+    processing_subtask_queue_channel_pubsub.cpp
+    processing_subtask_queue_manager.hpp
     processing_subtask_queue_manager.cpp
     )
 
