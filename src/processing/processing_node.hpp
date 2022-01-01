@@ -34,7 +34,8 @@ public:
     */
     void AttachTo(const std::string& processingQueueChannelId, size_t msSubscriptionWaitingDuration = 0);
     void CreateProcessingHost(
-        const SGProcessing::Task& task, 
+        const std::string& processingQueueChannelId,
+        std::list<std::unique_ptr<SGProcessing::SubTask>>& subTasks,
         size_t msSubscriptionWaitingDuration = 0);
 
     bool HasQueueOwnership() const;

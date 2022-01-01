@@ -133,8 +133,12 @@ void ProcessingServiceImpl::HandleRequestTimeout()
                 m_gossipPubSub, m_processingCore,
                 std::bind(&ProcessingTaskQueue::CompleteTask, m_taskQueue.get(), taskKey, std::placeholders::_1));
 
+            ProcessingCore::SubTaskList subTasks;
+            m_processingCore->SplitTask(task, subTasks);
+            // @todo Handle splitting errors
+
             // @todo Figure out if the task is still available for other peers
-            node->CreateProcessingHost(task);
+            node->CreateProcessingHost(task.ipfs_block_id(), subTasks);
 
             processingNodes[task.ipfs_block_id()] = node;
             m_logger->debug("New processing channel created. {}", task.ipfs_block_id());

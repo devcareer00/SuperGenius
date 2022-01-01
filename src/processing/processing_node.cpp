@@ -46,14 +46,11 @@ void ProcessingNode::AttachTo(const std::string& processingChannelId, size_t msS
 }
 
 void ProcessingNode::CreateProcessingHost(
-    const SGProcessing::Task& task, 
+    const std::string& processingQueueChannelId,
+    std::list<std::unique_ptr<SGProcessing::SubTask>>& subTasks,
     size_t msSubscriptionWaitingDuration)
 {
-    Initialize(task.ipfs_block_id(), msSubscriptionWaitingDuration);
-
-    ProcessingCore::SubTaskList subTasks;
-    m_processingCore->SplitTask(task, subTasks);
-    // @todo Handle splitting errors
+    Initialize(processingQueueChannelId, msSubscriptionWaitingDuration);
 
     m_subtaskQueueManager->CreateQueue(subTasks);
 
