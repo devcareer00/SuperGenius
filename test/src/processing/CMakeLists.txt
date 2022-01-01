@@ -2,6 +2,7 @@
 addtest(processing_service_test
     processing_service_test.cpp
     processing_engine_test.cpp
+    processing_subtask_queue_channel_pubsub_test.cpp
     processing_subtask_queue_manager_test.cpp
     )
 
