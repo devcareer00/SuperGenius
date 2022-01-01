@@ -43,7 +43,7 @@ sinks:
     type: console
     color: true
 groups:
-  - name: processing_subtask_queue_test
+  - name: processing_subtask_queue_manager_test
     sink: console
     level: info
     children:
@@ -67,7 +67,7 @@ public:
         logging_system->configure();
 
         libp2p::log::setLoggingSystem(logging_system);
-        libp2p::log::setLevelOfGroup("processing_subtask_queue_test", soralog::Level::DEBUG);
+        libp2p::log::setLevelOfGroup("processing_subtask_queue_manager_test", soralog::Level::DEBUG);
     }
 };
 
