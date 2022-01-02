@@ -40,10 +40,6 @@ public:
 
 private:
     void Initialize(const std::string& processingQueueChannelId, size_t msSubscriptionWaitingDuration);
-    void OnProcessingChannelMessage(boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message);
-
-    void HandleSubTaskQueueRequest(SGProcessing::ProcessingChannelMessage& channelMesssage);
-    void HandleSubTaskQueue(SGProcessing::ProcessingChannelMessage& channelMesssage);
 
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> m_gossipPubSub;
 
