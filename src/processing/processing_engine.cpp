@@ -20,17 +20,11 @@ void ProcessingEngine::StartQueueProcessing(
     std::lock_guard<std::mutex> queueGuard(m_mutexSubTaskQueue);
     m_subTaskQueueManager = subTaskQueueManager;
 
-    auto queue = m_subTaskQueueManager->GetQueueSnapshot();
-    if (queue->subtasks_size() > 0)
-    {
-        for (size_t subTaskIdx = 0; subTaskIdx < (size_t)queue->subtasks_size(); ++subTaskIdx)
-        {
-            const auto& subTask = queue->subtasks(subTaskIdx);
-            AddResultChannel(subTask.results_channel());
-        }
+    // @todo replace hardcoded channel identified with an input value
+    m_resultChannel = std::make_shared<ipfs_pubsub::GossipPubSubTopic>(m_gossipPubSub, "RESULT_CHANNEL_ID");
+    m_resultChannel->Subscribe(std::bind(&ProcessingEngine::OnResultChannelMessage, this, std::placeholders::_1));
 
-        m_subTaskQueueManager->GrabSubTask(std::bind(&ProcessingEngine::OnSubTaskGrabbed, this, std::placeholders::_1));
-    }
+    m_subTaskQueueManager->GrabSubTask(std::bind(&ProcessingEngine::OnSubTaskGrabbed, this, std::placeholders::_1));
 }
 
 void ProcessingEngine::StopQueueProcessing()
@@ -57,15 +51,15 @@ void ProcessingEngine::OnSubTaskGrabbed(boost::optional<const SGProcessing::SubT
 void ProcessingEngine::ProcessSubTask(SGProcessing::SubTask subTask)
 {
     m_logger->debug("[PROCESSING_STARTED]. ({}).", subTask.results_channel());
-    auto resultChannel = m_resultChannels[subTask.results_channel()];
-    std::thread thread(
-        [subTask(std::move(subTask)), resultChannel, this]()
+    std::thread thread([subTask(std::move(subTask)), this]()
     {
         SGProcessing::SubTaskResult result;
         // @todo set initial hash code that depends on node id
         m_processingCore->ProcessSubTask(subTask, result, std::hash<std::string>{}(m_nodeId));
+        // @todo replace results_channel with subtaskid
+        result.set_subtaskid(subTask.results_channel());
         m_logger->debug("[PROCESSED]. ({}).", subTask.results_channel());
-        resultChannel->Publish(result.SerializeAsString());
+        m_resultChannel->Publish(result.SerializeAsString());
         m_logger->debug("[RESULT_SENT]. ({}).", subTask.results_channel());
 
         std::lock_guard<std::mutex> queueGuard(m_mutexSubTaskQueue);
@@ -82,9 +76,9 @@ std::vector<std::tuple<std::string, SGProcessing::SubTaskResult>> ProcessingEngi
 {
     std::lock_guard<std::mutex> guard(m_mutexResults);
     std::vector<std::tuple<std::string, SGProcessing::SubTaskResult>> results;
-    for (auto item : m_results)
+    for (auto& item : m_results)
     {
-        results.push_back({item.first, item.second});
+        results.push_back({item.first, *item.second});
     }
     std::sort(results.begin(), results.end(),
         [](const std::tuple<std::string, SGProcessing::SubTaskResult>& v1,
@@ -98,15 +92,15 @@ void ProcessingEngine::OnResultChannelMessage(
 {
     if (message)
     {
-        SGProcessing::SubTaskResult result;
-        if (result.ParseFromArray(message->data.data(), static_cast<int>(message->data.size())))
+        auto result = std::make_shared<SGProcessing::SubTaskResult>();
+        if (result->ParseFromArray(message->data.data(), static_cast<int>(message->data.size())))
         {
-            m_logger->debug("[RESULT_RECEIVED]. ({}).", result.ipfs_results_data_id());
+            m_logger->debug("[RESULT_RECEIVED]. ({}).", result->ipfs_results_data_id());
 
             std::lock_guard<std::mutex> queueGuard(m_mutexSubTaskQueue);
             if (m_subTaskQueueManager)
             {
-                m_subTaskQueueManager->AddSubTaskResult(message->topics[0], result);
+                m_subTaskQueueManager->AddSubTaskResult(result->subtaskid(), *result);
 
                 // Task processing finished
                 if (m_subTaskQueueManager->IsProcessed()) 
@@ -122,7 +116,7 @@ void ProcessingEngine::OnResultChannelMessage(
                             for (const auto& r : m_results)
                             {
                                 auto result = results->Add();
-                                result->CopyFrom(r.second);
+                                result->CopyFrom(*r.second);
                             }
                             m_taskResultProcessingSink(taskResult);
                             // @todo Notify other nodes that the task is finalized
@@ -141,26 +135,9 @@ void ProcessingEngine::OnResultChannelMessage(
             // Results accumulation
             {
                 std::lock_guard<std::mutex> guard(m_mutexResults);
-                m_results.insert({ message->topics[0], std::move(result) });
+                m_results.insert({ result->subtaskid(), std::move(result) });
             }
         }
     }
-}
-
-std::shared_ptr<sgns::ipfs_pubsub::GossipPubSubTopic> ProcessingEngine::AddResultChannel(
-    const std::string& resultChannelId)
-{
-    using GossipPubSubTopic = sgns::ipfs_pubsub::GossipPubSubTopic;
-
-    auto itChannel = m_resultChannels.find(resultChannelId);
-    if (itChannel != m_resultChannels.end())
-    {
-        return itChannel->second;
-    }
-
-    auto resultChannel = std::make_shared<GossipPubSubTopic>(m_gossipPubSub, resultChannelId);
-    resultChannel->Subscribe(std::bind(&ProcessingEngine::OnResultChannelMessage, this, std::placeholders::_1));
-    m_resultChannels[resultChannelId] = resultChannel;
-    return resultChannel;
 }
 }

@@ -150,6 +150,7 @@ TEST_F(ProcessingEngineTest, SubscribtionToResultChannel)
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     SGProcessing::SubTaskResult result;    
+    result.set_subtaskid("SUBTASK_ID");
     resultChannel.Publish(result.SerializeAsString());
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
@@ -157,8 +158,9 @@ TEST_F(ProcessingEngineTest, SubscribtionToResultChannel)
     pubs1->Stop();
     pubs2->Stop();
 
+    // No duplicates should be received
     ASSERT_EQ(1, engine.GetResults().size());
-    EXPECT_EQ("RESULT_CHANNEL_ID", std::get<0>(engine.GetResults()[0]));
+    EXPECT_EQ("SUBTASK_ID", std::get<0>(engine.GetResults()[0]));
 }
 
 /**

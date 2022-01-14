@@ -46,7 +46,6 @@ private:
     void ProcessSubTask(SGProcessing::SubTask subTask);
 
     void OnResultChannelMessage(boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message);
-    std::shared_ptr<sgns::ipfs_pubsub::GossipPubSubTopic> AddResultChannel(const std::string& resultChannelId);
 
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> m_gossipPubSub;
     std::string m_nodeId;
@@ -54,8 +53,8 @@ private:
 
     std::shared_ptr<ProcessingSubTaskQueueManager> m_subTaskQueueManager;
     std::function<void(const SGProcessing::TaskResult&)> m_taskResultProcessingSink;
-    std::map<std::string, SGProcessing::SubTaskResult> m_results;
-    std::map<std::string, std::shared_ptr<sgns::ipfs_pubsub::GossipPubSubTopic>> m_resultChannels;
+    std::map<std::string, std::shared_ptr<SGProcessing::SubTaskResult>> m_results;
+    std::shared_ptr<sgns::ipfs_pubsub::GossipPubSubTopic> m_resultChannel;
 
     mutable std::mutex m_mutexResults;
     mutable std::mutex m_mutexSubTaskQueue;
