@@ -7,6 +7,7 @@
 #define GRPC_FOR_SUPERGENIUS_PROCESSING_NODE
 
 #include <processing/processing_engine.hpp>
+#include <processing/processing_subtask_storage_impl.hpp>
 
 namespace sgns::processing
 {
@@ -49,6 +50,7 @@ private:
     std::unique_ptr<ProcessingEngine> m_processingEngine;
     std::shared_ptr<ProcessingSubTaskQueueChannel> m_queueChannel;
     std::shared_ptr<ProcessingSubTaskQueueManager> m_subtaskQueueManager;
+    std::shared_ptr<SubTaskStorage> m_subTaskStorage;
     std::function<void(const SGProcessing::TaskResult&)> m_taskResultProcessingSink;
 };
 }

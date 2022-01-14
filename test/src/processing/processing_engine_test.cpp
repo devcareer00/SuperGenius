@@ -1,5 +1,6 @@
 #include <processing/processing_engine.hpp>
 #include <processing/processing_subtask_queue_channel_pubsub.hpp>
+#include <processing/processing_subtask_storage_impl.hpp>
 
 #include <gtest/gtest.h>
 
@@ -131,7 +132,7 @@ TEST_F(ProcessingEngineTest, SubscribtionToResultChannel)
     auto processingCore = std::make_shared<ProcessingCoreImpl>(0);
 
     auto nodeId = "NODE_1";
-    ProcessingEngine engine(pubs1, nodeId, processingCore, [](const SGProcessing::TaskResult&) {});
+    ProcessingEngine engine(pubs1, nodeId, processingCore);
 
     auto queue = std::make_unique<SGProcessing::SubTaskQueue>();
     queue->mutable_processing_queue()->set_owner_node_id("DIFFERENT_NODE_ID");
@@ -145,7 +146,10 @@ TEST_F(ProcessingEngineTest, SubscribtionToResultChannel)
     // The local queue wrapper doesn't own the queue
     processingQueueManager->ProcessSubTaskQueueMessage(queue.release());
 
-    engine.StartQueueProcessing(processingQueueManager);
+    auto subTaskStorage = std::make_shared<SubTaskStorageImpl>(processingQueueManager, 
+        [](const SGProcessing::TaskResult&) {});
+
+    engine.StartQueueProcessing(subTaskStorage);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
@@ -180,7 +184,7 @@ TEST_F(ProcessingEngineTest, SubTaskProcessing)
     auto processingCore = std::make_shared<ProcessingCoreImpl>(0);
 
     auto nodeId = "NODE_1";
-    ProcessingEngine engine(pubs1, nodeId, processingCore, [](const SGProcessing::TaskResult&) {});
+    ProcessingEngine engine(pubs1, nodeId, processingCore);
 
     auto queue = std::make_unique<SGProcessing::SubTaskQueue>();
     // Local queue wrapped owns the queue
@@ -200,7 +204,10 @@ TEST_F(ProcessingEngineTest, SubTaskProcessing)
         queueChannel, pubs1->GetAsioContext(), nodeId);
     processingQueueManager->ProcessSubTaskQueueMessage(queue.release());
 
-    engine.StartQueueProcessing(processingQueueManager);
+    auto subTaskStorage = std::make_shared<SubTaskStorageImpl>(processingQueueManager,
+        [](const SGProcessing::TaskResult&) {});
+
+    engine.StartQueueProcessing(subTaskStorage);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(2000));
 
@@ -230,8 +237,8 @@ TEST_F(ProcessingEngineTest, SharedSubTaskProcessing)
     auto nodeId1 = "NODE_1";
     auto nodeId2 = "NODE_2";
 
-    ProcessingEngine engine1(pubs1, nodeId1, processingCore, [](const SGProcessing::TaskResult&) {});
-    ProcessingEngine engine2(pubs1, nodeId2, processingCore, [](const SGProcessing::TaskResult&) {});
+    ProcessingEngine engine1(pubs1, nodeId1, processingCore);
+    ProcessingEngine engine2(pubs1, nodeId2, processingCore);
 
     auto queue = std::make_unique<SGProcessing::SubTaskQueue>();
     // Local queue wrapped owns the queue
@@ -251,7 +258,11 @@ TEST_F(ProcessingEngineTest, SharedSubTaskProcessing)
         queueChannel, pubs1->GetAsioContext(), nodeId1);
     processingQueueManager1->ProcessSubTaskQueueMessage(queue.release());
 
-    engine1.StartQueueProcessing(processingQueueManager1);
+    auto subTaskStorage1 = std::make_shared<SubTaskStorageImpl>(processingQueueManager1,
+        [](const SGProcessing::TaskResult&) {});
+
+    engine1.StartQueueProcessing(subTaskStorage1);
+
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     auto processingQueueManager2 = std::make_shared<ProcessingSubTaskQueueManager>(
@@ -266,7 +277,10 @@ TEST_F(ProcessingEngineTest, SharedSubTaskProcessing)
     processingQueueManager2->ProcessSubTaskQueueMessage(processingQueueManager1->GetQueueSnapshot().release());
     processingQueueManager1->ProcessSubTaskQueueMessage(processingQueueManager2->GetQueueSnapshot().release());
 
-    engine2.StartQueueProcessing(processingQueueManager2);
+    auto subTaskStorage2 = std::make_shared<SubTaskStorageImpl>(processingQueueManager2,
+        [](const SGProcessing::TaskResult&) {});
+
+    engine2.StartQueueProcessing(subTaskStorage2);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
@@ -296,8 +310,7 @@ TEST_F(ProcessingEngineTest, TaskFinalization)
     auto nodeId1 = "NODE_1";
 
     bool isTaskFinalized = false;
-    ProcessingEngine engine1(pubs1, nodeId1, processingCore,
-        [&isTaskFinalized](const SGProcessing::TaskResult&) { isTaskFinalized = true; });
+    ProcessingEngine engine1(pubs1, nodeId1, processingCore);
     processingCore->m_chunkResultHashes["RESULT_CHANNEL_ID1"] = { 0 };
     processingCore->m_chunkResultHashes["RESULT_CHANNEL_ID2"] = { 0 };
 
@@ -332,7 +345,11 @@ TEST_F(ProcessingEngineTest, TaskFinalization)
         queueChannel, pubs1->GetAsioContext(), nodeId1);
     processingQueueManager1->ProcessSubTaskQueueMessage(queue.release());
 
-    engine1.StartQueueProcessing(processingQueueManager1);
+    auto subTaskStorage1 = std::make_shared<SubTaskStorageImpl>(processingQueueManager1,
+        [&isTaskFinalized](const SGProcessing::TaskResult&) { isTaskFinalized = true; });
+
+    engine1.StartQueueProcessing(subTaskStorage1);
+
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
     pubs1->Stop();
@@ -400,14 +417,15 @@ TEST_F(ProcessingEngineTest, InvalidSubTasksRestart)
     processingQueueManager1->ProcessSubTaskQueueMessage(queue.release());
 
     bool isTaskFinalized1 = false;
-    ProcessingEngine engine1(pubs1, nodeId1, processingCore1,
-        [&isTaskFinalized1](const SGProcessing::TaskResult&) { isTaskFinalized1 = true; });
+    ProcessingEngine engine1(pubs1, nodeId1, processingCore1);
 
     bool isTaskFinalized2 = false;
-    ProcessingEngine engine2(pubs1, nodeId2, processingCore2,
-        [&isTaskFinalized2](const SGProcessing::TaskResult&) { isTaskFinalized2 = true; });
+    ProcessingEngine engine2(pubs1, nodeId2, processingCore2);
 
-    engine1.StartQueueProcessing(processingQueueManager1);
+    auto subTaskStorage1 = std::make_shared<SubTaskStorageImpl>(processingQueueManager1,
+        [&isTaskFinalized1](const SGProcessing::TaskResult&) { isTaskFinalized1 = true; });
+
+    engine1.StartQueueProcessing(subTaskStorage1);
 
     // Wait for queue processing by node1
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
@@ -432,7 +450,10 @@ TEST_F(ProcessingEngineTest, InvalidSubTasksRestart)
     // @todo Automatically mark failed tasks as exired
     std::this_thread::sleep_for(std::chrono::milliseconds(10000));
 
-    engine2.StartQueueProcessing(processingQueueManager2);
+    auto subTaskStorage2 = std::make_shared<SubTaskStorageImpl>(processingQueueManager2,
+        [&isTaskFinalized2](const SGProcessing::TaskResult&) { isTaskFinalized2 = true; });
+
+    engine2.StartQueueProcessing(subTaskStorage2);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 

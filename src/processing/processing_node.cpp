@@ -27,6 +27,9 @@ void ProcessingNode::Initialize(const std::string& processingQueueChannelId, siz
     m_subtaskQueueManager = std::make_shared<ProcessingSubTaskQueueManager>(
         processingQueueChannel, m_gossipPubSub->GetAsioContext(), m_nodeId);
 
+    m_subTaskStorage = std::make_shared<SubTaskStorageImpl>(
+        m_subtaskQueueManager, m_taskResultProcessingSink);
+
     processingQueueChannel->SetQueueRequestSink(
         std::bind(&ProcessingSubTaskQueueManager::ProcessSubTaskQueueRequestMessage, 
             m_subtaskQueueManager, std::placeholders::_1));
@@ -36,7 +39,7 @@ void ProcessingNode::Initialize(const std::string& processingQueueChannelId, siz
             m_subtaskQueueManager, std::placeholders::_1));
 
     m_processingEngine = std::make_unique<ProcessingEngine>(
-        m_gossipPubSub, m_nodeId, m_processingCore, m_taskResultProcessingSink);
+        m_gossipPubSub, m_nodeId, m_processingCore);
         
     // Run messages processing once all dependent object are created
     processingQueueChannel->Listen(msSubscriptionWaitingDuration);
@@ -48,7 +51,7 @@ void ProcessingNode::Initialize(const std::string& processingQueueChannelId, siz
 void ProcessingNode::AttachTo(const std::string& processingQueueChannelId, size_t msSubscriptionWaitingDuration)
 {
     Initialize(processingQueueChannelId, msSubscriptionWaitingDuration);
-    m_processingEngine->StartQueueProcessing(m_subtaskQueueManager);
+    m_processingEngine->StartQueueProcessing(m_subTaskStorage);
 
     // Set timer to handle queue request timeout
 }
@@ -62,7 +65,7 @@ void ProcessingNode::CreateProcessingHost(
 
     m_subtaskQueueManager->CreateQueue(subTasks);
 
-    m_processingEngine->StartQueueProcessing(m_subtaskQueueManager);
+    m_processingEngine->StartQueueProcessing(m_subTaskStorage);
 }
 
 bool ProcessingNode::HasQueueOwnership() const
