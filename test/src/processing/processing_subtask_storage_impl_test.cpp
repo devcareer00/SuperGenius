@@ -37,7 +37,7 @@ namespace
                 std::this_thread::sleep_for(std::chrono::milliseconds(m_processingMillisec));
             }
 
-            auto itResultHashes = m_chunkResultHashes.find(subTask.results_channel());
+            auto itResultHashes = m_chunkResultHashes.find(subTask.subtaskid());
 
             size_t subTaskResultHash = initialHashCode;
             for (int chunkIdx = 0; chunkIdx < subTask.chunkstoprocess_size(); ++chunkIdx)
@@ -128,8 +128,8 @@ TEST_F(ProcessingSubTaskStorageImplTest, TaskFinalization)
 
     bool isTaskFinalized = false;
     ProcessingEngine engine1(pubs1, nodeId1, processingCore);
-    processingCore->m_chunkResultHashes["RESULT_CHANNEL_ID1"] = { 0 };
-    processingCore->m_chunkResultHashes["RESULT_CHANNEL_ID2"] = { 0 };
+    processingCore->m_chunkResultHashes["SUBTASK_ID1"] = { 0 };
+    processingCore->m_chunkResultHashes["SUBTASK_ID2"] = { 0 };
 
     SGProcessing::ProcessingChunk chunk1;
     chunk1.set_chunkid("CHUNK_1");
@@ -146,14 +146,14 @@ TEST_F(ProcessingSubTaskStorageImplTest, TaskFinalization)
     {
         auto item = queue->mutable_processing_queue()->add_items();
         auto subTask = queue->add_subtasks();
-        subTask->set_results_channel("RESULT_CHANNEL_ID1");
+        subTask->set_subtaskid("SUBTASK_ID1");
         auto chunk = subTask->add_chunkstoprocess();
         chunk->CopyFrom(chunk1);
     }
     {
         auto item = queue->mutable_processing_queue()->add_items();
         auto subTask = queue->add_subtasks();
-        subTask->set_results_channel("RESULT_CHANNEL_ID2");
+        subTask->set_subtaskid("SUBTASK_ID2");
         auto chunk = subTask->add_chunkstoprocess();
         chunk->CopyFrom(chunk1);
     }
@@ -190,14 +190,14 @@ TEST_F(ProcessingSubTaskStorageImplTest, InvalidSubTasksRestart)
 
     // The processing core 1 has invalid chunk result hashes
     auto processingCore1 = std::make_shared<ProcessingCoreImpl>(500);
-    processingCore1->m_chunkResultHashes["RESULT_CHANNEL_ID1"] = { 0 };
-    processingCore1->m_chunkResultHashes["RESULT_CHANNEL_ID2"] = { 1 };
+    processingCore1->m_chunkResultHashes["SUBTASK_ID1"] = { 0 };
+    processingCore1->m_chunkResultHashes["SUBTASK_ID2"] = { 1 };
 
 
     // The processing core 2 has invalid chunk result hashes
     auto processingCore2 = std::make_shared<ProcessingCoreImpl>(100);
-    processingCore2->m_chunkResultHashes["RESULT_CHANNEL_ID1"] = { 0 };
-    processingCore2->m_chunkResultHashes["RESULT_CHANNEL_ID2"] = { 0 };
+    processingCore2->m_chunkResultHashes["SUBTASK_ID1"] = { 0 };
+    processingCore2->m_chunkResultHashes["SUBTASK_ID2"] = { 0 };
 
     auto nodeId1 = "NODE_1";
     auto nodeId2 = "NODE_2";
@@ -217,14 +217,14 @@ TEST_F(ProcessingSubTaskStorageImplTest, InvalidSubTasksRestart)
     {
         auto item = queue->mutable_processing_queue()->add_items();
         auto subTask = queue->add_subtasks();
-        subTask->set_results_channel("RESULT_CHANNEL_ID1");
+        subTask->set_subtaskid("SUBTASK_ID1");
         auto chunk = subTask->add_chunkstoprocess();
         chunk->CopyFrom(chunk1);
     }
     {
         auto item = queue->mutable_processing_queue()->add_items();
         auto subTask = queue->add_subtasks();
-        subTask->set_results_channel("RESULT_CHANNEL_ID2");
+        subTask->set_subtaskid("SUBTASK_ID2");
         auto chunk = subTask->add_chunkstoprocess();
         chunk->CopyFrom(chunk1);
     }

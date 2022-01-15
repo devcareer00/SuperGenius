@@ -26,7 +26,7 @@ namespace
             {
                 auto subtask = std::make_unique<SGProcessing::SubTask>();
                 subtask->set_ipfsblock(task.ipfs_block_id());
-                subtask->set_results_channel((boost::format("%s_subtask_%d") % task.results_channel() % i).str());
+                subtask->set_subtaskid((boost::format("%s_subtask_%d") % task.results_channel() % i).str());
                 subTasks.push_back(std::move(subtask));
             }
         }
@@ -35,10 +35,10 @@ namespace
             const SGProcessing::SubTask& subTask, SGProcessing::SubTaskResult& result,
             uint32_t initialHashCode) override
         {
-            std::cout << "SubTask processing started. " << subTask.results_channel() << std::endl;
+            std::cout << "SubTask processing started. " << subTask.subtaskid() << std::endl;
             std::this_thread::sleep_for(std::chrono::milliseconds(m_subTaskProcessingTime));
-            std::cout << "SubTask processed. " << subTask.results_channel() << std::endl;
-            result.set_ipfs_results_data_id((boost::format("%s_%s") % "RESULT_IPFS" % subTask.results_channel()).str());
+            std::cout << "SubTask processed. " << subTask.subtaskid() << std::endl;
+            result.set_ipfs_results_data_id((boost::format("%s_%s") % "RESULT_IPFS" % subTask.subtaskid()).str());
         }
 
     private:

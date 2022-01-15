@@ -66,7 +66,7 @@ namespace
                 std::this_thread::sleep_for(std::chrono::milliseconds(m_processingMillisec));
             }
 
-            auto itResultHashes = m_chunkResultHashes.find(subTask.results_channel());
+            auto itResultHashes = m_chunkResultHashes.find(subTask.subtaskid());
 
             size_t subTaskResultHash = initialHashCode;
             for (int chunkIdx = 0; chunkIdx < subTask.chunkstoprocess_size(); ++chunkIdx)
@@ -202,17 +202,14 @@ TEST_F(ProcessingEngineTest, SubTaskProcessing)
     auto subTaskStorage = std::make_shared<SubTaskStorageMock>(*pubs1->GetAsioContext());
     {
         SGProcessing::SubTask subTask;
-        subTask.set_results_channel("RESULT_CHANNEL_ID1");
+        subTask.set_subtaskid("SUBTASK_ID1");
         subTaskStorage->subTasks.push_back(std::move(subTask));
     }
     {
         SGProcessing::SubTask subTask;
-        subTask.set_results_channel("RESULT_CHANNEL_ID2");
+        subTask.set_subtaskid("SUBTASK_ID2");
         subTaskStorage->subTasks.push_back(std::move(subTask));
     }
-
-    SGProcessing::SubTask subTask;
-    subTask.set_results_channel("RESULT_CHANNEL_ID");
 
     engine.StartQueueProcessing(subTaskStorage);
 
@@ -221,8 +218,8 @@ TEST_F(ProcessingEngineTest, SubTaskProcessing)
     pubs1->Stop();
 
     ASSERT_EQ(2, processingCore->m_processedSubTasks.size());
-    EXPECT_EQ("RESULT_CHANNEL_ID1", processingCore->m_processedSubTasks[0].results_channel());
-    EXPECT_EQ("RESULT_CHANNEL_ID2", processingCore->m_processedSubTasks[1].results_channel());
+    EXPECT_EQ("SUBTASK_ID1", processingCore->m_processedSubTasks[0].subtaskid());
+    EXPECT_EQ("SUBTASK_ID2", processingCore->m_processedSubTasks[1].subtaskid());
 }
 
 /**
@@ -248,14 +245,14 @@ TEST_F(ProcessingEngineTest, SharedSubTaskProcessing)
     auto subTaskStorage1 = std::make_shared<SubTaskStorageMock>(*pubs1->GetAsioContext());
     {
         SGProcessing::SubTask subTask;
-        subTask.set_results_channel("RESULT_CHANNEL_ID1");
+        subTask.set_subtaskid("SUBTASK_ID1");
         subTaskStorage1->subTasks.push_back(std::move(subTask));
     }
 
     auto subTaskStorage2 = std::make_shared<SubTaskStorageMock>(*pubs1->GetAsioContext());
     {
         SGProcessing::SubTask subTask;
-        subTask.set_results_channel("RESULT_CHANNEL_ID2");
+        subTask.set_subtaskid("SUBTASK_ID2");
         subTaskStorage2->subTasks.push_back(std::move(subTask));
     }
 

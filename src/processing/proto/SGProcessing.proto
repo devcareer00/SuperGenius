@@ -28,7 +28,7 @@ message SubTask
     string ipfsblock = 1; // source block data to be processed
     repeated ProcessingChunk chunksToProcess = 2; // array of chunks to process
     uint32 datalen = 3; // length of ipfsBlock?
-    string results_channel = 4; // channel to publish results to
+    string subtaskid = 4; // unique subtask ID
 }
 
 message ProcessingChunk 

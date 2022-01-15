@@ -172,11 +172,11 @@ TEST_F(ProcessingSubTaskChannelPubSubTest, QueueTransmittingOnSinglePubSubHost)
     queue->mutable_processing_queue()->set_owner_node_id(nodeId1);
     {
         auto subtask = queue->add_subtasks();
-        subtask->set_results_channel("RESULT_CHANNEL_1");
+        subtask->set_subtaskid("SUBTASK_1");
     }
     {
         auto subtask = queue->add_subtasks();
-        subtask->set_results_channel("RESULT_CHANNEL_2");
+        subtask->set_subtaskid("SUBTASK_2");
     }
 
     queueChannel1.PublishQueue(queue);

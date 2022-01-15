@@ -94,12 +94,12 @@ TEST_F(ProcessingSubTaskQueueManagerTest, QueueCreating)
     ProcessingCore::SubTaskList subTasks;
     {
         auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_results_channel("RESULT_CHANNEL_1");
+        subtask->set_subtaskid("SUBTASK_1");
         subTasks.push_back(std::move(subtask));
     }
     {
         auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_results_channel("RESULT_CHANNEL_2");
+        subtask->set_subtaskid("SUBTASK_2");
         subTasks.push_back(std::move(subtask));
     }
 
@@ -137,13 +137,13 @@ TEST_F(ProcessingSubTaskQueueManagerTest, QueueOwnershipTransfer)
     ProcessingCore::SubTaskList subTasks;
     {
         auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_results_channel("RESULT_CHANNEL_1");
+        subtask->set_subtaskid("SUBTASK_1");
         subTasks.push_back(std::move(subtask));
     }
 
     {
         auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_results_channel("RESULT_CHANNEL_2");
+        subtask->set_subtaskid("SUBTASK_2");
         subTasks.push_back(std::move(subtask));
     }
 
@@ -184,13 +184,13 @@ TEST_F(ProcessingSubTaskQueueManagerTest, GrabSubTaskWithoutOwnershipTransferrin
     ProcessingCore::SubTaskList subTasks;
     {
         auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_results_channel("RESULT_CHANNEL_1");
+        subtask->set_subtaskid("SUBTASK_1");
         subTasks.push_back(std::move(subtask));
     }
 
     {
         auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_results_channel("RESULT_CHANNEL_2");
+        subtask->set_subtaskid("SUBTASK_2");
         subTasks.push_back(std::move(subtask));
     }
 
@@ -229,12 +229,12 @@ TEST_F(ProcessingSubTaskQueueManagerTest, GrabSubTaskWithOwnershipTransferring)
     ProcessingCore::SubTaskList subTasks;
     {
         auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_results_channel("RESULT_CHANNEL_1");
+        subtask->set_subtaskid("SUBTASK_1");
         subTasks.push_back(std::move(subtask));
     }
     {
         auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_results_channel("RESULT_CHANNEL_2");
+        subtask->set_subtaskid("SUBTASK_2");
         subTasks.push_back(std::move(subtask));
     }
 
@@ -322,13 +322,13 @@ TEST_F(ProcessingSubTaskQueueManagerTest, AddUnexpectedResult)
     ProcessingCore::SubTaskList subTasks;
     {
         auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_results_channel("RESULT_CHANNEL_1");
+        subtask->set_subtaskid("SUBTASK_1");
         subTasks.push_back(std::move(subtask));
     }
 
     {
         auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_results_channel("RESULT_CHANNEL_2");
+        subtask->set_subtaskid("SUBTASK_2");
         subTasks.push_back(std::move(subtask));
     }
 
@@ -341,8 +341,8 @@ TEST_F(ProcessingSubTaskQueueManagerTest, AddUnexpectedResult)
     queueManager1.CreateQueue(subTasks);
 
     SGProcessing::SubTaskResult subTaskResult;
-    ASSERT_TRUE(queueManager1.AddSubTaskResult("RESULT_CHANNEL_1", subTaskResult));
-    ASSERT_FALSE(queueManager1.AddSubTaskResult("RESULT_CHANNEL_UNKNOWN", subTaskResult));
+    ASSERT_TRUE(queueManager1.AddSubTaskResult("SUBTASK_1", subTaskResult));
+    ASSERT_FALSE(queueManager1.AddSubTaskResult("SUBTASK_UNKNOWN", subTaskResult));
 }
 
 /**
@@ -357,12 +357,12 @@ TEST_F(ProcessingSubTaskQueueManagerTest, CheckProcessedQueue)
     ProcessingCore::SubTaskList subTasks;
     {
         auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_results_channel("RESULT_CHANNEL_1");
+        subtask->set_subtaskid("SUBTASK_1");
         subTasks.push_back(std::move(subtask));
     }
     {
         auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_results_channel("RESULT_CHANNEL_2");
+        subtask->set_subtaskid("SUBTASK_2");
         subTasks.push_back(std::move(subtask));
     }
 
@@ -375,11 +375,11 @@ TEST_F(ProcessingSubTaskQueueManagerTest, CheckProcessedQueue)
     queueManager1.CreateQueue(subTasks);
 
     SGProcessing::SubTaskResult subTaskResult;
-    queueManager1.AddSubTaskResult("RESULT_CHANNEL_1", subTaskResult);
+    queueManager1.AddSubTaskResult("SUBTASK_1", subTaskResult);
 
     ASSERT_FALSE(queueManager1.IsProcessed());
 
-    queueManager1.AddSubTaskResult("RESULT_CHANNEL_2", subTaskResult);
+    queueManager1.AddSubTaskResult("SUBTASK_2", subTaskResult);
 
     ASSERT_TRUE(queueManager1.IsProcessed());
 }
@@ -407,7 +407,7 @@ TEST_F(ProcessingSubTaskQueueManagerTest, ValidateResults)
 
     {
         auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_results_channel("RESULT_CHANNEL_1");
+        subtask->set_subtaskid("SUBTASK_1");
         auto chunk = subtask->add_chunkstoprocess();
         chunk->CopyFrom(chunk1);
         subTasks.push_back(std::move(subtask));
@@ -415,7 +415,7 @@ TEST_F(ProcessingSubTaskQueueManagerTest, ValidateResults)
 
     {
         auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_results_channel("RESULT_CHANNEL_2");
+        subtask->set_subtaskid("SUBTASK_2");
         auto chunk = subtask->add_chunkstoprocess();
         chunk->CopyFrom(chunk1);
         subTasks.push_back(std::move(subtask));
@@ -432,11 +432,11 @@ TEST_F(ProcessingSubTaskQueueManagerTest, ValidateResults)
     SGProcessing::SubTaskResult subTaskResult;
     subTaskResult.add_chunk_hashes(1);
 
-    queueManager1.AddSubTaskResult("RESULT_CHANNEL_1", subTaskResult);
+    queueManager1.AddSubTaskResult("SUBTASK_1", subTaskResult);
 
     ASSERT_FALSE(queueManager1.ValidateResults());
 
-    queueManager1.AddSubTaskResult("RESULT_CHANNEL_2", subTaskResult);
+    queueManager1.AddSubTaskResult("SUBTASK_2", subTaskResult);
 
     ASSERT_TRUE(queueManager1.ValidateResults());
 }
@@ -454,13 +454,13 @@ TEST_F(ProcessingSubTaskQueueManagerTest, DISABLED_TaskSplitFailed)
     ProcessingCore::SubTaskList subTasks;
     {
         auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_results_channel("RESULT_CHANNEL_1");
+        subtask->set_subtaskid("SUBTASK_1");
         subTasks.push_back(std::move(subtask));
     }
 
     {
         auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_results_channel("RESULT_CHANNEL_2");
+        subtask->set_subtaskid("SUBTASK_2");
         subTasks.push_back(std::move(subtask));
     }
 
@@ -497,7 +497,7 @@ TEST_F(ProcessingSubTaskQueueManagerTest, TaskSplitSucceeded)
 
     {
         auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_results_channel("RESULT_CHANNEL_1");
+        subtask->set_subtaskid("SUBTASK_1");
         auto chunk = subtask->add_chunkstoprocess();
         chunk->CopyFrom(chunk1);
         subTasks.push_back(std::move(subtask));
@@ -505,7 +505,7 @@ TEST_F(ProcessingSubTaskQueueManagerTest, TaskSplitSucceeded)
 
     {
         auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_results_channel("RESULT_CHANNEL_2");
+        subtask->set_subtaskid("SUBTASK_2");
         auto chunk = subtask->add_chunkstoprocess();
         chunk->CopyFrom(chunk1);
         subTasks.push_back(std::move(subtask));

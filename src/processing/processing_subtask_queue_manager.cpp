@@ -54,7 +54,7 @@ bool ProcessingSubTaskQueueManager::UpdateQueue(SGProcessing::SubTaskQueue* pQue
             for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks_size(); ++subTaskIdx)
             {
                 const auto& subTask = m_queue->subtasks(subTaskIdx);
-                if (m_results.find(subTask.results_channel()) == m_results.end())
+                if (m_results.find(subTask.subtaskid()) == m_results.end())
                 {
                     validItemIndices.push_back(subTaskIdx);
                 }
@@ -252,14 +252,14 @@ std::unique_ptr<SGProcessing::SubTaskQueue> ProcessingSubTaskQueueManager::GetQu
 }
 
 bool ProcessingSubTaskQueueManager::AddSubTaskResult(
-    const std::string& resultChannel, const SGProcessing::SubTaskResult& subTaskResult)
+    const std::string& subTaskId, const SGProcessing::SubTaskResult& subTaskResult)
 {
     std::lock_guard<std::mutex> guard(m_queueMutex);
     bool channelFound = false;
     for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks_size(); ++subTaskIdx)
     {
         const auto& subTask = m_queue->subtasks(subTaskIdx);
-        if (subTask.results_channel() == resultChannel)
+        if (subTask.subtaskid() == subTaskId)
         {
             channelFound = true;
             break;
@@ -268,19 +268,19 @@ bool ProcessingSubTaskQueueManager::AddSubTaskResult(
 
     if (!channelFound)
     {
-        m_logger->error("UNEXPECTED_RESULT_CHANNEL {}", resultChannel);
+        m_logger->error("UNEXPECTED_SUBTASK_ID {}", subTaskId);
         return false;
     }
     
     SGProcessing::SubTaskResult result;
     result.CopyFrom(subTaskResult);
-    m_results.insert(std::make_pair(resultChannel, std::move(result)));
+    m_results.insert(std::make_pair(subTaskId, std::move(result)));
 
     std::vector<int> validItemIndices;
     for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks_size(); ++subTaskIdx)
     {
         const auto& subTask = m_queue->subtasks(subTaskIdx);
-        if (m_results.find(subTask.results_channel()) == m_results.end())
+        if (m_results.find(subTask.subtaskid()) == m_results.end())
         {
             validItemIndices.push_back(subTaskIdx);
         }
@@ -313,12 +313,12 @@ bool ProcessingSubTaskQueueManager::ValidateResults()
     for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks_size(); ++subTaskIdx)
     {
         const auto& subTask = m_queue->subtasks(subTaskIdx);
-        auto itResult = m_results.find(subTask.results_channel());
+        auto itResult = m_results.find(subTask.subtaskid());
         if (itResult != m_results.end())
         {
             if (itResult->second.chunk_hashes_size() != subTask.chunkstoprocess_size())
             {
-                m_logger->error("WRONG_CHANNEL_HASHES_LENGTH {}", subTask.results_channel());
+                m_logger->error("WRONG_RESULT_HASHES_LENGTH {}", subTask.subtaskid());
                 invalidSubtasksIndices.insert(subTaskIdx);
             }
             else
@@ -335,7 +335,7 @@ bool ProcessingSubTaskQueueManager::ValidateResults()
         else
         {
             // Since all subtasks are processed a result should be found for all of them
-            m_logger->error("NO_RESULTS_FOUND {}", subTask.results_channel());
+            m_logger->error("NO_RESULTS_FOUND {}", subTask.subtaskid());
             invalidSubtasksIndices.insert(subTaskIdx);
         }
     }
@@ -357,7 +357,7 @@ bool ProcessingSubTaskQueueManager::ValidateResults()
         std::vector<int> validItemIndices;
         for (auto invalidSubTaskIndex : invalidSubtasksIndices)
         {
-            m_results.erase(m_queue->subtasks(invalidSubTaskIndex).results_channel());
+            m_results.erase(m_queue->subtasks(invalidSubTaskIndex).subtaskid());
             validItemIndices.push_back(invalidSubTaskIndex);
         }
 
@@ -401,13 +401,13 @@ bool ProcessingSubTaskQueueManager::CheckSubTaskResultHashes(
             if ((it->second.size() >= 2) 
                 && !std::equal(it->second.begin() + 1, it->second.end(), it->second.begin()))
             {
-                m_logger->debug("INVALID_CHUNK_RESULT_HASH [{}, {}]", subTask.results_channel(), chunk.chunkid());
+                m_logger->debug("INVALID_CHUNK_RESULT_HASH [{}, {}]", subTask.subtaskid(), chunk.chunkid());
                 return false;
             }
         }
         else
         {
-            m_logger->debug("NO_CHUNK_RESULT_FOUND [{}, {}]", subTask.results_channel(), chunk.chunkid());
+            m_logger->debug("NO_CHUNK_RESULT_FOUND [{}, {}]", subTask.subtaskid(), chunk.chunkid());
             return false;
         }
     }

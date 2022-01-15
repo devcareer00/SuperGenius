@@ -43,7 +43,7 @@ namespace
                 auto subtaskId = (boost::format("subtask_%d") % i).str();
                 auto subtask = std::make_unique<SGProcessing::SubTask>();
                 subtask->set_ipfsblock(task.ipfs_block_id());
-                subtask->set_results_channel(subtaskId);
+                subtask->set_subtaskid(subtaskId);
 
                 for (size_t chunkIdx = 0; chunkIdx < m_nChunks; ++chunkIdx)
                 {
@@ -78,7 +78,7 @@ namespace
             {
                 auto subtaskId = (boost::format("subtask_validation")).str();
                 validationSubtask->set_ipfsblock(task.ipfs_block_id());
-                validationSubtask->set_results_channel(subtaskId);
+                validationSubtask->set_subtaskid(subtaskId);
                 subTasks.push_back(std::move(validationSubtask));
             }
         }
@@ -88,9 +88,9 @@ namespace
             uint32_t initialHashCode) override 
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(m_subTaskProcessingTime));
-            result.set_ipfs_results_data_id((boost::format("%s_%s") % "RESULT_IPFS" % subTask.results_channel()).str());
+            result.set_ipfs_results_data_id((boost::format("%s_%s") % "RESULT_IPFS" % subTask.subtaskid()).str());
 
-            bool isValidationSubTask = (subTask.results_channel() == "subtask_validation");
+            bool isValidationSubTask = (subTask.subtaskid() == "subtask_validation");
             size_t subTaskResultHash = initialHashCode;
             for (int chunkIdx = 0; chunkIdx < subTask.chunkstoprocess_size(); ++chunkIdx)
             {
@@ -120,7 +120,7 @@ namespace
 
             auto taskId = 
             m_db->Put(
-                sgns::crdt::HierarchicalKey((boost::format("results/%s") % subTask.results_channel()).str().c_str()),
+                sgns::crdt::HierarchicalKey((boost::format("results/%s") % subTask.subtaskid()).str().c_str()),
                 data);
         }
 

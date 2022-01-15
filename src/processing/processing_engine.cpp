@@ -41,24 +41,24 @@ void ProcessingEngine::OnSubTaskGrabbed(boost::optional<const SGProcessing::SubT
 {
     if (subTask)
     {
-        m_logger->debug("[GRABBED]. ({}).", subTask->results_channel());
+        m_logger->debug("[GRABBED]. ({}).", subTask->subtaskid());
         ProcessSubTask(*subTask);
     }
 }
 
 void ProcessingEngine::ProcessSubTask(SGProcessing::SubTask subTask)
 {
-    m_logger->debug("[PROCESSING_STARTED]. ({}).", subTask.results_channel());
+    m_logger->debug("[PROCESSING_STARTED]. ({}).", subTask.subtaskid());
     std::thread thread([subTask(std::move(subTask)), this]()
     {
         SGProcessing::SubTaskResult result;
         // @todo set initial hash code that depends on node id
         m_processingCore->ProcessSubTask(subTask, result, std::hash<std::string>{}(m_nodeId));
         // @todo replace results_channel with subtaskid
-        result.set_subtaskid(subTask.results_channel());
-        m_logger->debug("[PROCESSED]. ({}).", subTask.results_channel());
+        result.set_subtaskid(subTask.subtaskid());
+        m_logger->debug("[PROCESSED]. ({}).", subTask.subtaskid());
         m_resultChannel->Publish(result.SerializeAsString());
-        m_logger->debug("[RESULT_SENT]. ({}).", subTask.results_channel());
+        m_logger->debug("[RESULT_SENT]. ({}).", subTask.subtaskid());
 
         std::lock_guard<std::mutex> queueGuard(m_mutexSubTaskQueue);
         if (m_subTaskStorage)
