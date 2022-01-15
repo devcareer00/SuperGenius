@@ -10,8 +10,6 @@
 #include <processing/processing_subtask_storage.hpp>
 #include <base/logger.hpp>
 
-#include <ipfs_pubsub/gossip_pubsub_topic.hpp>
-
 namespace sgns::processing
 {
 /** Handles subtask processing and processing results accumulation
@@ -20,23 +18,18 @@ class ProcessingEngine
 {
 public:
     /** Create a processing engine object
-    * @param processingCore specific processing core that process a subtask using specific algorithm
-    * @param gossipPubSub pubsub host which is used to create subscriptions to result channels
     * @param nodeId - current processing node ID
+    * @param processingCore specific processing core that process a subtask using specific algorithm
     */
     ProcessingEngine(
-        std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> gossipPubSub,
         std::string nodeId,
         std::shared_ptr<ProcessingCore> processingCore);
 
     // @todo rename to StartProcessing
-    void StartQueueProcessing(
-        std::shared_ptr<SubTaskStorage> subTaskStorage);
+    void StartQueueProcessing(std::shared_ptr<SubTaskStorage> subTaskStorage);
 
     void StopQueueProcessing();
     bool IsQueueProcessingStarted() const;
-
-    std::vector<std::tuple<std::string, SGProcessing::SubTaskResult>> GetResults() const;
 
 private:
     void OnSubTaskGrabbed(boost::optional<const SGProcessing::SubTask&> subTask);
@@ -46,18 +39,11 @@ private:
     */
     void ProcessSubTask(SGProcessing::SubTask subTask);
 
-    void OnResultChannelMessage(boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message);
-
-    std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> m_gossipPubSub;
     std::string m_nodeId;
     std::shared_ptr<ProcessingCore> m_processingCore;
 
     std::shared_ptr<SubTaskStorage> m_subTaskStorage;
-    std::function<void(const SGProcessing::TaskResult&)> m_taskResultProcessingSink;
-    std::map<std::string, std::shared_ptr<SGProcessing::SubTaskResult>> m_results;
-    std::shared_ptr<sgns::ipfs_pubsub::GossipPubSubTopic> m_resultChannel;
 
-    mutable std::mutex m_mutexResults;
     mutable std::mutex m_mutexSubTaskQueue;
     
     base::Logger m_logger = base::createLogger("ProcessingEngine");

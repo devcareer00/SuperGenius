@@ -28,7 +28,7 @@ void ProcessingNode::Initialize(const std::string& processingQueueChannelId, siz
         processingQueueChannel, m_gossipPubSub->GetAsioContext(), m_nodeId);
 
     m_subTaskStorage = std::make_shared<SubTaskStorageImpl>(
-        m_subtaskQueueManager, m_taskResultProcessingSink);
+        m_gossipPubSub, m_subtaskQueueManager, m_taskResultProcessingSink);
 
     processingQueueChannel->SetQueueRequestSink(
         std::bind(&ProcessingSubTaskQueueManager::ProcessSubTaskQueueRequestMessage, 
@@ -38,8 +38,7 @@ void ProcessingNode::Initialize(const std::string& processingQueueChannelId, siz
         std::bind(&ProcessingSubTaskQueueManager::ProcessSubTaskQueueMessage,
             m_subtaskQueueManager, std::placeholders::_1));
 
-    m_processingEngine = std::make_unique<ProcessingEngine>(
-        m_gossipPubSub, m_nodeId, m_processingCore);
+    m_processingEngine = std::make_unique<ProcessingEngine>(m_nodeId, m_processingCore);
         
     // Run messages processing once all dependent object are created
     processingQueueChannel->Listen(msSubscriptionWaitingDuration);

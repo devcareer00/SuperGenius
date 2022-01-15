@@ -3,11 +3,9 @@
 namespace sgns::processing
 {
 ProcessingEngine::ProcessingEngine(
-    std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> gossipPubSub,
     std::string nodeId,
     std::shared_ptr<ProcessingCore> processingCore)
-    : m_gossipPubSub(gossipPubSub)
-    , m_nodeId(std::move(nodeId))
+    : m_nodeId(std::move(nodeId))
     , m_processingCore(processingCore)
 {
 }
@@ -17,10 +15,6 @@ void ProcessingEngine::StartQueueProcessing(
 {
     std::lock_guard<std::mutex> queueGuard(m_mutexSubTaskQueue);
     m_subTaskStorage = subTaskStorage;
-
-    // @todo replace hardcoded channel identified with an input value
-    m_resultChannel = std::make_shared<ipfs_pubsub::GossipPubSubTopic>(m_gossipPubSub, "RESULT_CHANNEL_ID");
-    m_resultChannel->Subscribe(std::bind(&ProcessingEngine::OnResultChannelMessage, this, std::placeholders::_1));
 
     m_subTaskStorage->GrabSubTask(std::bind(&ProcessingEngine::OnSubTaskGrabbed, this, std::placeholders::_1));
 }
@@ -57,55 +51,14 @@ void ProcessingEngine::ProcessSubTask(SGProcessing::SubTask subTask)
         // @todo replace results_channel with subtaskid
         result.set_subtaskid(subTask.subtaskid());
         m_logger->debug("[PROCESSED]. ({}).", subTask.subtaskid());
-        m_resultChannel->Publish(result.SerializeAsString());
-        m_logger->debug("[RESULT_SENT]. ({}).", subTask.subtaskid());
-
         std::lock_guard<std::mutex> queueGuard(m_mutexSubTaskQueue);
         if (m_subTaskStorage)
         {
+            m_subTaskStorage->CompleteSubTask(subTask.subtaskid(), result);
             // @todo Should a new subtask be grabbed once the perivious one is processed?
             m_subTaskStorage->GrabSubTask(std::bind(&ProcessingEngine::OnSubTaskGrabbed, this, std::placeholders::_1));
         }
     });
     thread.detach();
-}
-
-std::vector<std::tuple<std::string, SGProcessing::SubTaskResult>> ProcessingEngine::GetResults() const
-{
-    std::lock_guard<std::mutex> guard(m_mutexResults);
-    std::vector<std::tuple<std::string, SGProcessing::SubTaskResult>> results;
-    for (auto& item : m_results)
-    {
-        results.push_back({item.first, *item.second});
-    }
-    std::sort(results.begin(), results.end(),
-        [](const std::tuple<std::string, SGProcessing::SubTaskResult>& v1,
-            const std::tuple<std::string, SGProcessing::SubTaskResult>& v2) { return std::get<0>(v1) < std::get<0>(v2); });
-
-    return results;
-}
-
-void ProcessingEngine::OnResultChannelMessage(
-    boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message)
-{
-    if (message)
-    {
-        auto result = std::make_shared<SGProcessing::SubTaskResult>();
-        if (result->ParseFromArray(message->data.data(), static_cast<int>(message->data.size())))
-        {
-            m_logger->debug("[RESULT_RECEIVED]. ({}).", result->ipfs_results_data_id());
-
-            std::lock_guard<std::mutex> queueGuard(m_mutexSubTaskQueue);
-            if (m_subTaskStorage)
-            {
-                m_subTaskStorage->CompleteSubTask(result->subtaskid(), *result);
-            }
-            // Results accumulation
-            {
-                std::lock_guard<std::mutex> guard(m_mutexResults);
-                m_results.insert({ result->subtaskid(), std::move(result) });
-            }
-        }
-    }
 }
 }

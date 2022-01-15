@@ -8,6 +8,10 @@
 
 #include <iostream>
 #include <boost/functional/hash.hpp>
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/deadline_timer.hpp>
+
+#include <functional>
 
 using namespace sgns::processing;
 
@@ -18,7 +22,11 @@ namespace
     public:
         SubTaskStorageMock(boost::asio::io_context& context)
             : m_context(context)
+            , m_timerToKeepContext(m_context)
         {
+            m_timerToKeepContext.expires_from_now(boost::posix_time::seconds(5));
+            m_timerToKeepContext.async_wait(
+                std::bind(&SubTaskStorageMock::OnTimerEvent, this, std::placeholders::_1));
         }
 
         void GrabSubTask(SubTaskGrabbedCallback onSubTaskGrabbedCallback) override
@@ -40,7 +48,15 @@ namespace
         std::list<SGProcessing::SubTask> subTasks;
 
     private:
+        void OnTimerEvent(const boost::system::error_code& error)
+        {
+            m_timerToKeepContext.expires_from_now(boost::posix_time::seconds(5));
+            m_timerToKeepContext.async_wait(
+                std::bind(&SubTaskStorageMock::OnTimerEvent, this, std::placeholders::_1));
+        }
+
         boost::asio::io_context& m_context;
+        boost::asio::deadline_timer m_timerToKeepContext;
     };
 
     class ProcessingCoreImpl : public ProcessingCore
@@ -137,69 +153,20 @@ public:
     }
 };
 /**
- * @given A node is subscribed to result channel 
- * @when A result is published to the channel
- * @then The node receives the result
- */
-TEST_F(ProcessingEngineTest, SubscribtionToResultChannel)
-{
-    auto pubs1 = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();;
-    pubs1->Start(40001, {});
-
-    auto pubs2 = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();;
-    pubs2->Start(40001, {pubs1->GetLocalAddress()});
-
-    sgns::ipfs_pubsub::GossipPubSubTopic resultChannel(pubs1, "RESULT_CHANNEL_ID");
-    resultChannel.Subscribe([](boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message)
-    {     
-    });
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-
-    auto processingCore = std::make_shared<ProcessingCoreImpl>(0);
-
-    auto nodeId = "NODE_1";
-    ProcessingEngine engine(pubs1, nodeId, processingCore);
-
-    // Empty storage used to prevent result publishing by the engine.
-    auto subTaskStorage = std::make_shared<SubTaskStorageMock>(*pubs1->GetAsioContext());
-    engine.StartQueueProcessing(subTaskStorage);
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
-
-    // Publish result to the results channel
-    SGProcessing::SubTaskResult result;    
-    result.set_subtaskid("SUBTASK_ID");
-    resultChannel.Publish(result.SerializeAsString());
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-
-    pubs1->Stop();
-    pubs2->Stop();
-
-    // No duplicates should be received
-    ASSERT_EQ(1, engine.GetResults().size());
-    EXPECT_EQ("SUBTASK_ID", std::get<0>(engine.GetResults()[0]));
-}
-
-/**
  * @given A queue containing subtasks
  * @when Processing is started
  * @then ProcessingCore::ProcessSubTask is called for each subtask.
  */
 TEST_F(ProcessingEngineTest, SubTaskProcessing)
 {
-    auto pubs1 = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();;
-    pubs1->Start(40001, {});
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    boost::asio::io_context context;
 
     auto processingCore = std::make_shared<ProcessingCoreImpl>(0);
 
     auto nodeId = "NODE_1";
-    ProcessingEngine engine(pubs1, nodeId, processingCore);
+    ProcessingEngine engine(nodeId, processingCore);
 
-    auto subTaskStorage = std::make_shared<SubTaskStorageMock>(*pubs1->GetAsioContext());
+    auto subTaskStorage = std::make_shared<SubTaskStorageMock>(context);
     {
         SGProcessing::SubTask subTask;
         subTask.set_subtaskid("SUBTASK_ID1");
@@ -211,11 +178,14 @@ TEST_F(ProcessingEngineTest, SubTaskProcessing)
         subTaskStorage->subTasks.push_back(std::move(subTask));
     }
 
+    std::thread contextThread([&context]() { context.run(); });
     engine.StartQueueProcessing(subTaskStorage);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(2000));
 
-    pubs1->Stop();
+    context.stop();
+    contextThread.join();
+
 
     ASSERT_EQ(2, processingCore->m_processedSubTasks.size());
     EXPECT_EQ("SUBTASK_ID1", processingCore->m_processedSubTasks[0].subtaskid());
@@ -229,32 +199,31 @@ TEST_F(ProcessingEngineTest, SubTaskProcessing)
  */
 TEST_F(ProcessingEngineTest, SharedSubTaskProcessing)
 {
-    auto pubs1 = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();;
-    pubs1->Start(40001, {});
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    boost::asio::io_context context;
 
     auto processingCore = std::make_shared<ProcessingCoreImpl>(500);
 
     auto nodeId1 = "NODE_1";
     auto nodeId2 = "NODE_2";
 
-    ProcessingEngine engine1(pubs1, nodeId1, processingCore);
-    ProcessingEngine engine2(pubs1, nodeId2, processingCore);
+    ProcessingEngine engine1(nodeId1, processingCore);
+    ProcessingEngine engine2(nodeId2, processingCore);
 
-    auto subTaskStorage1 = std::make_shared<SubTaskStorageMock>(*pubs1->GetAsioContext());
+    auto subTaskStorage1 = std::make_shared<SubTaskStorageMock>(context);
     {
         SGProcessing::SubTask subTask;
         subTask.set_subtaskid("SUBTASK_ID1");
         subTaskStorage1->subTasks.push_back(std::move(subTask));
     }
 
-    auto subTaskStorage2 = std::make_shared<SubTaskStorageMock>(*pubs1->GetAsioContext());
+    auto subTaskStorage2 = std::make_shared<SubTaskStorageMock>(context);
     {
         SGProcessing::SubTask subTask;
         subTask.set_subtaskid("SUBTASK_ID2");
         subTaskStorage2->subTasks.push_back(std::move(subTask));
     }
+
+    std::thread contextThread([&context]() { context.run(); });
 
     engine1.StartQueueProcessing(subTaskStorage1);
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -262,7 +231,8 @@ TEST_F(ProcessingEngineTest, SharedSubTaskProcessing)
     engine2.StartQueueProcessing(subTaskStorage2);
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
-    pubs1->Stop();
+    context.stop();
+    contextThread.join();
 
     ASSERT_EQ(2, processingCore->m_initialHashes.size());
     EXPECT_EQ(static_cast<uint32_t>(std::hash<std::string>{}(nodeId1)), processingCore->m_initialHashes[0]);
