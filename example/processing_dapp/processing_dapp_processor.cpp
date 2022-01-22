@@ -32,18 +32,21 @@ namespace
         {
         }
 
-        void SplitTask(const SGProcessing::Task& task, SubTaskList& subTasks) override
+        void SplitTask(const SGProcessing::Task& task, std::list<SGProcessing::SubTask>& subTasks) override
         {
-            std::unique_ptr<SGProcessing::SubTask> validationSubtask = m_addValidationSubtask ?
-                std::make_unique<SGProcessing::SubTask>() : nullptr;
+            std::optional<SGProcessing::SubTask> validationSubtask;
+            if (m_addValidationSubtask)
+            {
+                validationSubtask = SGProcessing::SubTask();
+            }
             
             size_t chunkId = 0;
             for (size_t i = 0; i < m_nSubtasks; ++i)
             {
                 auto subtaskId = (boost::format("subtask_%d") % i).str();
-                auto subtask = std::make_unique<SGProcessing::SubTask>();
-                subtask->set_ipfsblock(task.ipfs_block_id());
-                subtask->set_subtaskid(subtaskId);
+                SGProcessing::SubTask subtask;
+                subtask.set_ipfsblock(task.ipfs_block_id());
+                subtask.set_subtaskid(subtaskId);
 
                 for (size_t chunkIdx = 0; chunkIdx < m_nChunks; ++chunkIdx)
                 {
@@ -56,7 +59,7 @@ namespace
                     chunk.set_subchunk_height(10);
                     chunk.set_subchunk_width(10);
 
-                    auto chunkToProcess = subtask->add_chunkstoprocess();
+                    auto chunkToProcess = subtask.add_chunkstoprocess();
                     chunkToProcess->CopyFrom(chunk);
 
                     if (validationSubtask)
@@ -79,7 +82,7 @@ namespace
                 auto subtaskId = (boost::format("subtask_validation")).str();
                 validationSubtask->set_ipfsblock(task.ipfs_block_id());
                 validationSubtask->set_subtaskid(subtaskId);
-                subTasks.push_back(std::move(validationSubtask));
+                subTasks.push_back(std::move(*validationSubtask));
             }
         }
 

@@ -57,7 +57,7 @@ void ProcessingNode::AttachTo(const std::string& processingQueueChannelId, size_
 
 void ProcessingNode::CreateProcessingHost(
     const std::string& processingQueueChannelId,
-    std::list<std::unique_ptr<SGProcessing::SubTask>>& subTasks,
+    std::list<SGProcessing::SubTask>& subTasks,
     size_t msSubscriptionWaitingDuration)
 {
     Initialize(processingQueueChannelId, msSubscriptionWaitingDuration);

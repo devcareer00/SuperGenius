@@ -91,15 +91,15 @@ TEST_F(ProcessingSubTaskQueueManagerTest, QueueCreating)
             queueSnapshotSet.push_back(*queue);
     };
 
-    ProcessingCore::SubTaskList subTasks;
+    std::list<SGProcessing::SubTask> subTasks;
     {
-        auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_subtaskid("SUBTASK_1");
+        SGProcessing::SubTask subtask;
+        subtask.set_subtaskid("SUBTASK_1");
         subTasks.push_back(std::move(subtask));
     }
     {
-        auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_subtaskid("SUBTASK_2");
+        SGProcessing::SubTask subtask;
+        subtask.set_subtaskid("SUBTASK_2");
         subTasks.push_back(std::move(subtask));
     }
 
@@ -134,16 +134,16 @@ TEST_F(ProcessingSubTaskQueueManagerTest, QueueOwnershipTransfer)
         queueSnapshotSet.push_back(*queue);
     };
 
-    ProcessingCore::SubTaskList subTasks;
+    std::list<SGProcessing::SubTask> subTasks;
     {
-        auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_subtaskid("SUBTASK_1");
+        SGProcessing::SubTask subtask;
+        subtask.set_subtaskid("SUBTASK_1");
         subTasks.push_back(std::move(subtask));
     }
 
     {
-        auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_subtaskid("SUBTASK_2");
+        SGProcessing::SubTask subtask;
+        subtask.set_subtaskid("SUBTASK_2");
         subTasks.push_back(std::move(subtask));
     }
 
@@ -181,16 +181,16 @@ TEST_F(ProcessingSubTaskQueueManagerTest, GrabSubTaskWithoutOwnershipTransferrin
         queueSnapshotSet.push_back(*queue);
     };
 
-    ProcessingCore::SubTaskList subTasks;
+    std::list<SGProcessing::SubTask> subTasks;
     {
-        auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_subtaskid("SUBTASK_1");
+        SGProcessing::SubTask subtask;
+        subtask.set_subtaskid("SUBTASK_1");
         subTasks.push_back(std::move(subtask));
     }
 
     {
-        auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_subtaskid("SUBTASK_2");
+        SGProcessing::SubTask subtask;
+        subtask.set_subtaskid("SUBTASK_2");
         subTasks.push_back(std::move(subtask));
     }
 
@@ -226,15 +226,15 @@ TEST_F(ProcessingSubTaskQueueManagerTest, GrabSubTaskWithOwnershipTransferring)
     auto context = std::make_shared<boost::asio::io_context>();
     auto queueChannel1 = std::make_shared<ProcessingSubTaskQueueChannelImpl>();
 
-    ProcessingCore::SubTaskList subTasks;
+    std::list<SGProcessing::SubTask> subTasks;
     {
-        auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_subtaskid("SUBTASK_1");
+        SGProcessing::SubTask subtask;
+        subtask.set_subtaskid("SUBTASK_1");
         subTasks.push_back(std::move(subtask));
     }
     {
-        auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_subtaskid("SUBTASK_2");
+        SGProcessing::SubTask subtask;
+        subtask.set_subtaskid("SUBTASK_2");
         subTasks.push_back(std::move(subtask));
     }
 
@@ -319,16 +319,16 @@ TEST_F(ProcessingSubTaskQueueManagerTest, AddUnexpectedResult)
 {
     auto context = std::make_shared<boost::asio::io_context>();
 
-    ProcessingCore::SubTaskList subTasks;
+    std::list<SGProcessing::SubTask> subTasks;
     {
-        auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_subtaskid("SUBTASK_1");
+        SGProcessing::SubTask subtask;
+        subtask.set_subtaskid("SUBTASK_1");
         subTasks.push_back(std::move(subtask));
     }
 
     {
-        auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_subtaskid("SUBTASK_2");
+        SGProcessing::SubTask subtask;
+        subtask.set_subtaskid("SUBTASK_2");
         subTasks.push_back(std::move(subtask));
     }
 
@@ -354,15 +354,15 @@ TEST_F(ProcessingSubTaskQueueManagerTest, CheckProcessedQueue)
 {
     auto context = std::make_shared<boost::asio::io_context>();
 
-    ProcessingCore::SubTaskList subTasks;
+    std::list<SGProcessing::SubTask> subTasks;
     {
-        auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_subtaskid("SUBTASK_1");
+        SGProcessing::SubTask subtask;
+        subtask.set_subtaskid("SUBTASK_1");
         subTasks.push_back(std::move(subtask));
     }
     {
-        auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_subtaskid("SUBTASK_2");
+        SGProcessing::SubTask subtask;
+        subtask.set_subtaskid("SUBTASK_2");
         subTasks.push_back(std::move(subtask));
     }
 
@@ -394,7 +394,7 @@ TEST_F(ProcessingSubTaskQueueManagerTest, ValidateResults)
     // @todo extend the test to get determite invalid result hashes
     auto context = std::make_shared<boost::asio::io_context>();
 
-    ProcessingCore::SubTaskList subTasks;
+    std::list<SGProcessing::SubTask> subTasks;
     // A single chunk is added to 2 subtasks
     SGProcessing::ProcessingChunk chunk1;
     chunk1.set_chunkid("CHUNK_1");
@@ -406,17 +406,17 @@ TEST_F(ProcessingSubTaskQueueManagerTest, ValidateResults)
     chunk1.set_subchunk_width(10);
 
     {
-        auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_subtaskid("SUBTASK_1");
-        auto chunk = subtask->add_chunkstoprocess();
+        SGProcessing::SubTask subtask;
+        subtask.set_subtaskid("SUBTASK_1");
+        auto chunk = subtask.add_chunkstoprocess();
         chunk->CopyFrom(chunk1);
         subTasks.push_back(std::move(subtask));
     }
 
     {
-        auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_subtaskid("SUBTASK_2");
-        auto chunk = subtask->add_chunkstoprocess();
+        SGProcessing::SubTask subtask;
+        subtask.set_subtaskid("SUBTASK_2");
+        auto chunk = subtask.add_chunkstoprocess();
         chunk->CopyFrom(chunk1);
         subTasks.push_back(std::move(subtask));
     }
@@ -451,16 +451,16 @@ TEST_F(ProcessingSubTaskQueueManagerTest, DISABLED_TaskSplitFailed)
     // @todo extend the test to get determite invalid result hashes
     auto context = std::make_shared<boost::asio::io_context>();
 
-    ProcessingCore::SubTaskList subTasks;
+    std::list<SGProcessing::SubTask> subTasks;
     {
-        auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_subtaskid("SUBTASK_1");
+        SGProcessing::SubTask subtask;
+        subtask.set_subtaskid("SUBTASK_1");
         subTasks.push_back(std::move(subtask));
     }
 
     {
-        auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_subtaskid("SUBTASK_2");
+        SGProcessing::SubTask subtask;
+        subtask.set_subtaskid("SUBTASK_2");
         subTasks.push_back(std::move(subtask));
     }
 
@@ -483,7 +483,7 @@ TEST_F(ProcessingSubTaskQueueManagerTest, TaskSplitSucceeded)
     // @todo extend the test to get determite invalid result hashes
     auto context = std::make_shared<boost::asio::io_context>();
 
-    ProcessingCore::SubTaskList subTasks;
+    std::list<SGProcessing::SubTask> subTasks;
 
     // A single chunk is added to 2 subtasks
     SGProcessing::ProcessingChunk chunk1;
@@ -496,17 +496,17 @@ TEST_F(ProcessingSubTaskQueueManagerTest, TaskSplitSucceeded)
     chunk1.set_subchunk_width(10);
 
     {
-        auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_subtaskid("SUBTASK_1");
-        auto chunk = subtask->add_chunkstoprocess();
+        SGProcessing::SubTask subtask;
+        subtask.set_subtaskid("SUBTASK_1");
+        auto chunk = subtask.add_chunkstoprocess();
         chunk->CopyFrom(chunk1);
         subTasks.push_back(std::move(subtask));
     }
 
     {
-        auto subtask = std::make_unique<SGProcessing::SubTask>();
-        subtask->set_subtaskid("SUBTASK_2");
-        auto chunk = subtask->add_chunkstoprocess();
+        SGProcessing::SubTask subtask;
+        subtask.set_subtaskid("SUBTASK_2");
+        auto chunk = subtask.add_chunkstoprocess();
         chunk->CopyFrom(chunk1);
         subTasks.push_back(std::move(subtask));
     }

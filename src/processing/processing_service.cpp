@@ -133,7 +133,7 @@ void ProcessingServiceImpl::HandleRequestTimeout()
                 m_gossipPubSub, m_processingCore,
                 std::bind(&ProcessingTaskQueue::CompleteTask, m_taskQueue.get(), taskKey, std::placeholders::_1));
 
-            ProcessingCore::SubTaskList subTasks;
+            std::list<SGProcessing::SubTask> subTasks;
             m_processingCore->SplitTask(task, subTasks);
             // @todo Handle splitting errors
 

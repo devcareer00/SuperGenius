@@ -13,7 +13,7 @@ namespace
     class ProcessingCoreImpl : public ProcessingCore
     {
     public:
-        void SplitTask(const SGProcessing::Task& task, SubTaskList& subTasks) override {}
+        void SplitTask(const SGProcessing::Task& task, std::list<SGProcessing::SubTask>& subTasks) override {}
 
         void  ProcessSubTask(
             const SGProcessing::SubTask& subTask, SGProcessing::SubTaskResult& result,

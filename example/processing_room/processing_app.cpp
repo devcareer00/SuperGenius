@@ -20,13 +20,13 @@ namespace
         {
         }
 
-        void SplitTask(const SGProcessing::Task& task, SubTaskList& subTasks) override
+        void SplitTask(const SGProcessing::Task& task, std::list<SGProcessing::SubTask>& subTasks) override
         {
             for (size_t i = 0; i < m_nSubtasks; ++i)
             {
-                auto subtask = std::make_unique<SGProcessing::SubTask>();
-                subtask->set_ipfsblock(task.ipfs_block_id());
-                subtask->set_subtaskid((boost::format("%s_subtask_%d") % task.results_channel() % i).str());
+                SGProcessing::SubTask subtask;
+                subtask.set_ipfsblock(task.ipfs_block_id());
+                subtask.set_subtaskid((boost::format("%s_subtask_%d") % task.results_channel() % i).str());
                 subTasks.push_back(std::move(subtask));
             }
         }

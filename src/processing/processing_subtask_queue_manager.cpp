@@ -18,7 +18,7 @@ ProcessingSubTaskQueueManager::ProcessingSubTaskQueueManager(
 {
 }
 
-bool ProcessingSubTaskQueueManager::CreateQueue(ProcessingCore::SubTaskList& subTasks)
+bool ProcessingSubTaskQueueManager::CreateQueue(std::list<SGProcessing::SubTask>& subTasks)
 {
     auto timestamp = std::chrono::system_clock::now();
 
@@ -29,7 +29,9 @@ bool ProcessingSubTaskQueueManager::CreateQueue(ProcessingCore::SubTaskList& sub
     auto processingQueue = queue->mutable_processing_queue();
     for (auto itSubTask = subTasks.begin(); itSubTask != subTasks.end(); ++itSubTask)
     {
-        queueSubTasks->AddAllocated(itSubTask->release());
+        // Move subtask to heap
+        auto subTask = std::make_unique<SGProcessing::SubTask>(std::move(*itSubTask));
+        queueSubTasks->AddAllocated(subTask.release());
         processingQueue->add_items();
     }
 

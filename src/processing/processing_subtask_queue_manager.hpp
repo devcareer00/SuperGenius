@@ -7,7 +7,6 @@
 #define SUPERGENIUS_PROCESSING_SUBTASK_QUEUE_MANAGER_HPP
 
 #include <processing/processing_subtask_queue.hpp>
-#include <processing/processing_core.hpp>
 #include <processing/processing_subtask_queue_channel.hpp>
 
 #include <processing/proto/SGProcessing.pb.h>
@@ -39,7 +38,7 @@ public:
     * in subtasks to allow a validation
     * @return false if not queue was created due to errors
     */
-    bool CreateQueue(ProcessingCore::SubTaskList& subTasks);
+    bool CreateQueue(std::list<SGProcessing::SubTask>& subTasks);
 
     /** Asynchronous getting of a subtask from the queue
     * @param onSubTaskGrabbedCallback a callback that is called when a grapped iosubtask is locked by the local node

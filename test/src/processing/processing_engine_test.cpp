@@ -67,9 +67,9 @@ namespace
         {
         }
 
-        void SplitTask(const SGProcessing::Task& task, SubTaskList& subTasks) override
+        void SplitTask(const SGProcessing::Task& task, std::list<SGProcessing::SubTask>& subTasks) override
         {
-            auto subtask = std::make_unique<SGProcessing::SubTask>();
+            SGProcessing::SubTask subtask;
             subTasks.push_back(std::move(subtask));
         }
 
