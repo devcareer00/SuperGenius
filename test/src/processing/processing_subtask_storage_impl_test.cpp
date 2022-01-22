@@ -1,5 +1,5 @@
 #include <processing/processing_engine.hpp>
-#include <processing/processing_subtask_storage_impl.hpp>
+#include <processing/processing_subtask_queue_accessor_impl.hpp>
 #include <processing/processing_subtask_queue_channel_pubsub.hpp>
 
 #include <gtest/gtest.h>

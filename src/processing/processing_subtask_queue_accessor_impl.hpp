@@ -6,7 +6,7 @@
 #ifndef SUPERGENIUS_PROCESSING_SUBTASK_STORAGE_IMPL_HPP
 #define SUPERGENIUS_PROCESSING_SUBTASK_STORAGE_IMPL_HPP
 
-#include <processing/processing_subtask_storage.hpp>
+#include <processing/processing_subtask_queue_accessor.hpp>
 #include <processing/processing_subtask_queue_manager.hpp>
 
 #include <ipfs_pubsub/gossip_pubsub_topic.hpp>

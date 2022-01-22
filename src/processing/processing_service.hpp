@@ -1,8 +1,8 @@
 #ifndef GRPC_FOR_SUPERGENIUS_PROCESSING_SERVICE
 #define GRPC_FOR_SUPERGENIUS_PROCESSING_SERVICE
 
-#include "processing_node.hpp"
-#include "processing_task_queue.hpp"
+#include <processing/processing_node.hpp>
+#include <processing/processing_task_queue.hpp>
 
 #include <map>
 

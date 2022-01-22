@@ -7,7 +7,7 @@
 #define GRPC_FOR_SUPERGENIUS_PROCESSING_ENGINE_HPP
 
 #include <processing/processing_core.hpp>
-#include <processing/processing_subtask_storage.hpp>
+#include <processing/processing_subtask_queue_accessor.hpp>
 #include <base/logger.hpp>
 
 namespace sgns::processing

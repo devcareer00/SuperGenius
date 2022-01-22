@@ -8,14 +8,14 @@ add_library(processing_service
     processing_service.cpp
     processing_subtask_queue.hpp
     processing_subtask_queue.cpp
+    processing_subtask_queue_accessor.hpp
+    processing_subtask_queue_accessor_impl.hpp
+    processing_subtask_queue_accessor_impl.cpp
     processing_subtask_queue_channel.hpp
     processing_subtask_queue_channel_pubsub.hpp
     processing_subtask_queue_channel_pubsub.cpp
     processing_subtask_queue_manager.hpp
     processing_subtask_queue_manager.cpp
-    processing_subtask_storage.hpp
-    processing_subtask_storage_impl.hpp
-    processing_subtask_storage_impl.cpp
     processing_task_queue.hpp
     )
 

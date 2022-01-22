@@ -7,7 +7,10 @@
 #define GRPC_FOR_SUPERGENIUS_PROCESSING_NODE
 
 #include <processing/processing_engine.hpp>
-#include <processing/processing_subtask_storage_impl.hpp>
+#include <processing/processing_subtask_queue_manager.hpp>
+#include <processing/processing_subtask_queue_accessor.hpp>
+
+#include <ipfs_pubsub/gossip_pubsub_topic.hpp>
 
 namespace sgns::processing
 {
