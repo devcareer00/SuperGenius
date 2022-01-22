@@ -2,7 +2,7 @@
 
 namespace sgns::processing
 {
-SubTaskStorageImpl::SubTaskStorageImpl(
+SubTaskQueueAccessorImpl::SubTaskQueueAccessorImpl(
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> gossipPubSub,
     std::shared_ptr<ProcessingSubTaskQueueManager> subTaskQueueManager,
     std::function<void(const SGProcessing::TaskResult&)> taskResultProcessingSink)
@@ -12,22 +12,22 @@ SubTaskStorageImpl::SubTaskStorageImpl(
 {
     // @todo replace hardcoded channel identified with an input value
     m_resultChannel = std::make_shared<ipfs_pubsub::GossipPubSubTopic>(m_gossipPubSub, "RESULT_CHANNEL_ID");
-    m_resultChannel->Subscribe(std::bind(&SubTaskStorageImpl::OnResultChannelMessage, this, std::placeholders::_1));
+    m_resultChannel->Subscribe(std::bind(&SubTaskQueueAccessorImpl::OnResultChannelMessage, this, std::placeholders::_1));
 }
 
-void SubTaskStorageImpl::GrabSubTask(SubTaskGrabbedCallback onSubTaskGrabbedCallback)
+void SubTaskQueueAccessorImpl::GrabSubTask(SubTaskGrabbedCallback onSubTaskGrabbedCallback)
 {
     m_subTaskQueueManager->GrabSubTask(onSubTaskGrabbedCallback);
 }
 
-void SubTaskStorageImpl::CompleteSubTask(const std::string& subTaskId, const SGProcessing::SubTaskResult& subTaskResult)
+void SubTaskQueueAccessorImpl::CompleteSubTask(const std::string& subTaskId, const SGProcessing::SubTaskResult& subTaskResult)
 {
     m_resultChannel->Publish(subTaskResult.SerializeAsString());
     m_logger->debug("[RESULT_SENT]. ({}).", subTaskId);
 }
 
 
-void SubTaskStorageImpl::OnResultReceived(const std::string& subTaskId, const SGProcessing::SubTaskResult& subTaskResult)
+void SubTaskQueueAccessorImpl::OnResultReceived(const std::string& subTaskId, const SGProcessing::SubTaskResult& subTaskResult)
 {
     m_subTaskQueueManager->AddSubTaskResult(subTaskId, subTaskResult);
 
@@ -61,7 +61,7 @@ void SubTaskStorageImpl::OnResultReceived(const std::string& subTaskId, const SG
     // @todo Check that the queue processing is continued when subtasks invalidated
 }
 
-std::vector<std::tuple<std::string, SGProcessing::SubTaskResult>> SubTaskStorageImpl::GetResults() const
+std::vector<std::tuple<std::string, SGProcessing::SubTaskResult>> SubTaskQueueAccessorImpl::GetResults() const
 {
     std::lock_guard<std::mutex> guard(m_mutexResults);
     std::vector<std::tuple<std::string, SGProcessing::SubTaskResult>> results;
@@ -76,7 +76,7 @@ std::vector<std::tuple<std::string, SGProcessing::SubTaskResult>> SubTaskStorage
     return results;
 }
 
-void SubTaskStorageImpl::OnResultChannelMessage(
+void SubTaskQueueAccessorImpl::OnResultChannelMessage(
     boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message)
 {
     if (message)

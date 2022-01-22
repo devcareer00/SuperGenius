@@ -89,7 +89,7 @@ groups:
       - name: Gossip
 # ----------------
   )");
-class ProcessingSubTaskStorageImplTest : public ::testing::Test
+class SubTaskQueueAccessorImplTest : public ::testing::Test
 {
 public:
     virtual void SetUp() override
@@ -113,7 +113,7 @@ public:
  * @when A result is published to the channel
  * @then The node receives the result
  */
-TEST_F(ProcessingSubTaskStorageImplTest, SubscribtionToResultChannel)
+TEST_F(SubTaskQueueAccessorImplTest, SubscribtionToResultChannel)
 {
     auto pubs1 = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();;
     pubs1->Start(40001, {});
@@ -147,11 +147,11 @@ TEST_F(ProcessingSubTaskStorageImplTest, SubscribtionToResultChannel)
     // The local queue wrapper doesn't own the queue
     processingQueueManager->ProcessSubTaskQueueMessage(queue.release());
 
-    auto subTaskStorage = std::make_shared<SubTaskStorageImpl>(
+    auto subTaskQueueAccessor = std::make_shared<SubTaskQueueAccessorImpl>(
         pubs1, processingQueueManager,
         [](const SGProcessing::TaskResult&) {});
 
-    engine.StartQueueProcessing(subTaskStorage);
+    engine.StartQueueProcessing(subTaskQueueAccessor);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
@@ -166,8 +166,8 @@ TEST_F(ProcessingSubTaskStorageImplTest, SubscribtionToResultChannel)
     pubs2->Stop();
 
     // No duplicates should be received
-    ASSERT_EQ(1, subTaskStorage->GetResults().size());
-    EXPECT_EQ("SUBTASK_ID", std::get<0>(subTaskStorage->GetResults()[0]));
+    ASSERT_EQ(1, subTaskQueueAccessor->GetResults().size());
+    EXPECT_EQ("SUBTASK_ID", std::get<0>(subTaskQueueAccessor->GetResults()[0]));
 }
 
 /**
@@ -175,7 +175,7 @@ TEST_F(ProcessingSubTaskStorageImplTest, SubscribtionToResultChannel)
  * @when Subtasks are finished and chunk hashes are valid
  * @then Task finalization sink is called.
  */
-TEST_F(ProcessingSubTaskStorageImplTest, TaskFinalization)
+TEST_F(SubTaskQueueAccessorImplTest, TaskFinalization)
 {
     auto pubs1 = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();;
     pubs1->Start(40001, {});
@@ -224,11 +224,11 @@ TEST_F(ProcessingSubTaskStorageImplTest, TaskFinalization)
         queueChannel, pubs1->GetAsioContext(), nodeId1);
     processingQueueManager1->ProcessSubTaskQueueMessage(queue.release());
 
-    auto subTaskStorage1 = std::make_shared<SubTaskStorageImpl>(
+    auto subTaskQueueAccessor1 = std::make_shared<SubTaskQueueAccessorImpl>(
         pubs1, processingQueueManager1,
         [&isTaskFinalized](const SGProcessing::TaskResult&) { isTaskFinalized = true; });
 
-    engine1.StartQueueProcessing(subTaskStorage1);
+    engine1.StartQueueProcessing(subTaskQueueAccessor1);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
@@ -242,7 +242,7 @@ TEST_F(ProcessingSubTaskStorageImplTest, TaskFinalization)
  * @when Subtasks contains invalid chunk hashes
  * @then The subtasks processing is restarted.
  */
-TEST_F(ProcessingSubTaskStorageImplTest, InvalidSubTasksRestart)
+TEST_F(SubTaskQueueAccessorImplTest, InvalidSubTasksRestart)
 {
     auto pubs1 = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();;
     pubs1->Start(40001, {});
@@ -302,11 +302,11 @@ TEST_F(ProcessingSubTaskStorageImplTest, InvalidSubTasksRestart)
     bool isTaskFinalized2 = false;
     ProcessingEngine engine2(nodeId2, processingCore2);
 
-    auto subTaskStorage1 = std::make_shared<SubTaskStorageImpl>(
+    auto subTaskQueueAccessor1 = std::make_shared<SubTaskQueueAccessorImpl>(
         pubs1, processingQueueManager1,
         [&isTaskFinalized1](const SGProcessing::TaskResult&) { isTaskFinalized1 = true; });
 
-    engine1.StartQueueProcessing(subTaskStorage1);
+    engine1.StartQueueProcessing(subTaskQueueAccessor1);
 
     // Wait for queue processing by node1
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
@@ -331,11 +331,11 @@ TEST_F(ProcessingSubTaskStorageImplTest, InvalidSubTasksRestart)
     // @todo Automatically mark failed tasks as exired
     std::this_thread::sleep_for(std::chrono::milliseconds(10000));
 
-    auto subTaskStorage2 = std::make_shared<SubTaskStorageImpl>(
+    auto subTaskQueueAccessor2 = std::make_shared<SubTaskQueueAccessorImpl>(
         pubs1, processingQueueManager2,
         [&isTaskFinalized2](const SGProcessing::TaskResult&) { isTaskFinalized2 = true; });
 
-    engine2.StartQueueProcessing(subTaskStorage2);
+    engine2.StartQueueProcessing(subTaskQueueAccessor2);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 

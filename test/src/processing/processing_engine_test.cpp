@@ -17,16 +17,16 @@ using namespace sgns::processing;
 
 namespace
 {
-    class SubTaskStorageMock : public SubTaskStorage
+    class SubTaskQueueAccessorMock : public SubTaskQueueAccessor
     {
     public:
-        SubTaskStorageMock(boost::asio::io_context& context)
+        SubTaskQueueAccessorMock(boost::asio::io_context& context)
             : m_context(context)
             , m_timerToKeepContext(m_context)
         {
             m_timerToKeepContext.expires_from_now(boost::posix_time::seconds(5));
             m_timerToKeepContext.async_wait(
-                std::bind(&SubTaskStorageMock::OnTimerEvent, this, std::placeholders::_1));
+                std::bind(&SubTaskQueueAccessorMock::OnTimerEvent, this, std::placeholders::_1));
         }
 
         void GrabSubTask(SubTaskGrabbedCallback onSubTaskGrabbedCallback) override
@@ -52,7 +52,7 @@ namespace
         {
             m_timerToKeepContext.expires_from_now(boost::posix_time::seconds(5));
             m_timerToKeepContext.async_wait(
-                std::bind(&SubTaskStorageMock::OnTimerEvent, this, std::placeholders::_1));
+                std::bind(&SubTaskQueueAccessorMock::OnTimerEvent, this, std::placeholders::_1));
         }
 
         boost::asio::io_context& m_context;
@@ -166,20 +166,20 @@ TEST_F(ProcessingEngineTest, SubTaskProcessing)
     auto nodeId = "NODE_1";
     ProcessingEngine engine(nodeId, processingCore);
 
-    auto subTaskStorage = std::make_shared<SubTaskStorageMock>(context);
+    auto subTaskQueueAccessor = std::make_shared<SubTaskQueueAccessorMock>(context);
     {
         SGProcessing::SubTask subTask;
         subTask.set_subtaskid("SUBTASK_ID1");
-        subTaskStorage->subTasks.push_back(std::move(subTask));
+        subTaskQueueAccessor->subTasks.push_back(std::move(subTask));
     }
     {
         SGProcessing::SubTask subTask;
         subTask.set_subtaskid("SUBTASK_ID2");
-        subTaskStorage->subTasks.push_back(std::move(subTask));
+        subTaskQueueAccessor->subTasks.push_back(std::move(subTask));
     }
 
     std::thread contextThread([&context]() { context.run(); });
-    engine.StartQueueProcessing(subTaskStorage);
+    engine.StartQueueProcessing(subTaskQueueAccessor);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(2000));
 
@@ -209,26 +209,26 @@ TEST_F(ProcessingEngineTest, SharedSubTaskProcessing)
     ProcessingEngine engine1(nodeId1, processingCore);
     ProcessingEngine engine2(nodeId2, processingCore);
 
-    auto subTaskStorage1 = std::make_shared<SubTaskStorageMock>(context);
+    auto subTaskQueueAccessor1 = std::make_shared<SubTaskQueueAccessorMock>(context);
     {
         SGProcessing::SubTask subTask;
         subTask.set_subtaskid("SUBTASK_ID1");
-        subTaskStorage1->subTasks.push_back(std::move(subTask));
+        subTaskQueueAccessor1->subTasks.push_back(std::move(subTask));
     }
 
-    auto subTaskStorage2 = std::make_shared<SubTaskStorageMock>(context);
+    auto subTaskQueueAccessor2 = std::make_shared<SubTaskQueueAccessorMock>(context);
     {
         SGProcessing::SubTask subTask;
         subTask.set_subtaskid("SUBTASK_ID2");
-        subTaskStorage2->subTasks.push_back(std::move(subTask));
+        subTaskQueueAccessor2->subTasks.push_back(std::move(subTask));
     }
 
     std::thread contextThread([&context]() { context.run(); });
 
-    engine1.StartQueueProcessing(subTaskStorage1);
+    engine1.StartQueueProcessing(subTaskQueueAccessor1);
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    engine2.StartQueueProcessing(subTaskStorage2);
+    engine2.StartQueueProcessing(subTaskQueueAccessor2);
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
     context.stop();

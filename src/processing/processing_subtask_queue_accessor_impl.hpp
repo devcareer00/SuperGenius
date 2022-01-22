@@ -1,10 +1,10 @@
 /**
-* Header file for subtask storage implementation
+* Header file for subtask queue accessor implementation
 * @author creativeid00
 */
 
-#ifndef SUPERGENIUS_PROCESSING_SUBTASK_STORAGE_IMPL_HPP
-#define SUPERGENIUS_PROCESSING_SUBTASK_STORAGE_IMPL_HPP
+#ifndef SUPERGENIUS_PROCESSING_SUBTASK_QUEUE_ACCESSOR_IMPL_HPP
+#define SUPERGENIUS_PROCESSING_SUBTASK_QUEUE_ACCESSOR_IMPL_HPP
 
 #include <processing/processing_subtask_queue_accessor.hpp>
 #include <processing/processing_subtask_queue_manager.hpp>
@@ -15,13 +15,13 @@ namespace sgns::processing
 {
 /** Subtask storage implementation
 */
-class SubTaskStorageImpl: public SubTaskStorage
+class SubTaskQueueAccessorImpl: public SubTaskQueueAccessor
 {
 public:
-    /** Create sub-task storage implementation object
+    /** Create sub-task queue accessor implementation object
     * @param gossipPubSub pubsub host which is used to create subscriptions to result channel
     */
-    SubTaskStorageImpl(
+    SubTaskQueueAccessorImpl(
         std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> gossipPubSub,
         std::shared_ptr<ProcessingSubTaskQueueManager> subTaskQueueManager,
         std::function<void(const SGProcessing::TaskResult&)> taskResultProcessingSink);
@@ -45,8 +45,8 @@ private:
     mutable std::mutex m_mutexResults;
     std::map<std::string, std::shared_ptr<SGProcessing::SubTaskResult>> m_results;
 
-    base::Logger m_logger = base::createLogger("ProcessingSubTaskStorageImpl");
+    base::Logger m_logger = base::createLogger("ProcessingSubTaskQueueAccessorImpl");
 };
 }
 
-#endif // SUPERGENIUS_PROCESSING_SUBTASK_STORAGE_IMPL_HPP
+#endif // SUPERGENIUS_PROCESSING_SUBTASK_QUEUE_ACCESSOR_IMPL_HPP

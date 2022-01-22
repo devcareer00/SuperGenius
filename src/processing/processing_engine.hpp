@@ -26,7 +26,7 @@ public:
         std::shared_ptr<ProcessingCore> processingCore);
 
     // @todo rename to StartProcessing
-    void StartQueueProcessing(std::shared_ptr<SubTaskStorage> subTaskStorage);
+    void StartQueueProcessing(std::shared_ptr<SubTaskQueueAccessor> subTaskQueueAccessor);
 
     void StopQueueProcessing();
     bool IsQueueProcessingStarted() const;
@@ -42,7 +42,7 @@ private:
     std::string m_nodeId;
     std::shared_ptr<ProcessingCore> m_processingCore;
 
-    std::shared_ptr<SubTaskStorage> m_subTaskStorage;
+    std::shared_ptr<SubTaskQueueAccessor> m_subTaskQueueAccessor;
 
     mutable std::mutex m_mutexSubTaskQueue;
     

@@ -28,7 +28,7 @@ void ProcessingNode::Initialize(const std::string& processingQueueChannelId, siz
     m_subtaskQueueManager = std::make_shared<ProcessingSubTaskQueueManager>(
         processingQueueChannel, m_gossipPubSub->GetAsioContext(), m_nodeId);
 
-    m_subTaskStorage = std::make_shared<SubTaskStorageImpl>(
+    m_subTaskQueueAccessor = std::make_shared<SubTaskQueueAccessorImpl>(
         m_gossipPubSub, m_subtaskQueueManager, m_taskResultProcessingSink);
 
     processingQueueChannel->SetQueueRequestSink(
@@ -51,7 +51,7 @@ void ProcessingNode::Initialize(const std::string& processingQueueChannelId, siz
 void ProcessingNode::AttachTo(const std::string& processingQueueChannelId, size_t msSubscriptionWaitingDuration)
 {
     Initialize(processingQueueChannelId, msSubscriptionWaitingDuration);
-    m_processingEngine->StartQueueProcessing(m_subTaskStorage);
+    m_processingEngine->StartQueueProcessing(m_subTaskQueueAccessor);
 
     // Set timer to handle queue request timeout
 }
@@ -65,7 +65,7 @@ void ProcessingNode::CreateProcessingHost(
 
     m_subtaskQueueManager->CreateQueue(subTasks);
 
-    m_processingEngine->StartQueueProcessing(m_subTaskStorage);
+    m_processingEngine->StartQueueProcessing(m_subTaskQueueAccessor);
 }
 
 bool ProcessingNode::HasQueueOwnership() const

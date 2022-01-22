@@ -11,24 +11,24 @@ ProcessingEngine::ProcessingEngine(
 }
 
 void ProcessingEngine::StartQueueProcessing(
-    std::shared_ptr<SubTaskStorage> subTaskStorage)
+    std::shared_ptr<SubTaskQueueAccessor> subTaskQueueAccessor)
 {
     std::lock_guard<std::mutex> queueGuard(m_mutexSubTaskQueue);
-    m_subTaskStorage = subTaskStorage;
+    m_subTaskQueueAccessor = subTaskQueueAccessor;
 
-    m_subTaskStorage->GrabSubTask(std::bind(&ProcessingEngine::OnSubTaskGrabbed, this, std::placeholders::_1));
+    m_subTaskQueueAccessor->GrabSubTask(std::bind(&ProcessingEngine::OnSubTaskGrabbed, this, std::placeholders::_1));
 }
 
 void ProcessingEngine::StopQueueProcessing()
 {
     std::lock_guard<std::mutex> queueGuard(m_mutexSubTaskQueue);
-    m_subTaskStorage.reset();
+    m_subTaskQueueAccessor.reset();
 }
 
 bool ProcessingEngine::IsQueueProcessingStarted() const
 {
     std::lock_guard<std::mutex> queueGuard(m_mutexSubTaskQueue);
-    return (m_subTaskStorage.get() != nullptr);
+    return (m_subTaskQueueAccessor.get() != nullptr);
 }
 
 void ProcessingEngine::OnSubTaskGrabbed(boost::optional<const SGProcessing::SubTask&> subTask)
@@ -52,11 +52,11 @@ void ProcessingEngine::ProcessSubTask(SGProcessing::SubTask subTask)
         result.set_subtaskid(subTask.subtaskid());
         m_logger->debug("[PROCESSED]. ({}).", subTask.subtaskid());
         std::lock_guard<std::mutex> queueGuard(m_mutexSubTaskQueue);
-        if (m_subTaskStorage)
+        if (m_subTaskQueueAccessor)
         {
-            m_subTaskStorage->CompleteSubTask(subTask.subtaskid(), result);
+            m_subTaskQueueAccessor->CompleteSubTask(subTask.subtaskid(), result);
             // @todo Should a new subtask be grabbed once the perivious one is processed?
-            m_subTaskStorage->GrabSubTask(std::bind(&ProcessingEngine::OnSubTaskGrabbed, this, std::placeholders::_1));
+            m_subTaskQueueAccessor->GrabSubTask(std::bind(&ProcessingEngine::OnSubTaskGrabbed, this, std::placeholders::_1));
         }
     });
     thread.detach();

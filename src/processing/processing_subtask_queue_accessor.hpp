@@ -1,23 +1,23 @@
 /**
-* Header file for subtask storage interface
+* Header file for subtask queue accessor interface
 * @author creativeid00
 */
 
-#ifndef SUPERGENIUS_PROCESSING_SUBTASK_STORAGE_HPP
-#define SUPERGENIUS_PROCESSING_SUBTASK_STORAGE_HPP
+#ifndef SUPERGENIUS_PROCESSING_SUBTASK_QUEUE_ACCESSOR_HPP
+#define SUPERGENIUS_PROCESSING_SUBTASK_QUEUE_ACCESSOR_HPP
 
 #include <processing/proto/SGProcessing.pb.h>
 #include <boost/optional.hpp>
 
 namespace sgns::processing
 {
-/** Subtask storage interface
+/** Subtask queue accessor interface
 */
-class SubTaskStorage
+class SubTaskQueueAccessor
 {
 public:
     typedef std::function<void(boost::optional<const SGProcessing::SubTask&>)> SubTaskGrabbedCallback;
-    virtual ~SubTaskStorage() = default;
+    virtual ~SubTaskQueueAccessor() = default;
 
     /** Asynchronous getting of a subtask from the queue
     * @param onSubTaskGrabbedCallback a callback that is called when a grapped iosubtask is locked by the local node
@@ -29,4 +29,4 @@ public:
 };
 }
 
-#endif // SUPERGENIUS_PROCESSING_SUBTASK_ACCESSOR_HPP
+#endif // SUPERGENIUS_PROCESSING_SUBTASK_QUEUE_ACCESSOR_HPP

@@ -53,7 +53,7 @@ private:
     std::unique_ptr<ProcessingEngine> m_processingEngine;
     std::shared_ptr<ProcessingSubTaskQueueChannel> m_queueChannel;
     std::shared_ptr<ProcessingSubTaskQueueManager> m_subtaskQueueManager;
-    std::shared_ptr<SubTaskStorage> m_subTaskStorage;
+    std::shared_ptr<SubTaskQueueAccessor> m_subTaskQueueAccessor;
     std::function<void(const SGProcessing::TaskResult&)> m_taskResultProcessingSink;
 };
 }
