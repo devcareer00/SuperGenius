@@ -145,7 +145,7 @@ void ProcessingServiceImpl::HandleRequestTimeout()
         }
         else
         {
-            // If no tasks available in queue, try to get available slots in existent rooms
+            // If no tasks enquued, try to get available slots in existent queues
             SendChannelListRequest();
             break;
         }

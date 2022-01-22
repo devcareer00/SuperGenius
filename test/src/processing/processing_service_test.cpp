@@ -70,8 +70,8 @@ public:
     }
 };
 /**
- * @given Empty room list
- * @when A room with available slots received
+ * @given Empty queue list
+ * @when A queue channel received
  * @then A processing node is created
  */
 TEST_F(ProcessingServiceTest, ProcessingSlotsAreAvailable)
@@ -93,9 +93,7 @@ TEST_F(ProcessingServiceTest, ProcessingSlotsAreAvailable)
 
     SGProcessing::GridChannelMessage gridMessage;
     auto channelResponse = gridMessage.mutable_processing_channel_response();
-    channelResponse->set_channel_id("PROCESSING_CHANNEL_ID");
-    channelResponse->set_channel_capacity(1);
-    channelResponse->set_channel_nodes_joined(0);
+    channelResponse->set_channel_id("PROCESSING_QUEUE_ID");
     gridChannel.Publish(gridMessage.SerializeAsString());
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
@@ -105,8 +103,8 @@ TEST_F(ProcessingServiceTest, ProcessingSlotsAreAvailable)
 }
 
 /**
- * @given Empty room list
- * @when A room without available slots is received
+ * @given Empty queue list
+ * @when No queue channel received
  * @then No new processing node is created
  */
 // The test disabled due to processing room handling removed
@@ -128,12 +126,7 @@ TEST_F(ProcessingServiceTest, DISABLED_NoProcessingSlotsAvailable)
     processingService.Listen("GRID_CHANNEL_ID");
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
-    SGProcessing::GridChannelMessage gridMessage;
-    auto channelResponse = gridMessage.mutable_processing_channel_response();
-    channelResponse->set_channel_id("PROCESSING_CHANNEL_ID");
-    channelResponse->set_channel_capacity(1);
-    channelResponse->set_channel_nodes_joined(1);
-    gridChannel.Publish(gridMessage.SerializeAsString());
+    // No queue channel message sent
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     pubs->Stop();

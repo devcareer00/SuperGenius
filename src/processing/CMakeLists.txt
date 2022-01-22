@@ -16,6 +16,7 @@ add_library(processing_service
     processing_subtask_storage.hpp
     processing_subtask_storage_impl.hpp
     processing_subtask_storage_impl.cpp
+    processing_task_queue.hpp
     )
 
 
