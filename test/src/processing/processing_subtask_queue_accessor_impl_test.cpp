@@ -22,12 +22,6 @@ namespace
         {
         }
 
-        void SplitTask(const SGProcessing::Task& task, std::list<SGProcessing::SubTask>& subTasks) override
-        {
-            SGProcessing::SubTask subtask;
-            subTasks.push_back(std::move(subtask));
-        }
-
         void ProcessSubTask(
             const SGProcessing::SubTask& subTask, SGProcessing::SubTaskResult& result,
             uint32_t initialHashCode) override 
@@ -89,6 +83,7 @@ groups:
       - name: Gossip
 # ----------------
   )");
+
 class SubTaskQueueAccessorImplTest : public ::testing::Test
 {
 public:

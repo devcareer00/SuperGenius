@@ -5,12 +5,12 @@ namespace sgns::processing
 ProcessingServiceImpl::ProcessingServiceImpl(
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> gossipPubSub,
     size_t maximalNodesCount,
-    std::shared_ptr<ProcessingTaskQueue> taskQueue,
+    std::shared_ptr<SubTaskEnqueuer> subTaskEnqueuer,
     std::shared_ptr<ProcessingCore> processingCore)
     : m_gossipPubSub(gossipPubSub)
     , m_context(gossipPubSub->GetAsioContext())
     , m_maximalNodesCount(maximalNodesCount)
-    , m_taskQueue(taskQueue)
+    , m_subTaskEnqueuer(subTaskEnqueuer)
     , m_processingCore(processingCore)
     , m_timerChannelListRequestTimeout(*m_context.get())
     , m_channelListRequestTimeout(boost::posix_time::seconds(5))
@@ -62,21 +62,17 @@ void ProcessingServiceImpl::OnMessage(boost::optional<const sgns::ipfs_pubsub::G
 }
 
 void ProcessingServiceImpl::AcceptProcessingChannel(
-    const std::string& channelId)
+    const std::string& processingQueuelId)
 {
     auto& processingNodes = GetProcessingNodes();
     if (processingNodes.size() < m_maximalNodesCount)
     {
-        auto itNode = processingNodes.find(channelId);
-        // No multiple processing nodes allowed for a single channel on a host
-        if (itNode == processingNodes.end())
-        {
-            auto node = std::make_shared<ProcessingNode>(
-                m_gossipPubSub, m_processingCore,
-                std::bind(&ProcessingTaskQueue::CompleteTask, m_taskQueue.get(), channelId, std::placeholders::_1));
-            node->AttachTo(channelId);
-            processingNodes[channelId] = node;
-        }
+        auto node = std::make_shared<ProcessingNode>(
+            m_gossipPubSub,
+            m_processingCore,
+            [](const SGProcessing::TaskResult&) {}); // @todo Add notification of finished task
+        node->AttachTo(processingQueuelId);
+        processingNodes[processingQueuelId] = node;
     }
 
     if (processingNodes.size() == m_maximalNodesCount)
@@ -125,23 +121,22 @@ void ProcessingServiceImpl::HandleRequestTimeout()
     auto& processingNodes = GetProcessingNodes();
     while (processingNodes.size() < m_maximalNodesCount)
     {
-        SGProcessing::Task task;
-        std::string taskKey;
-        if (m_taskQueue->GrabTask(taskKey, task))
+        std::string subTaskQueueId;
+        std::list<SGProcessing::SubTask> subTasks;
+        if (m_subTaskEnqueuer->EnqueueSubTasks(subTaskQueueId, subTasks))
         {
             auto node = std::make_shared<ProcessingNode>(
-                m_gossipPubSub, m_processingCore,
-                std::bind(&ProcessingTaskQueue::CompleteTask, m_taskQueue.get(), taskKey, std::placeholders::_1));
-
-            std::list<SGProcessing::SubTask> subTasks;
-            m_processingCore->SplitTask(task, subTasks);
-            // @todo Handle splitting errors
+                m_gossipPubSub,
+                m_processingCore,
+                [](const SGProcessing::TaskResult&) {}); // @todo Add notification of finished task
 
             // @todo Figure out if the task is still available for other peers
-            node->CreateProcessingHost(task.ipfs_block_id(), subTasks);
+            // @todo Check if it is better to call EnqueueSubTasks within host 
+            // and return subTaskQueueId from processing host?
+            node->CreateProcessingHost(subTaskQueueId, subTasks);
 
-            processingNodes[task.ipfs_block_id()] = node;
-            m_logger->debug("New processing channel created. {}", task.ipfs_block_id());
+            processingNodes[subTaskQueueId] = node;
+            m_logger->debug("New processing channel created. {}", subTaskQueueId);
         }
         else
         {

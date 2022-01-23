@@ -1,4 +1,5 @@
-#include "processing/processing_service.hpp"
+#include <processing/processing_service.hpp>
+#include <processing/processing_subtask_enqueuer_impl.hpp>
 
 #include <iostream>
 #include <boost/program_options.hpp>
@@ -20,7 +21,7 @@ namespace
         {
         }
 
-        void SplitTask(const SGProcessing::Task& task, std::list<SGProcessing::SubTask>& subTasks) override
+        void SplitTask(const SGProcessing::Task& task, std::list<SGProcessing::SubTask>& subTasks)
         {
             for (size_t i = 0; i < m_nSubtasks; ++i)
             {
@@ -249,7 +250,9 @@ int main(int argc, char* argv[])
 
     auto taskQueue = std::make_shared<ProcessingTaskQueueImpl>(tasks);
     auto processingCore = std::make_shared<ProcessingCoreImpl>(options->nSubTasks, options->subTaskProcessingTime);
-    ProcessingServiceImpl processingService(pubs, maximalNodesCount, taskQueue, processingCore);
+    auto enqueuer = std::make_shared<SubTaskEnqueuerImpl>(taskQueue, 
+        std::bind(&ProcessingCoreImpl::SplitTask, processingCore, std::placeholders::_1, std::placeholders::_2));
+    ProcessingServiceImpl processingService(pubs, maximalNodesCount, enqueuer, processingCore);
 
     processingService.Listen(processingGridChannel);
     processingService.SetChannelListRequestTimeout(boost::posix_time::milliseconds(options->channelListRequestTimeout));

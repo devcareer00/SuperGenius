@@ -1,5 +1,6 @@
 
-#include "processing/processing_service.hpp"
+#include <processing/processing_service.hpp>
+#include <processing/processing_subtask_enqueuer_impl.hpp>
 
 #include <libp2p/log/configurator.hpp>
 #include <libp2p/log/logger.hpp>
@@ -10,16 +11,13 @@ using namespace sgns::processing;
 
 namespace
 {
-    class ProcessingCoreImpl : public ProcessingCore
-    {
-    public:
-        void SplitTask(const SGProcessing::Task& task, std::list<SGProcessing::SubTask>& subTasks) override {}
-
-        void  ProcessSubTask(
-            const SGProcessing::SubTask& subTask, SGProcessing::SubTaskResult& result,
-            uint32_t initialHashCode) override {};
-    };
-}
+class ProcessingCoreImpl : public ProcessingCore
+{
+public:
+    void  ProcessSubTask(
+        const SGProcessing::SubTask& subTask, SGProcessing::SubTaskResult& result,
+        uint32_t initialHashCode) override {};
+};
 
 class ProcessingTaskQueueImpl : public ProcessingTaskQueue
 {
@@ -34,6 +32,7 @@ public:
         return false;
     }
 };
+}
 
 const std::string logger_config(R"(
 # ----------------
@@ -81,7 +80,10 @@ TEST_F(ProcessingServiceTest, ProcessingSlotsAreAvailable)
 
     auto processingCore = std::make_shared<ProcessingCoreImpl>();
     auto taskQueue = std::make_shared<ProcessingTaskQueueImpl>();
-    ProcessingServiceImpl processingService(pubs, 1, taskQueue, processingCore);
+    auto enqueuer = std::make_shared<SubTaskEnqueuerImpl>(taskQueue,
+        [](const SGProcessing::Task&, std::list<SGProcessing::SubTask>&) {});
+
+    ProcessingServiceImpl processingService(pubs, 1, enqueuer, processingCore);
 
 
     sgns::ipfs_pubsub::GossipPubSubTopic gridChannel(pubs, "GRID_CHANNEL_ID");
@@ -114,9 +116,12 @@ TEST_F(ProcessingServiceTest, DISABLED_NoProcessingSlotsAvailable)
     auto pubs = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();
     pubs->Start(40001, {});
 
-    auto processingManager = std::make_shared<ProcessingCoreImpl>();
+    auto processingCore = std::make_shared<ProcessingCoreImpl>();
     auto taskQueue = std::make_shared<ProcessingTaskQueueImpl>();
-    ProcessingServiceImpl processingService(pubs, 1, taskQueue, processingManager);
+    auto enqueuer = std::make_shared<SubTaskEnqueuerImpl>(taskQueue,
+        [](const SGProcessing::Task&, std::list<SGProcessing::SubTask>&) {});
+
+    ProcessingServiceImpl processingService(pubs, 1, enqueuer, processingCore);
 
 
     sgns::ipfs_pubsub::GossipPubSubTopic gridChannel(pubs, "GRID_CHANNEL_ID");

@@ -6,6 +6,9 @@ add_library(processing_service
     processing_node.cpp
     processing_service.hpp
     processing_service.cpp
+    processing_subtask_enqueuer.hpp
+    processing_subtask_enqueuer_impl.hpp
+    processing_subtask_enqueuer_impl.cpp
     processing_subtask_queue.hpp
     processing_subtask_queue.cpp
     processing_subtask_queue_accessor.hpp

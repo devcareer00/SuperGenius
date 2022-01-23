@@ -1,4 +1,6 @@
 #include <processing/processing_service.hpp>
+#include <processing/processing_subtask_enqueuer_impl.hpp>
+
 #include <crdt/globaldb/keypair_file_storage.hpp>
 #include <crdt/globaldb/globaldb.hpp>
 
@@ -32,7 +34,7 @@ namespace
         {
         }
 
-        void SplitTask(const SGProcessing::Task& task, std::list<SGProcessing::SubTask>& subTasks) override
+        void SplitTask(const SGProcessing::Task& task, std::list<SGProcessing::SubTask>& subTasks)
         {
             std::optional<SGProcessing::SubTask> validationSubtask;
             if (m_addValidationSubtask)
@@ -518,7 +520,10 @@ int main(int argc, char* argv[])
     processingCore->m_chunkResulHashes = options->chunkResultHashes;
     processingCore->m_validationChunkHashes = options->validationChunkHashes;
     
-    ProcessingServiceImpl processingService(pubs, maximalNodesCount, taskQueue, processingCore);
+    auto enqueuer = std::make_shared<SubTaskEnqueuerImpl>(taskQueue, 
+        std::bind(&ProcessingCoreImpl::SplitTask, processingCore, std::placeholders::_1, std::placeholders::_2));
+
+    ProcessingServiceImpl processingService(pubs, maximalNodesCount, enqueuer, processingCore);
 
     processingService.Listen(processingGridChannel);
     processingService.SetChannelListRequestTimeout(boost::posix_time::milliseconds(options->channelListRequestTimeout));

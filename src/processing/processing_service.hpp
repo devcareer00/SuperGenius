@@ -2,7 +2,7 @@
 #define GRPC_FOR_SUPERGENIUS_PROCESSING_SERVICE
 
 #include <processing/processing_node.hpp>
-#include <processing/processing_task_queue.hpp>
+#include <processing/processing_subtask_enqueuer.hpp>
 
 #include <map>
 
@@ -18,7 +18,7 @@ public:
     ProcessingServiceImpl(
         std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> gossipPubSub, 
         size_t maximalNodesCount,
-        std::shared_ptr<ProcessingTaskQueue> taskQueue,
+        std::shared_ptr<SubTaskEnqueuer> subTaskEnqueuer,
         std::shared_ptr<ProcessingCore> processingCore);
 
     /** Listen to data feed channel.
@@ -52,7 +52,7 @@ private:
     std::shared_ptr<boost::asio::io_context> m_context;
     size_t m_maximalNodesCount;
 
-    std::shared_ptr<ProcessingTaskQueue> m_taskQueue;
+    std::shared_ptr<SubTaskEnqueuer> m_subTaskEnqueuer;
     std::shared_ptr<ProcessingCore> m_processingCore;
 
     std::unique_ptr<sgns::ipfs_pubsub::GossipPubSubTopic> m_gridChannel;
