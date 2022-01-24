@@ -7,11 +7,15 @@ namespace sgns::processing
 ////////////////////////////////////////////////////////////////////////////////
 ProcessingNode::ProcessingNode(
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> gossipPubSub,
+    std::shared_ptr<SubTaskStateStorage> subTaskStateStorage,
+    std::shared_ptr<SubTaskResultStorage> subTaskResultStorage,
     std::shared_ptr<ProcessingCore> processingCore,
     std::function<void(const SGProcessing::TaskResult&)> taskResultProcessingSink)
     : m_gossipPubSub(std::move(gossipPubSub))
     , m_nodeId(m_gossipPubSub->GetLocalAddress())
     , m_processingCore(processingCore)
+    , m_subTaskStateStorage(subTaskStateStorage)
+    , m_subTaskResultStorage(subTaskResultStorage)
     , m_taskResultProcessingSink(taskResultProcessingSink)
 {
 }
@@ -29,11 +33,11 @@ void ProcessingNode::Initialize(const std::string& processingQueueChannelId, siz
         processingQueueChannel, m_gossipPubSub->GetAsioContext(), m_nodeId);
 
     m_subTaskQueueAccessor = std::make_shared<SubTaskQueueAccessorImpl>(
-        m_gossipPubSub, m_subtaskQueueManager, m_taskResultProcessingSink);
-
-    processingQueueChannel->SetQueueRequestSink(
-        std::bind(&ProcessingSubTaskQueueManager::ProcessSubTaskQueueRequestMessage, 
-            m_subtaskQueueManager, std::placeholders::_1));
+        m_gossipPubSub,
+        m_subtaskQueueManager,
+        m_subTaskStateStorage,
+        m_subTaskResultStorage,
+        m_taskResultProcessingSink);
 
     processingQueueChannel->SetQueueUpdateSink(
         std::bind(&ProcessingSubTaskQueueManager::ProcessSubTaskQueueMessage,
@@ -63,7 +67,7 @@ void ProcessingNode::CreateProcessingHost(
 {
     Initialize(processingQueueChannelId, msSubscriptionWaitingDuration);
 
-    m_subtaskQueueManager->CreateQueue(subTasks);
+    m_subTaskQueueAccessor->Create(subTasks);
 
     m_processingEngine->StartQueueProcessing(m_subTaskQueueAccessor);
 }

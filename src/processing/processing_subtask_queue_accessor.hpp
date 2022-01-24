@@ -19,6 +19,7 @@ public:
     typedef std::function<void(boost::optional<const SGProcessing::SubTask&>)> SubTaskGrabbedCallback;
     virtual ~SubTaskQueueAccessor() = default;
 
+    virtual void Create(std::list<SGProcessing::SubTask>& subTasks) = 0;
     /** Asynchronous getting of a subtask from the queue
     * @param onSubTaskGrabbedCallback a callback that is called when a grapped iosubtask is locked by the local node
     */

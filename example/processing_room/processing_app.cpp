@@ -12,6 +12,26 @@ using namespace sgns::processing;
 
 namespace
 {
+    class SubTaskStateStorageImpl : public SubTaskStateStorage
+    {
+    public:
+        void ChangeSubTaskState(const std::string& subTaskId, SGProcessing::SubTaskState::Type state) override {}
+        std::optional<SGProcessing::SubTaskState> GetSubTaskState(const std::string& subTaskId) override
+        {
+            return std::nullopt;
+        }
+    };
+
+    class SubTaskResultStorageImpl : public SubTaskResultStorage
+    {
+    public:
+        void AddSubTaskResult(const SGProcessing::SubTaskResult& subTaskResult) override {}
+        void RemoveSubTaskResult(const std::string& subTaskId) override {}
+        void GetSubTaskResults(
+            const std::vector<std::string>& subTaskIds,
+            std::vector<SGProcessing::SubTaskResult>& results) override {}
+    };
+
     class ProcessingCoreImpl : public ProcessingCore
     {
     public:
@@ -252,7 +272,12 @@ int main(int argc, char* argv[])
     auto processingCore = std::make_shared<ProcessingCoreImpl>(options->nSubTasks, options->subTaskProcessingTime);
     auto enqueuer = std::make_shared<SubTaskEnqueuerImpl>(taskQueue, 
         std::bind(&ProcessingCoreImpl::SplitTask, processingCore, std::placeholders::_1, std::placeholders::_2));
-    ProcessingServiceImpl processingService(pubs, maximalNodesCount, enqueuer, processingCore);
+    ProcessingServiceImpl processingService(pubs,
+        maximalNodesCount,
+        enqueuer,
+        std::make_shared<SubTaskStateStorageImpl>(),
+        std::make_shared<SubTaskResultStorageImpl>(),
+        processingCore);
 
     processingService.Listen(processingGridChannel);
     processingService.SetChannelListRequestTimeout(boost::posix_time::milliseconds(options->channelListRequestTimeout));

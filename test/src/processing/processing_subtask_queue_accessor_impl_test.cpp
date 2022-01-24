@@ -1,6 +1,8 @@
 #include <processing/processing_engine.hpp>
 #include <processing/processing_subtask_queue_accessor_impl.hpp>
 #include <processing/processing_subtask_queue_channel_pubsub.hpp>
+#include <processing/processing_subtask_state_storage.hpp>
+#include <processing/processing_subtask_result_storage.hpp>
 
 #include <gtest/gtest.h>
 
@@ -14,6 +16,27 @@ using namespace sgns::processing;
 
 namespace
 {
+    class SubTaskStateStorageMock: public SubTaskStateStorage
+    {
+    public:
+        void ChangeSubTaskState(const std::string& subTaskId, SGProcessing::SubTaskState::Type state) override {}
+        std::optional<SGProcessing::SubTaskState> GetSubTaskState(const std::string& subTaskId) override
+        {
+            return std::nullopt;
+        }
+    };
+
+    class SubTaskResultStorageMock : public SubTaskResultStorage
+    {
+    public:
+        void AddSubTaskResult(const SGProcessing::SubTaskResult& subTaskResult) override {}
+        void RemoveSubTaskResult(const std::string& subTaskId) override {}
+        void GetSubTaskResults(
+            const std::vector<std::string>& subTaskIds,
+            std::vector<SGProcessing::SubTaskResult>& results) override {}
+
+    };
+
     class ProcessingCoreImpl : public ProcessingCore
     {
     public:
@@ -143,7 +166,10 @@ TEST_F(SubTaskQueueAccessorImplTest, SubscribtionToResultChannel)
     processingQueueManager->ProcessSubTaskQueueMessage(queue.release());
 
     auto subTaskQueueAccessor = std::make_shared<SubTaskQueueAccessorImpl>(
-        pubs1, processingQueueManager,
+        pubs1, 
+        processingQueueManager,
+        std::make_shared<SubTaskStateStorageMock>(),
+        std::make_shared<SubTaskResultStorageMock>(),
         [](const SGProcessing::TaskResult&) {});
 
     engine.StartQueueProcessing(subTaskQueueAccessor);
@@ -220,7 +246,10 @@ TEST_F(SubTaskQueueAccessorImplTest, TaskFinalization)
     processingQueueManager1->ProcessSubTaskQueueMessage(queue.release());
 
     auto subTaskQueueAccessor1 = std::make_shared<SubTaskQueueAccessorImpl>(
-        pubs1, processingQueueManager1,
+        pubs1,
+        processingQueueManager1,
+        std::make_shared<SubTaskStateStorageMock>(),
+        std::make_shared<SubTaskResultStorageMock>(),
         [&isTaskFinalized](const SGProcessing::TaskResult&) { isTaskFinalized = true; });
 
     engine1.StartQueueProcessing(subTaskQueueAccessor1);
@@ -298,7 +327,10 @@ TEST_F(SubTaskQueueAccessorImplTest, InvalidSubTasksRestart)
     ProcessingEngine engine2(nodeId2, processingCore2);
 
     auto subTaskQueueAccessor1 = std::make_shared<SubTaskQueueAccessorImpl>(
-        pubs1, processingQueueManager1,
+        pubs1,
+        processingQueueManager1,
+        std::make_shared<SubTaskStateStorageMock>(),
+        std::make_shared<SubTaskResultStorageMock>(),
         [&isTaskFinalized1](const SGProcessing::TaskResult&) { isTaskFinalized1 = true; });
 
     engine1.StartQueueProcessing(subTaskQueueAccessor1);
@@ -327,7 +359,10 @@ TEST_F(SubTaskQueueAccessorImplTest, InvalidSubTasksRestart)
     std::this_thread::sleep_for(std::chrono::milliseconds(10000));
 
     auto subTaskQueueAccessor2 = std::make_shared<SubTaskQueueAccessorImpl>(
-        pubs1, processingQueueManager2,
+        pubs1,
+        processingQueueManager2,
+        std::make_shared<SubTaskStateStorageMock>(),
+        std::make_shared<SubTaskResultStorageMock>(),
         [&isTaskFinalized2](const SGProcessing::TaskResult&) { isTaskFinalized2 = true; });
 
     engine2.StartQueueProcessing(subTaskQueueAccessor2);

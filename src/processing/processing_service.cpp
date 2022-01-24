@@ -6,11 +6,15 @@ ProcessingServiceImpl::ProcessingServiceImpl(
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> gossipPubSub,
     size_t maximalNodesCount,
     std::shared_ptr<SubTaskEnqueuer> subTaskEnqueuer,
+    std::shared_ptr<SubTaskStateStorage> subTaskStateStorage,
+    std::shared_ptr<SubTaskResultStorage> subTaskResultStorage,
     std::shared_ptr<ProcessingCore> processingCore)
     : m_gossipPubSub(gossipPubSub)
     , m_context(gossipPubSub->GetAsioContext())
     , m_maximalNodesCount(maximalNodesCount)
     , m_subTaskEnqueuer(subTaskEnqueuer)
+    , m_subTaskStateStorage(subTaskStateStorage)
+    , m_subTaskResultStorage(subTaskResultStorage)
     , m_processingCore(processingCore)
     , m_timerChannelListRequestTimeout(*m_context.get())
     , m_channelListRequestTimeout(boost::posix_time::seconds(5))
@@ -69,6 +73,8 @@ void ProcessingServiceImpl::AcceptProcessingChannel(
     {
         auto node = std::make_shared<ProcessingNode>(
             m_gossipPubSub,
+            m_subTaskStateStorage,
+            m_subTaskResultStorage,
             m_processingCore,
             [](const SGProcessing::TaskResult&) {}); // @todo Add notification of finished task
         node->AttachTo(processingQueuelId);
@@ -127,6 +133,8 @@ void ProcessingServiceImpl::HandleRequestTimeout()
         {
             auto node = std::make_shared<ProcessingNode>(
                 m_gossipPubSub,
+                m_subTaskStateStorage,
+                m_subTaskResultStorage,
                 m_processingCore,
                 [](const SGProcessing::TaskResult&) {}); // @todo Add notification of finished task
 

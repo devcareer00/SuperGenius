@@ -9,6 +9,8 @@
 #include <processing/processing_engine.hpp>
 #include <processing/processing_subtask_queue_manager.hpp>
 #include <processing/processing_subtask_queue_accessor.hpp>
+#include <processing/processing_subtask_state_storage.hpp>
+#include <processing/processing_subtask_result_storage.hpp>
 
 #include <ipfs_pubsub/gossip_pubsub_topic.hpp>
 
@@ -26,6 +28,8 @@ public:
     */
     ProcessingNode(
         std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> gossipPubSub,
+        std::shared_ptr<SubTaskStateStorage> subTaskStateStorage,
+        std::shared_ptr<SubTaskResultStorage> subTaskResultStorage,
         std::shared_ptr<ProcessingCore> processingCore,
         std::function<void(const SGProcessing::TaskResult&)> taskResultProcessingSink);
 
@@ -49,6 +53,8 @@ private:
 
     std::string m_nodeId;
     std::shared_ptr<ProcessingCore> m_processingCore;
+    std::shared_ptr<SubTaskStateStorage> m_subTaskStateStorage;
+    std::shared_ptr<SubTaskResultStorage> m_subTaskResultStorage;
 
     std::unique_ptr<ProcessingEngine> m_processingEngine;
     std::shared_ptr<ProcessingSubTaskQueueChannel> m_queueChannel;

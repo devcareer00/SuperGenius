@@ -5,14 +5,30 @@ namespace sgns::processing
 SubTaskQueueAccessorImpl::SubTaskQueueAccessorImpl(
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> gossipPubSub,
     std::shared_ptr<ProcessingSubTaskQueueManager> subTaskQueueManager,
+    std::shared_ptr<SubTaskStateStorage> subTaskStateStorage,
+    std::shared_ptr<SubTaskResultStorage> subTaskResultStorage,
     std::function<void(const SGProcessing::TaskResult&)> taskResultProcessingSink)
     : m_gossipPubSub(gossipPubSub)
     , m_subTaskQueueManager(subTaskQueueManager)
+    , m_subTaskStateStorage(subTaskStateStorage)
+    , m_subTaskResultStorage(subTaskResultStorage)
     , m_taskResultProcessingSink(taskResultProcessingSink)
 {
     // @todo replace hardcoded channel identified with an input value
     m_resultChannel = std::make_shared<ipfs_pubsub::GossipPubSubTopic>(m_gossipPubSub, "RESULT_CHANNEL_ID");
     m_resultChannel->Subscribe(std::bind(&SubTaskQueueAccessorImpl::OnResultChannelMessage, this, std::placeholders::_1));
+}
+
+void SubTaskQueueAccessorImpl::Create(std::list<SGProcessing::SubTask>& subTasks)
+{
+    // Enqueue them subtasks if all the subtasks are available
+    for (const auto& subTask : subTasks)
+    {
+        m_subTaskStateStorage->ChangeSubTaskState(
+            subTask.subtaskid(), SGProcessing::SubTaskState::ENQUEUED);
+    }
+
+    m_subTaskQueueManager->CreateQueue(subTasks);
 }
 
 void SubTaskQueueAccessorImpl::GrabSubTask(SubTaskGrabbedCallback onSubTaskGrabbedCallback)
@@ -22,10 +38,13 @@ void SubTaskQueueAccessorImpl::GrabSubTask(SubTaskGrabbedCallback onSubTaskGrabb
 
 void SubTaskQueueAccessorImpl::CompleteSubTask(const std::string& subTaskId, const SGProcessing::SubTaskResult& subTaskResult)
 {
+    m_subTaskResultStorage->AddSubTaskResult(subTaskResult);
+    m_subTaskStateStorage->ChangeSubTaskState(
+        subTaskId, SGProcessing::SubTaskState::PROCESSED);
+
     m_resultChannel->Publish(subTaskResult.SerializeAsString());
     m_logger->debug("[RESULT_SENT]. ({}).", subTaskId);
 }
-
 
 void SubTaskQueueAccessorImpl::OnResultReceived(const std::string& subTaskId, const SGProcessing::SubTaskResult& subTaskResult)
 {

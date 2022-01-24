@@ -19,6 +19,8 @@ public:
         std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> gossipPubSub, 
         size_t maximalNodesCount,
         std::shared_ptr<SubTaskEnqueuer> subTaskEnqueuer,
+        std::shared_ptr<SubTaskStateStorage> subTaskStateStorage,
+        std::shared_ptr<SubTaskResultStorage> subTaskResultStorage,
         std::shared_ptr<ProcessingCore> processingCore);
 
     /** Listen to data feed channel.
@@ -53,6 +55,8 @@ private:
     size_t m_maximalNodesCount;
 
     std::shared_ptr<SubTaskEnqueuer> m_subTaskEnqueuer;
+    std::shared_ptr<SubTaskStateStorage> m_subTaskStateStorage;
+    std::shared_ptr<SubTaskResultStorage> m_subTaskResultStorage;
     std::shared_ptr<ProcessingCore> m_processingCore;
 
     std::unique_ptr<sgns::ipfs_pubsub::GossipPubSubTopic> m_gridChannel;

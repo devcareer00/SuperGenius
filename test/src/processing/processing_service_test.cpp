@@ -11,6 +11,26 @@ using namespace sgns::processing;
 
 namespace
 {
+class SubTaskStateStorageMock: public SubTaskStateStorage
+{
+public:
+    void ChangeSubTaskState(const std::string& subTaskId, SGProcessing::SubTaskState::Type state) override {}
+    std::optional<SGProcessing::SubTaskState> GetSubTaskState(const std::string& subTaskId) override
+    {
+        return std::nullopt;
+    }
+};
+
+class SubTaskResultStorageMock : public SubTaskResultStorage
+{
+public:
+    void AddSubTaskResult(const SGProcessing::SubTaskResult& subTaskResult) override {}
+    void RemoveSubTaskResult(const std::string& subTaskId) override {}
+    void GetSubTaskResults(
+        const std::vector<std::string>& subTaskIds,
+        std::vector<SGProcessing::SubTaskResult>& results) override {}
+};
+
 class ProcessingCoreImpl : public ProcessingCore
 {
 public:
@@ -83,7 +103,13 @@ TEST_F(ProcessingServiceTest, ProcessingSlotsAreAvailable)
     auto enqueuer = std::make_shared<SubTaskEnqueuerImpl>(taskQueue,
         [](const SGProcessing::Task&, std::list<SGProcessing::SubTask>&) {});
 
-    ProcessingServiceImpl processingService(pubs, 1, enqueuer, processingCore);
+    ProcessingServiceImpl processingService(
+        pubs,
+        1,
+        enqueuer,
+        std::make_shared<SubTaskStateStorageMock>(),
+        std::make_shared<SubTaskResultStorageMock>(),
+        processingCore);
 
 
     sgns::ipfs_pubsub::GossipPubSubTopic gridChannel(pubs, "GRID_CHANNEL_ID");
@@ -121,7 +147,13 @@ TEST_F(ProcessingServiceTest, DISABLED_NoProcessingSlotsAvailable)
     auto enqueuer = std::make_shared<SubTaskEnqueuerImpl>(taskQueue,
         [](const SGProcessing::Task&, std::list<SGProcessing::SubTask>&) {});
 
-    ProcessingServiceImpl processingService(pubs, 1, enqueuer, processingCore);
+    ProcessingServiceImpl processingService(
+        pubs,
+        1,
+        enqueuer,
+        std::make_shared<SubTaskStateStorageMock>(),
+        std::make_shared<SubTaskResultStorageMock>(),
+        processingCore);
 
 
     sgns::ipfs_pubsub::GossipPubSubTopic gridChannel(pubs, "GRID_CHANNEL_ID");

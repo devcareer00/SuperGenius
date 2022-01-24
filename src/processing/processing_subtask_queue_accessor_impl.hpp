@@ -8,6 +8,8 @@
 
 #include <processing/processing_subtask_queue_accessor.hpp>
 #include <processing/processing_subtask_queue_manager.hpp>
+#include <processing/processing_subtask_state_storage.hpp>
+#include <processing/processing_subtask_result_storage.hpp>
 
 #include <ipfs_pubsub/gossip_pubsub_topic.hpp>
 
@@ -24,8 +26,11 @@ public:
     SubTaskQueueAccessorImpl(
         std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> gossipPubSub,
         std::shared_ptr<ProcessingSubTaskQueueManager> subTaskQueueManager,
+        std::shared_ptr<SubTaskStateStorage> subTaskStateStorage,
+        std::shared_ptr<SubTaskResultStorage> subTaskResultStorage,
         std::function<void(const SGProcessing::TaskResult&)> taskResultProcessingSink);
 
+    void Create(std::list<SGProcessing::SubTask>& subTasks) override;
     void GrabSubTask(SubTaskGrabbedCallback onSubTaskGrabbedCallback) override;
     void CompleteSubTask(const std::string& subTaskId, const SGProcessing::SubTaskResult& subTaskResult) override;
 
@@ -38,6 +43,8 @@ private:
 
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> m_gossipPubSub;
     std::shared_ptr<ProcessingSubTaskQueueManager> m_subTaskQueueManager;
+    std::shared_ptr<SubTaskStateStorage> m_subTaskStateStorage;
+    std::shared_ptr<SubTaskResultStorage> m_subTaskResultStorage;
     std::function<void(const SGProcessing::TaskResult&)> m_taskResultProcessingSink;
 
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSubTopic> m_resultChannel;

@@ -76,6 +76,20 @@ message SubTaskResult
     string subtaskid = 4; // linked subtask id
 }
 
+message SubTaskState
+{
+    enum Type
+    {
+        NONE = 0;
+        ENQUEUED = 1;
+        PROCESSING = 2;
+        PROCESSED = 3;
+        COMPLETE = 4;
+    }
+    Type state = 1;
+    int64 timestamp = 2;
+}
+
 message TaskResult
 {
     repeated SubTaskResult subtask_results = 1;
