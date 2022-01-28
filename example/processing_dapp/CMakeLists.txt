@@ -1,5 +1,6 @@
 add_executable(processing_dapp
     processing_dapp.cpp
+    processing_task_queue_impl.hpp
     )
 
 
