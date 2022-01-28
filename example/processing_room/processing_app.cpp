@@ -32,12 +32,11 @@ namespace
             std::vector<SGProcessing::SubTaskResult>& results) override {}
     };
 
-    class ProcessingCoreImpl : public ProcessingCore
+    class TaskSplitter
     {
     public:
-        ProcessingCoreImpl(size_t nSubtasks, size_t subTaskProcessingTime)
+        TaskSplitter(size_t nSubtasks)
             : m_nSubtasks(nSubtasks)
-            , m_subTaskProcessingTime(subTaskProcessingTime)
         {
         }
 
@@ -52,6 +51,19 @@ namespace
             }
         }
 
+    private:
+        size_t m_nSubtasks;
+
+    };
+
+    class ProcessingCoreImpl : public ProcessingCore
+    {
+    public:
+        ProcessingCoreImpl(size_t subTaskProcessingTime)
+            : m_subTaskProcessingTime(subTaskProcessingTime)
+        {
+        }
+
         void  ProcessSubTask(
             const SGProcessing::SubTask& subTask, SGProcessing::SubTaskResult& result,
             uint32_t initialHashCode) override
@@ -63,7 +75,6 @@ namespace
         }
 
     private:
-        size_t m_nSubtasks;
         size_t m_subTaskProcessingTime;
     };
 
@@ -269,9 +280,12 @@ int main(int argc, char* argv[])
     }
 
     auto taskQueue = std::make_shared<ProcessingTaskQueueImpl>(tasks);
-    auto processingCore = std::make_shared<ProcessingCoreImpl>(options->nSubTasks, options->subTaskProcessingTime);
+
+    auto taskSplitter = std::make_shared<TaskSplitter>(options->nSubTasks);
+    auto processingCore = std::make_shared<ProcessingCoreImpl>(options->subTaskProcessingTime);
+
     auto enqueuer = std::make_shared<SubTaskEnqueuerImpl>(taskQueue, 
-        std::bind(&ProcessingCoreImpl::SplitTask, processingCore, std::placeholders::_1, std::placeholders::_2));
+        std::bind(&TaskSplitter::SplitTask, taskSplitter, std::placeholders::_1, std::placeholders::_2));
     ProcessingServiceImpl processingService(pubs,
         maximalNodesCount,
         enqueuer,

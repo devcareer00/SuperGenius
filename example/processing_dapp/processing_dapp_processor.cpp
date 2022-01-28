@@ -37,18 +37,14 @@ namespace
             std::vector<SGProcessing::SubTaskResult>& results) override {}
     };
 
-    class ProcessingCoreImpl : public ProcessingCore
+    class TaskSplitter
     {
     public:
-        ProcessingCoreImpl(
-            std::shared_ptr<sgns::crdt::GlobalDB> db,
-            size_t nSubtasks,
-            size_t subTaskProcessingTime,
+        TaskSplitter(
+            size_t nSubTasks,
             size_t nChunks,
             bool addValidationSubtask)
-            : m_db(db)
-            , m_nSubtasks(nSubtasks)
-            , m_subTaskProcessingTime(subTaskProcessingTime)
+            : m_nSubTasks(nSubTasks)
             , m_nChunks(nChunks)
             , m_addValidationSubtask(addValidationSubtask)
         {
@@ -61,9 +57,9 @@ namespace
             {
                 validationSubtask = SGProcessing::SubTask();
             }
-            
+
             size_t chunkId = 0;
-            for (size_t i = 0; i < m_nSubtasks; ++i)
+            for (size_t i = 0; i < m_nSubTasks; ++i)
             {
                 auto subtaskId = (boost::format("subtask_%d") % i).str();
                 SGProcessing::SubTask subtask;
@@ -106,6 +102,22 @@ namespace
                 validationSubtask->set_subtaskid(subtaskId);
                 subTasks.push_back(std::move(*validationSubtask));
             }
+        }
+    private:
+        size_t m_nSubTasks;
+        size_t m_nChunks;
+        bool m_addValidationSubtask;
+    };
+
+    class ProcessingCoreImpl : public ProcessingCore
+    {
+    public:
+        ProcessingCoreImpl(
+            std::shared_ptr<sgns::crdt::GlobalDB> db,
+            size_t subTaskProcessingTime)
+            : m_db(db)
+            , m_subTaskProcessingTime(subTaskProcessingTime)
+        {
         }
 
         void  ProcessSubTask(
@@ -154,10 +166,7 @@ namespace
 
     private:
         std::shared_ptr<sgns::crdt::GlobalDB> m_db;
-        size_t m_nSubtasks;
         size_t m_subTaskProcessingTime;
-        size_t m_nChunks;
-        bool m_addValidationSubtask;
     };
 
 
@@ -533,15 +542,17 @@ int main(int argc, char* argv[])
 
     auto processingCore = std::make_shared<ProcessingCoreImpl>(
         globalDB,
-        options->nSubTasks, 
-        options->subTaskProcessingTime,
-        options->nChunks,
-        options->addValidationSubtask);
+        options->subTaskProcessingTime);
     processingCore->m_chunkResulHashes = options->chunkResultHashes;
     processingCore->m_validationChunkHashes = options->validationChunkHashes;
     
+    auto taskSplitter = std::make_shared<TaskSplitter>(
+        options->nSubTasks, 
+        options->nChunks,
+        options->addValidationSubtask);
+
     auto enqueuer = std::make_shared<SubTaskEnqueuerImpl>(taskQueue, 
-        std::bind(&ProcessingCoreImpl::SplitTask, processingCore, std::placeholders::_1, std::placeholders::_2));
+        std::bind(&TaskSplitter::SplitTask, taskSplitter, std::placeholders::_1, std::placeholders::_2));
 
     ProcessingServiceImpl processingService(
         pubs,
