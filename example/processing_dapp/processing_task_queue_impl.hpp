@@ -44,6 +44,28 @@ namespace sgns::processing
                 m_logger->debug("[{}] placed to GlobalDB ", taskKey);
                 // getKeyResult.value().toString()
             }
+            for (auto& subTask: subTasks)
+            {
+                auto subTaskKey = (boost::format("subtasks/TASK_%s/%s") % task.ipfs_block_id() % subTask.subtaskid()).str();
+                valueBuffer.put(subTask.SerializeAsString());
+                auto setKeyResult = m_db->Put(sgns::crdt::HierarchicalKey(subTaskKey), valueBuffer);
+                if (setKeyResult.has_failure())
+                {
+                    m_logger->debug("Unable to put key-value to CRDT datastore.");
+                }
+
+                // Check if data put
+                auto getKeyResult = m_db->Get(sgns::crdt::HierarchicalKey(taskKey));
+                if (getKeyResult.has_failure())
+                {
+                    m_logger->debug("Unable to find key in CRDT datastore");
+                }
+                else
+                {
+                    m_logger->debug("[{}] placed to GlobalDB ", taskKey);
+                    // getKeyResult.value().toString()
+                }
+            }
         }
 
         void GetSubTasks(
@@ -52,6 +74,33 @@ namespace sgns::processing
             const std::set<std::string>& excludeSubTaskIds,
             std::list<SGProcessing::SubTask>& subTasks) override
         {
+            if (taskId)
+            {
+                auto key = (boost::format("subtasks/TASK_%s") % *taskId).str();
+                auto querySubTasks = m_db->QueryKeyValues(key);
+
+                if (querySubTasks.has_failure())
+                {
+                    m_logger->info("Unable list subtasks from CRDT datastore");
+                    return;
+                }
+
+                if (querySubTasks.has_value())
+                {
+                    for (auto element : querySubTasks.value())
+                    {
+                        SGProcessing::SubTask subTask;
+                        if (subTask.ParseFromArray(element.second.data(), element.second.size()))
+                        {
+                            subTasks.push_back(std::move(subTask));
+                        }
+                        else
+                        {
+                            m_logger->debug("Undable to parse a subtask");
+                        }
+                    }
+                }
+            }
         }
 
         bool GrabTask(std::string& grabbedTaskKey, SGProcessing::Task& task) override

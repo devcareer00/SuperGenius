@@ -3,10 +3,8 @@
 namespace sgns::processing
 {
 SubTaskEnqueuerImpl::SubTaskEnqueuerImpl(
-    std::shared_ptr<ProcessingTaskQueue> taskQueue,
-    TaskSplitter taskSplitter)
+    std::shared_ptr<ProcessingTaskQueue> taskQueue)
     : m_taskQueue(taskQueue)
-    , m_taskSplitter(taskSplitter)
 {
 }
 
@@ -19,7 +17,13 @@ bool SubTaskEnqueuerImpl::EnqueueSubTasks(
     if (m_taskQueue->GrabTask(taskKey, task))
     {
         subTaskQueueId = taskKey;
-        m_taskSplitter(task, subTasks);
+
+        m_taskQueue->GetSubTasks(
+            taskKey,
+            std::set<SGProcessing::SubTaskState::Type>(),
+            std::set<std::string>(),
+            subTasks);
+
         return true;
     }
     return false;

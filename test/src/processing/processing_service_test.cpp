@@ -110,8 +110,7 @@ TEST_F(ProcessingServiceTest, ProcessingSlotsAreAvailable)
 
     auto processingCore = std::make_shared<ProcessingCoreImpl>();
     auto taskQueue = std::make_shared<ProcessingTaskQueueImpl>();
-    auto enqueuer = std::make_shared<SubTaskEnqueuerImpl>(taskQueue,
-        [](const SGProcessing::Task&, std::list<SGProcessing::SubTask>&) {});
+    auto enqueuer = std::make_shared<SubTaskEnqueuerImpl>(taskQueue);
 
     ProcessingServiceImpl processingService(
         pubs,
@@ -154,8 +153,7 @@ TEST_F(ProcessingServiceTest, DISABLED_NoProcessingSlotsAvailable)
 
     auto processingCore = std::make_shared<ProcessingCoreImpl>();
     auto taskQueue = std::make_shared<ProcessingTaskQueueImpl>();
-    auto enqueuer = std::make_shared<SubTaskEnqueuerImpl>(taskQueue,
-        [](const SGProcessing::Task&, std::list<SGProcessing::SubTask>&) {});
+    auto enqueuer = std::make_shared<SubTaskEnqueuerImpl>(taskQueue);
 
     ProcessingServiceImpl processingService(
         pubs,

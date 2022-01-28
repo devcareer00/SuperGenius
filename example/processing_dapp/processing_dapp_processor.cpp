@@ -38,78 +38,6 @@ namespace
             std::vector<SGProcessing::SubTaskResult>& results) override {}
     };
 
-    class TaskSplitter
-    {
-    public:
-        TaskSplitter(
-            size_t nSubTasks,
-            size_t nChunks,
-            bool addValidationSubtask)
-            : m_nSubTasks(nSubTasks)
-            , m_nChunks(nChunks)
-            , m_addValidationSubtask(addValidationSubtask)
-        {
-        }
-
-        void SplitTask(const SGProcessing::Task& task, std::list<SGProcessing::SubTask>& subTasks)
-        {
-            std::optional<SGProcessing::SubTask> validationSubtask;
-            if (m_addValidationSubtask)
-            {
-                validationSubtask = SGProcessing::SubTask();
-            }
-
-            size_t chunkId = 0;
-            for (size_t i = 0; i < m_nSubTasks; ++i)
-            {
-                auto subtaskId = (boost::format("subtask_%d") % i).str();
-                SGProcessing::SubTask subtask;
-                subtask.set_ipfsblock(task.ipfs_block_id());
-                subtask.set_subtaskid(subtaskId);
-
-                for (size_t chunkIdx = 0; chunkIdx < m_nChunks; ++chunkIdx)
-                {
-                    SGProcessing::ProcessingChunk chunk;
-                    chunk.set_chunkid((boost::format("CHUNK_%d_%d") % i % chunkId).str());
-                    chunk.set_n_subchunks(1);
-                    chunk.set_line_stride(1);
-                    chunk.set_offset(0);
-                    chunk.set_stride(1);
-                    chunk.set_subchunk_height(10);
-                    chunk.set_subchunk_width(10);
-
-                    auto chunkToProcess = subtask.add_chunkstoprocess();
-                    chunkToProcess->CopyFrom(chunk);
-
-                    if (validationSubtask)
-                    {
-                        if (chunkIdx == 0)
-                        {
-                            // Add the first chunk of a processing subtask into the validation subtask
-                            auto chunkToValidate = validationSubtask->add_chunkstoprocess();
-                            chunkToValidate->CopyFrom(chunk);
-                        }
-                    }
-
-                    ++chunkId;
-                }
-                subTasks.push_back(std::move(subtask));
-            }
-
-            if (validationSubtask)
-            {
-                auto subtaskId = (boost::format("subtask_validation")).str();
-                validationSubtask->set_ipfsblock(task.ipfs_block_id());
-                validationSubtask->set_subtaskid(subtaskId);
-                subTasks.push_back(std::move(*validationSubtask));
-            }
-        }
-    private:
-        size_t m_nSubTasks;
-        size_t m_nChunks;
-        bool m_addValidationSubtask;
-    };
-
     class ProcessingCoreImpl : public ProcessingCore
     {
     public:
@@ -176,13 +104,10 @@ namespace
         size_t serviceIndex = 0;
         size_t subTaskProcessingTime = 0; // ms
         size_t disconnect = 0;
-        size_t nSubTasks = 5;
         size_t channelListRequestTimeout = 5000;
         // optional remote peer to connect to
         std::optional<std::string> remote;
-        size_t nChunks = 1;
         std::vector<size_t> chunkResultHashes;
-        bool addValidationSubtask = false;
         std::vector<size_t> validationChunkHashes;
     };
 
@@ -198,12 +123,8 @@ namespace
                 ("remote,r", po::value(&remote), "remote service multiaddress to connect to")
                 ("processingtime,p", po::value(&o.subTaskProcessingTime), "subtask processing time (ms)")
                 ("disconnect,d", po::value(&o.disconnect), "disconnect after (ms)")
-                ("nsubtasks,n", po::value(&o.nSubTasks), "number of subtasks that task is split to")
                 ("channellisttimeout,t", po::value(&o.channelListRequestTimeout), "chnnel list request timeout (ms)")
                 ("serviceindex,i", po::value(&o.serviceIndex), "index of the service in computational grid (has to be a unique value)")
-                ("addvalidationsubtask,v", po::value(&o.addValidationSubtask),
-                    "add a subtask that contains a randon (actually first) chunk of each of processing subtasks")
-                ("nchunks,c", po::value(&o.nChunks), "number of chunks in each processing subtask")
                 ("chunkresulthashes,h", po::value<std::vector<size_t>>()->multitoken(), "chunk result hashes")
                 ("validationchunkhashes", po::value<std::vector<size_t>>()->multitoken(), "validation chunk result hashes");
 
@@ -237,43 +158,11 @@ namespace
             if (!vm["chunkresulthashes"].empty()) 
             {
                 o.chunkResultHashes = vm["chunkresulthashes"].as<std::vector<size_t>>();
-                if (o.chunkResultHashes.size() != o.nChunks)
-                {
-                    std::cerr << 
-                        (boost::format("Number of chunks (%d) doesn't match the number of result hashes (%d)") 
-                        % o.nChunks
-                        % o.chunkResultHashes.size()).str() << std::endl;
-
-                    for (auto v : o.chunkResultHashes)
-                    {
-                        std::cerr << v << ";";
-                    }
-
-                    std::cerr << std::endl;
-
-                    return boost::none;
-                }
             }
 
             if (!vm["validationchunkhashes"].empty())
             {
                 o.validationChunkHashes = vm["validationchunkhashes"].as<std::vector<size_t>>();
-                if (o.validationChunkHashes.size() != o.nSubTasks)
-                {
-                    std::cerr <<
-                        (boost::format("Number of subtasks (%d) doesn't match the number of validation result hashes (%d)")
-                            % o.nSubTasks
-                            % o.validationChunkHashes.size()).str() << std::endl;
-
-                    for (auto v : o.validationChunkHashes)
-                    {
-                        std::cerr << v << ";";
-                    }
-
-                    std::cerr << std::endl;
-
-                    return boost::none;
-                }
             }
 
             return o;
@@ -394,13 +283,7 @@ int main(int argc, char* argv[])
     processingCore->m_chunkResulHashes = options->chunkResultHashes;
     processingCore->m_validationChunkHashes = options->validationChunkHashes;
     
-    auto taskSplitter = std::make_shared<TaskSplitter>(
-        options->nSubTasks, 
-        options->nChunks,
-        options->addValidationSubtask);
-
-    auto enqueuer = std::make_shared<SubTaskEnqueuerImpl>(taskQueue, 
-        std::bind(&TaskSplitter::SplitTask, taskSplitter, std::placeholders::_1, std::placeholders::_2));
+    auto enqueuer = std::make_shared<SubTaskEnqueuerImpl>(taskQueue);
 
     ProcessingServiceImpl processingService(
         pubs,

@@ -15,12 +15,87 @@
 using namespace sgns::processing;
 
 namespace
-{  
+{
+    class TaskSplitter
+    {
+    public:
+        TaskSplitter(
+            size_t nSubTasks,
+            size_t nChunks,
+            bool addValidationSubtask)
+            : m_nSubTasks(nSubTasks)
+            , m_nChunks(nChunks)
+            , m_addValidationSubtask(addValidationSubtask)
+        {
+        }
+
+        void SplitTask(const SGProcessing::Task& task, std::list<SGProcessing::SubTask>& subTasks)
+        {
+            std::optional<SGProcessing::SubTask> validationSubtask;
+            if (m_addValidationSubtask)
+            {
+                validationSubtask = SGProcessing::SubTask();
+            }
+
+            size_t chunkId = 0;
+            for (size_t i = 0; i < m_nSubTasks; ++i)
+            {
+                auto subtaskId = (boost::format("subtask_%d") % i).str();
+                SGProcessing::SubTask subtask;
+                subtask.set_ipfsblock(task.ipfs_block_id());
+                subtask.set_subtaskid(subtaskId);
+
+                for (size_t chunkIdx = 0; chunkIdx < m_nChunks; ++chunkIdx)
+                {
+                    SGProcessing::ProcessingChunk chunk;
+                    chunk.set_chunkid((boost::format("CHUNK_%d_%d") % i % chunkId).str());
+                    chunk.set_n_subchunks(1);
+                    chunk.set_line_stride(1);
+                    chunk.set_offset(0);
+                    chunk.set_stride(1);
+                    chunk.set_subchunk_height(10);
+                    chunk.set_subchunk_width(10);
+
+                    auto chunkToProcess = subtask.add_chunkstoprocess();
+                    chunkToProcess->CopyFrom(chunk);
+
+                    if (validationSubtask)
+                    {
+                        if (chunkIdx == 0)
+                        {
+                            // Add the first chunk of a processing subtask into the validation subtask
+                            auto chunkToValidate = validationSubtask->add_chunkstoprocess();
+                            chunkToValidate->CopyFrom(chunk);
+                        }
+                    }
+
+                    ++chunkId;
+                }
+                subTasks.push_back(std::move(subtask));
+            }
+
+            if (validationSubtask)
+            {
+                auto subtaskId = (boost::format("subtask_validation")).str();
+                validationSubtask->set_ipfsblock(task.ipfs_block_id());
+                validationSubtask->set_subtaskid(subtaskId);
+                subTasks.push_back(std::move(*validationSubtask));
+            }
+        }
+    private:
+        size_t m_nSubTasks;
+        size_t m_nChunks;
+        bool m_addValidationSubtask;
+    };
+
     // cmd line options
     struct Options 
     {
         // optional remote peer to connect to
         std::optional<std::string> remote;
+        size_t nSubTasks = 5;
+        size_t nChunks = 1;
+        bool addValidationSubtask = false;
     };
 
     boost::optional<Options> parseCommandLine(int argc, char** argv) {
@@ -33,6 +108,10 @@ namespace
             po::options_description desc("processing service options");
             desc.add_options()("help,h", "print usage message")
                 ("remote,r", po::value(&remote), "remote service multiaddress to connect to")
+                ("nsubtasks,n", po::value(&o.nSubTasks), "number of subtasks that task is split to")
+                ("addvalidationsubtask,v", po::value(&o.addValidationSubtask),
+                    "add a subtask that contains a randon (actually first) chunk of each of processing subtasks")
+                ("nchunks,c", po::value(&o.nChunks), "number of chunks in each processing subtask")
                 ;
 
             po::variables_map vm;
@@ -157,10 +236,15 @@ int main(int argc, char* argv[])
 
     auto taskQueue = std::make_shared<ProcessingTaskQueueImpl>(globalDB);
 
+    TaskSplitter taskSplitter(
+        options->nSubTasks,
+        options->nChunks,
+        options->addValidationSubtask);
+
     for (auto& task : tasks)
     {
         std::list<SGProcessing::SubTask> subTasks;
-        // @todo initialize subtasks
+        taskSplitter.SplitTask(task, subTasks);
         taskQueue->EnqueueTask(task, subTasks);
     }
 

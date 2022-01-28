@@ -315,9 +315,7 @@ int main(int argc, char* argv[])
     }
 
     auto processingCore = std::make_shared<ProcessingCoreImpl>(options->subTaskProcessingTime);
-
-    auto enqueuer = std::make_shared<SubTaskEnqueuerImpl>(taskQueue, 
-        std::bind(&TaskSplitter::SplitTask, taskSplitter, std::placeholders::_1, std::placeholders::_2));
+    auto enqueuer = std::make_shared<SubTaskEnqueuerImpl>(taskQueue);
     ProcessingServiceImpl processingService(pubs,
         maximalNodesCount,
         enqueuer,

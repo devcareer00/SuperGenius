@@ -13,6 +13,7 @@ target_link_libraries(processing_dapp
 
 add_executable(processing_dapp_processor
     processing_dapp_processor.cpp
+    processing_task_queue_impl.hpp
     )
 
 

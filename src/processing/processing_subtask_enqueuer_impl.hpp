@@ -10,12 +10,8 @@ namespace sgns::processing
 class SubTaskEnqueuerImpl : public SubTaskEnqueuer
 {
 public:
-    typedef std::function<void(const SGProcessing::Task&, std::list<SGProcessing::SubTask>&)> TaskSplitter;
-
     SubTaskEnqueuerImpl(
-        std::shared_ptr<ProcessingTaskQueue> taskQueue,
-        TaskSplitter taskSplitter
-    );
+        std::shared_ptr<ProcessingTaskQueue> taskQueue);
 
     bool EnqueueSubTasks(
         std::string& subTaskQueueId, 
@@ -23,8 +19,6 @@ public:
 
 private:
     std::shared_ptr<ProcessingTaskQueue> m_taskQueue;
-    TaskSplitter m_taskSplitter;
-
 };
 }
 
