@@ -42,6 +42,16 @@ public:
 class ProcessingTaskQueueImpl : public ProcessingTaskQueue
 {
 public:
+    void EnqueueTask(
+        const SGProcessing::Task& task,
+        const std::list<SGProcessing::SubTask>& subTasks) override {}
+
+    void GetSubTasks(
+        const std::optional<std::string>& taskId,
+        const std::set<SGProcessing::SubTaskState::Type>& states,
+        const std::set<std::string>& excludeSubTaskIds,
+        std::list<SGProcessing::SubTask>& subTasks) override {}
+
     bool GrabTask(std::string& taskKey, SGProcessing::Task& task) override
     {
         return false;

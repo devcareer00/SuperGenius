@@ -20,6 +20,40 @@ namespace sgns::processing
         {
         }
 
+        void EnqueueTask(
+            const SGProcessing::Task& task,
+            const std::list<SGProcessing::SubTask>& subTasks) override
+        {
+            auto taskKey = (boost::format("tasks/TASK_%d") % task.ipfs_block_id()).str();
+            sgns::base::Buffer valueBuffer;
+            valueBuffer.put(task.SerializeAsString());
+            auto setKeyResult = m_db->Put(sgns::crdt::HierarchicalKey(taskKey), valueBuffer);
+            if (setKeyResult.has_failure())
+            {
+                m_logger->debug("Unable to put key-value to CRDT datastore.");
+            }
+
+            // Check if data put
+            auto getKeyResult = m_db->Get(sgns::crdt::HierarchicalKey(taskKey));
+            if (getKeyResult.has_failure())
+            {
+                m_logger->debug("Unable to find key in CRDT datastore");
+            }
+            else
+            {
+                m_logger->debug("[{}] placed to GlobalDB ", taskKey);
+                // getKeyResult.value().toString()
+            }
+        }
+
+        void GetSubTasks(
+            const std::optional<std::string>& taskId,
+            const std::set<SGProcessing::SubTaskState::Type>& states,
+            const std::set<std::string>& excludeSubTaskIds,
+            std::list<SGProcessing::SubTask>& subTasks) override
+        {
+        }
+
         bool GrabTask(std::string& grabbedTaskKey, SGProcessing::Task& task) override
         {
             m_logger->info("GRAB_TASK");

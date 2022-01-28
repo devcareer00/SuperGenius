@@ -82,9 +82,34 @@ namespace
     class ProcessingTaskQueueImpl : public ProcessingTaskQueue
     {
     public:
-        ProcessingTaskQueueImpl(const std::list<SGProcessing::Task>& tasks)
-            : m_tasks(tasks)
+        ProcessingTaskQueueImpl()
         {
+        }
+
+        void EnqueueTask(
+            const SGProcessing::Task& task,
+            const std::list<SGProcessing::SubTask>& subTasks)
+        {
+            m_tasks.push_back(task);
+            m_subTasks.emplace(task.ipfs_block_id(), subTasks);
+        }
+
+        void GetSubTasks(
+            const std::optional<std::string>& taskId,
+            const std::set<SGProcessing::SubTaskState::Type>& states,
+            const std::set<std::string>& excludeSubTaskIds,
+            std::list<SGProcessing::SubTask>& subTasks)
+        {
+            if (!taskId)
+        {
+                return;
+            }
+
+            auto it = m_subTasks.find(*taskId);
+            if (it != m_subTasks.end())
+            {
+                subTasks = it->second;
+            }
         }
 
         bool GrabTask(std::string& taskKey, SGProcessing::Task& task) override
@@ -109,6 +134,7 @@ namespace
 
     private:
         std::list<SGProcessing::Task> m_tasks;
+        std::map<std::string, std::list<SGProcessing::SubTask>> m_subTasks;
     };
 
     // cmd line options
@@ -279,9 +305,15 @@ int main(int argc, char* argv[])
         });
     }
 
-    auto taskQueue = std::make_shared<ProcessingTaskQueueImpl>(tasks);
-
+    auto taskQueue = std::make_shared<ProcessingTaskQueueImpl>();
     auto taskSplitter = std::make_shared<TaskSplitter>(options->nSubTasks);
+    for (auto& task : tasks)
+    {
+        std::list<SGProcessing::SubTask> subTasks;
+        taskSplitter->SplitTask(task, subTasks);
+        taskQueue->EnqueueTask(task, subTasks);
+    }
+
     auto processingCore = std::make_shared<ProcessingCoreImpl>(options->subTaskProcessingTime);
 
     auto enqueuer = std::make_shared<SubTaskEnqueuerImpl>(taskQueue, 

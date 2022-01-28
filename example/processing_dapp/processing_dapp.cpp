@@ -1,4 +1,4 @@
-#include "processing/proto/SGProcessing.pb.h"
+#include "processing_task_queue_impl.hpp"
 
 #include <crdt/globaldb/globaldb.hpp>
 #include <crdt/globaldb/keypair_file_storage.hpp>
@@ -11,6 +11,8 @@
 #include <boost/format.hpp>
 
 #include <iostream>
+
+using namespace sgns::processing;
 
 namespace
 {  
@@ -143,40 +145,23 @@ int main(int argc, char* argv[])
     tasks.push_back(std::move(task));
 
     auto io = std::make_shared<boost::asio::io_context>();
-    sgns::crdt::GlobalDB globalDB(
+    auto globalDB = std::make_shared<sgns::crdt::GlobalDB>(
         io, "CRDT.Datastore.TEST", 40000,
         std::make_shared<sgns::ipfs_pubsub::GossipPubSubTopic>(pubs, "CRDT.Datastore.TEST.Channel"));
 
 
     auto crdtOptions = sgns::crdt::CrdtOptions::DefaultOptions();
-    globalDB.Init(crdtOptions);
+    globalDB->Init(crdtOptions);
 
     std::thread iothread([io]() { io->run(); });
 
-    size_t taskIdx = 0;
+    auto taskQueue = std::make_shared<ProcessingTaskQueueImpl>(globalDB);
+
     for (auto& task : tasks)
     {
-        auto taskKey = (boost::format("tasks/TASK_%d") % taskIdx).str();
-        sgns::base::Buffer valueBuffer;
-        valueBuffer.put(task.SerializeAsString());
-        auto setKeyResult = globalDB.Put(sgns::crdt::HierarchicalKey(taskKey), valueBuffer);
-        if (setKeyResult.has_failure())
-        {
-            std::cout << "Unable to put key-value to CRDT datastore." << std::endl;
-        }
-
-        // Check if data put
-        auto getKeyResult = globalDB.Get(sgns::crdt::HierarchicalKey(taskKey));
-        if (getKeyResult.has_failure())
-        {
-            std::cout << "Unable to find key in CRDT datastore"<< std::endl;
-        }
-        else
-        {
-            std::cout << "[" << "taskKey" << "] placed to GlobalDB " << std::endl;
-            // getKeyResult.value().toString()
-        }
-        ++taskIdx;
+        std::list<SGProcessing::SubTask> subTasks;
+        // @todo initialize subtasks
+        taskQueue->EnqueueTask(task, subTasks);
     }
 
     // Gracefully shutdown on signal
