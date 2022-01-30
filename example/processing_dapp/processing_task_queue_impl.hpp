@@ -141,7 +141,7 @@ namespace sgns::processing
                                 if (LockTask(taskKey.value()))
                                 {
                                     m_logger->debug("TASK_LOCKED {}", taskKey.value());
-                                    grabbedTaskKey = taskKey.value();
+                                    grabbedTaskKey = task.ipfs_block_id();
                                     return true;
                                 }
                             }
@@ -163,7 +163,7 @@ namespace sgns::processing
                 {
                     if (MoveExpiredTaskLock(lockedTask, task))
                     {
-                        grabbedTaskKey = lockedTask;
+                        grabbedTaskKey = task.ipfs_block_id();
                         return true;
                     }
                 }
