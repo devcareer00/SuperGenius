@@ -76,6 +76,7 @@ namespace sgns::processing
         {
             if (taskId)
             {
+                m_logger->debug("SUBTASKS_REQUESTED. TaskId: {}", *taskId);
                 auto key = (boost::format("subtasks/TASK_%s") % *taskId).str();
                 auto querySubTasks = m_db->QueryKeyValues(key);
 
@@ -87,6 +88,8 @@ namespace sgns::processing
 
                 if (querySubTasks.has_value())
                 {
+                    m_logger->debug("SUBTASKS_FOUND {}", querySubTasks.value().size());
+
                     for (auto element : querySubTasks.value())
                     {
                         SGProcessing::SubTask subTask;
@@ -99,6 +102,10 @@ namespace sgns::processing
                             m_logger->debug("Undable to parse a subtask");
                         }
                     }
+                }
+                else
+                {
+                    m_logger->debug("NO_SUBTASKS_FOUND. TaskId {}", *taskId);
                 }
             }
         }
@@ -225,6 +232,7 @@ namespace sgns::processing
                             {
                                 if (LockTask(taskKey))
                                 {
+                                    m_logger->debug("TASK_LOCK_MOVED {}", taskKey);
                                     return true;
                                 }
                             }

@@ -39,6 +39,9 @@ bool ProcessingSubTaskQueueManager::CreateQueue(std::list<SGProcessing::SubTask>
     m_queue = std::move(queue);
     m_processingQueue.CreateQueue(processingQueue);
 
+    m_logger->debug("QUEUE_CREATED");
+    LogQueue();
+
     PublishSubTaskQueue();
 
     return true;

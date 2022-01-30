@@ -223,10 +223,13 @@ int main(int argc, char* argv[])
     loggerProcessingTaskQueue->set_level(spdlog::level::debug);
 
     auto loggerProcessingSubTaskQueueManager = sgns::base::createLogger("ProcessingSubTaskQueueManager");
-    loggerProcessingSubTaskQueueManager->set_level(spdlog::level::debug);
+    loggerProcessingSubTaskQueueManager->set_level(spdlog::level::trace);
     
     auto loggerProcessingSubTaskQueue = sgns::base::createLogger("ProcessingSubTaskQueue");
     loggerProcessingSubTaskQueue->set_level(spdlog::level::debug);
+
+    auto loggerProcessingSubTaskQueueAccessorImpl = sgns::base::createLogger("ProcessingSubTaskQueueAccessorImpl");
+    loggerProcessingSubTaskQueueAccessorImpl->set_level(spdlog::level::debug);
 
     auto loggerGlobalDB = sgns::base::createLogger("GlobalDB");
     loggerGlobalDB->set_level(spdlog::level::debug);
