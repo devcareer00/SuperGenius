@@ -11,14 +11,23 @@
 
 namespace sgns::processing
 {
-/** Handles processing data storage
+/** Handles subtask states storage
 */
 class SubTaskStateStorage
 {
 public:
     virtual ~SubTaskStateStorage() = default;
 
+    /** Changes current subtask state
+    * @param subTaskId - subtask id
+    * @param state - new subtask state
+    */
     virtual void ChangeSubTaskState(const std::string& subTaskId, SGProcessing::SubTaskState::Type state) = 0;
+
+    /** Returns subtask state
+    * @param subTaskId - subtask id
+    * @return subtask state, std::nullopt if no state exists for a passed subtask id
+    */
     virtual std::optional<SGProcessing::SubTaskState> GetSubTaskState(const std::string& subTaskId) = 0;
 };
 }

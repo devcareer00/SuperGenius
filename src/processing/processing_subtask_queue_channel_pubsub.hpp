@@ -1,3 +1,8 @@
+/**
+* Header file for subtask queue channel implementation 
+* @author creativeid00
+*/
+
 #ifndef SUPERGENIUS_PROCESSING_SUBTASK_QUEUE_CHANNEL_PUBSUB_HPP
 #define SUPERGENIUS_PROCESSING_SUBTASK_QUEUE_CHANNEL_PUBSUB_HPP
 
@@ -7,22 +12,38 @@
 
 namespace sgns::processing
 {
+/** Subtask queue channel implementation that uses pubsub as a data transport protocol
+*/
 class ProcessingSubTaskQueueChannelPubSub : public ProcessingSubTaskQueueChannel
 {
 public:
     typedef std::function<bool(const SGProcessing::SubTaskQueueRequest&)> QueueRequestSink;
     typedef std::function<bool(SGProcessing::SubTaskQueue*)> QueueUpdateSink;
 
+    /** Constructs subtask queue channel object
+    * @param gossipPubSub - ipfs pubsub
+    * @param processingQueueChannelId - a unique id of queue data channel
+    */
     ProcessingSubTaskQueueChannelPubSub(
         std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> gossipPubSub,
         const std::string& processingQueueChannelId);
 
+    /** ProcessingSubTaskQueueChannel overrides
+    */
     void RequestQueueOwnership(const std::string& nodeId) override;
     void PublishQueue(std::shared_ptr<SGProcessing::SubTaskQueue> queue) override;
 
+    /** Sets a handler for remote queue requests processing
+    * @param queueRequestSink - request handler
+    */
     void SetQueueRequestSink(QueueRequestSink queueRequestSink);
+
+    /** Sets a handler for remote queue updates processing
+    */
     void SetQueueUpdateSink(QueueUpdateSink queueUpdateSink);
 
+    /** Starts a listening to pubsub channel
+    */
     void Listen(size_t msSubscriptionWaitingDuration);
 
 private:

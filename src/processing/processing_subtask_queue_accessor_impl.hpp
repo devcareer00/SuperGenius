@@ -20,8 +20,12 @@ namespace sgns::processing
 class SubTaskQueueAccessorImpl: public SubTaskQueueAccessor
 {
 public:
-    /** Create sub-task queue accessor implementation object
+    /** Creates subtask queue accessor implementation object
     * @param gossipPubSub pubsub host which is used to create subscriptions to result channel
+    * @param subTaskQueueManager - in-memory queue manager
+    * @param subTaskStateStorage - storage of subtask states
+    * @param subTaskResultStorage - processing results storage
+    * @param taskResultProcessingSink - a callback which is called when a task processing is completed
     */
     SubTaskQueueAccessorImpl(
         std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> gossipPubSub,
@@ -30,10 +34,15 @@ public:
         std::shared_ptr<SubTaskResultStorage> subTaskResultStorage,
         std::function<void(const SGProcessing::TaskResult&)> taskResultProcessingSink);
 
+    /** SubTaskQueueAccessor overrides
+    */
     void Create(std::list<SGProcessing::SubTask>& subTasks) override;
     void GrabSubTask(SubTaskGrabbedCallback onSubTaskGrabbedCallback) override;
     void CompleteSubTask(const std::string& subTaskId, const SGProcessing::SubTaskResult& subTaskResult) override;
 
+    /** Returns available results of subtask queue
+    * @return a vector of subtask id->results pairs
+    */
     std::vector<std::tuple<std::string, SGProcessing::SubTaskResult>> GetResults() const;
 
 private:

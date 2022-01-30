@@ -1,3 +1,8 @@
+/**
+* Header file for subtask queue channel interface
+* @author creativeid00
+*/
+
 #ifndef SUPERGENIUS_PROCESSING_SUBTASK_QUEUE_CHANNEL_HPP
 #define SUPERGENIUS_PROCESSING_SUBTASK_QUEUE_CHANNEL_HPP
 
@@ -8,12 +13,21 @@
 
 namespace sgns::processing
 {
+/** Subtask queue channel interface which is used for in-memory queue synchronization
+*/
 class ProcessingSubTaskQueueChannel
 {
 public:
     virtual ~ProcessingSubTaskQueueChannel() = default;
 
-    virtual void RequestQueueOwnership(const std::string & nodeId) = 0;
+    /** Sends a request for queue ownership
+    * nodeId - requestor node id
+    */
+    virtual void RequestQueueOwnership(const std::string& nodeId) = 0;
+
+    /** Publishes queue to all queue consumers
+    * queue = subtask queue
+    */
     virtual void PublishQueue(std::shared_ptr<SGProcessing::SubTaskQueue> queue) = 0;
 };
 }

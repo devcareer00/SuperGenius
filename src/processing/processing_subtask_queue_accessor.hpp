@@ -19,11 +19,20 @@ public:
     typedef std::function<void(boost::optional<const SGProcessing::SubTask&>)> SubTaskGrabbedCallback;
     virtual ~SubTaskQueueAccessor() = default;
 
+    /** Creates a queue based on subtask list
+    * @param subTasks - a list of enqueued subtasks
+    */
     virtual void Create(std::list<SGProcessing::SubTask>& subTasks) = 0;
+
     /** Asynchronous getting of a subtask from the queue
-    * @param onSubTaskGrabbedCallback a callback that is called when a grapped iosubtask is locked by the local node
+    * @param onSubTaskGrabbedCallback a callback that is called when a subtask is grabbed by the local node
     */
     virtual void GrabSubTask(SubTaskGrabbedCallback onSubTaskGrabbedCallback) = 0;
+
+    /** Finalizes subtask execution
+    * @param subTaskId - id of processed subtask
+    * @param subTaskResult - result of subtask processing
+    */
     virtual void CompleteSubTask(const std::string& subTaskId, const SGProcessing::SubTaskResult& subTaskResult) = 0;
 
     // @todo Add SetErrorsHandler method

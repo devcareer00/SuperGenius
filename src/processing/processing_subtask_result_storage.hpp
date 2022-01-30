@@ -11,7 +11,7 @@
 
 namespace sgns::processing
 {
-/** Handles processing data storage
+/** Handles subtask results storage
 */
 class SubTaskResultStorage
 {
@@ -19,8 +19,20 @@ public:
 
     virtual ~SubTaskResultStorage() = default;
 
+    /** Adds a result to the storage
+    * @param subTaskResult - processing result
+    */
     virtual void AddSubTaskResult(const SGProcessing::SubTaskResult& subTaskResult) = 0;
+
+    /** Removes result from the storage
+    * @param subTaskId subtask id that the result was generated for
+    */
     virtual void RemoveSubTaskResult(const std::string& subTaskId) = 0;
+
+    /** Returns results for specified subtask ids
+    * @param subTaskIds - list of subtask ids
+    * @return results
+    */
     virtual void GetSubTaskResults(
         const std::vector<std::string>& subTaskIds, 
         std::vector<SGProcessing::SubTaskResult>& results) = 0;
