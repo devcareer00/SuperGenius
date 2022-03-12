@@ -65,6 +65,15 @@ void ProcessingServiceImpl::OnMessage(boost::optional<const sgns::ipfs_pubsub::G
     }
 }
 
+void ProcessingServiceImpl::OnQueueProcessingCompleted(
+    const std::string& subTaskQueueId, const SGProcessing::TaskResult& taskResult)
+{
+    m_logger->debug("SUBTASK_QUEUE_PROCESSING_COMPLETED: {}", subTaskQueueId);
+    SendChannelListRequest();
+    // @todo finalize task
+    // @todo Add notification of finished task
+}
+
 void ProcessingServiceImpl::AcceptProcessingChannel(
     const std::string& processingQueuelId)
 {
@@ -76,7 +85,8 @@ void ProcessingServiceImpl::AcceptProcessingChannel(
             m_subTaskStateStorage,
             m_subTaskResultStorage,
             m_processingCore,
-            [](const SGProcessing::TaskResult&) {}); // @todo Add notification of finished task
+            std::bind(&ProcessingServiceImpl::OnQueueProcessingCompleted, 
+                this, processingQueuelId, std::placeholders::_1));
         node->AttachTo(processingQueuelId);
         processingNodes[processingQueuelId] = node;
     }
@@ -136,7 +146,8 @@ void ProcessingServiceImpl::HandleRequestTimeout()
                 m_subTaskStateStorage,
                 m_subTaskResultStorage,
                 m_processingCore,
-                [](const SGProcessing::TaskResult&) {}); // @todo Add notification of finished task
+                std::bind(&ProcessingServiceImpl::OnQueueProcessingCompleted, 
+                    this, subTaskQueueId, std::placeholders::_1));
 
             // @todo Figure out if the task is still available for other peers
             // @todo Check if it is better to call EnqueueSubTasks within host 

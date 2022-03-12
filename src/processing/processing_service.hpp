@@ -43,6 +43,7 @@ private:
     * @return None
     */
     void OnMessage(boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message);
+    void OnQueueProcessingCompleted(const std::string& subTaskQueueId, const SGProcessing::TaskResult& taskResult);
 
     void AcceptProcessingChannel(const std::string& channelId);
 
