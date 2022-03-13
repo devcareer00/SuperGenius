@@ -39,6 +39,10 @@ void ProcessingNode::Initialize(const std::string& processingQueueChannelId, siz
         m_subTaskResultStorage,
         m_taskResultProcessingSink);
 
+    processingQueueChannel->SetQueueRequestSink(
+        std::bind(&ProcessingSubTaskQueueManager::ProcessSubTaskQueueRequestMessage,
+            m_subtaskQueueManager, std::placeholders::_1));
+
     processingQueueChannel->SetQueueUpdateSink(
         std::bind(&ProcessingSubTaskQueueManager::ProcessSubTaskQueueMessage,
             m_subtaskQueueManager, std::placeholders::_1));
