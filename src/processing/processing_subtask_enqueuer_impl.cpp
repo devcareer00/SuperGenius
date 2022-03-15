@@ -12,6 +12,7 @@ bool SubTaskEnqueuerImpl::EnqueueSubTasks(
     std::string& subTaskQueueId, 
     std::list<SGProcessing::SubTask>& subTasks)
 {
+    m_logger->debug("ENQUEUE_SUBTASKS");
     SGProcessing::Task task;
     std::string taskKey;
     if (m_taskQueue->GrabTask(taskKey, task))
