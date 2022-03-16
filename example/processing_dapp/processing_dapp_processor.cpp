@@ -239,7 +239,11 @@ int main(int argc, char* argv[])
 
     auto loggerBroadcaster = sgns::base::createLogger("PubSubBroadcasterExt");
     loggerBroadcaster->set_level(spdlog::level::debug);
+
+    auto loggerEnqueuer = sgns::base::createLogger("SubTaskEnqueuerImpl");
+    loggerEnqueuer->set_level(spdlog::level::debug);
     
+    //
     const std::string processingGridChannel = "GRID_CHANNEL_ID";
 
     auto pubsubKeyPath = (boost::format("CRDT.Datastore.TEST.%d/pubs_processor") % options->serviceIndex).str();
