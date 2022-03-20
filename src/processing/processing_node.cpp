@@ -71,7 +71,7 @@ void ProcessingNode::CreateProcessingHost(
 {
     Initialize(processingQueueChannelId, msSubscriptionWaitingDuration);
 
-    m_subTaskQueueAccessor->Create(subTasks);
+    m_subTaskQueueAccessor->AssignSubTasks(subTasks);
 
     m_processingEngine->StartQueueProcessing(m_subTaskQueueAccessor);
 }

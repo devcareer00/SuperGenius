@@ -29,7 +29,7 @@ namespace
                 std::bind(&SubTaskQueueAccessorMock::OnTimerEvent, this, std::placeholders::_1));
         }
 
-        void Create(std::list<SGProcessing::SubTask>& subTasks)
+        void AssignSubTasks(std::list<SGProcessing::SubTask>& subTasks)
         {
             m_subTasks.swap(subTasks);
         }
@@ -178,7 +178,7 @@ TEST_F(ProcessingEngineTest, SubTaskProcessing)
         subTask.set_subtaskid("SUBTASK_ID2");
         subTasks.push_back(std::move(subTask));
     }
-    subTaskQueueAccessor->Create(subTasks);
+    subTaskQueueAccessor->AssignSubTasks(subTasks);
 
     std::thread contextThread([&context]() { context.run(); });
     engine.StartQueueProcessing(subTaskQueueAccessor);
@@ -217,7 +217,7 @@ TEST_F(ProcessingEngineTest, SharedSubTaskProcessing)
         SGProcessing::SubTask subTask;
         subTask.set_subtaskid("SUBTASK_ID1");
         subTasks.push_back(std::move(subTask));
-        subTaskQueueAccessor1->Create(subTasks);
+        subTaskQueueAccessor1->AssignSubTasks(subTasks);
     }
 
     auto subTaskQueueAccessor2 = std::make_shared<SubTaskQueueAccessorMock>(context);
@@ -226,7 +226,7 @@ TEST_F(ProcessingEngineTest, SharedSubTaskProcessing)
         SGProcessing::SubTask subTask;
         subTask.set_subtaskid("SUBTASK_ID2");
         subTasks.push_back(std::move(subTask));
-        subTaskQueueAccessor2->Create(subTasks);
+        subTaskQueueAccessor2->AssignSubTasks(subTasks);
     }
 
     std::thread contextThread([&context]() { context.run(); });

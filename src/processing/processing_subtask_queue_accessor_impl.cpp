@@ -19,7 +19,7 @@ SubTaskQueueAccessorImpl::SubTaskQueueAccessorImpl(
     m_resultChannel->Subscribe(std::bind(&SubTaskQueueAccessorImpl::OnResultChannelMessage, this, std::placeholders::_1));
 }
 
-void SubTaskQueueAccessorImpl::Create(std::list<SGProcessing::SubTask>& subTasks)
+void SubTaskQueueAccessorImpl::AssignSubTasks(std::list<SGProcessing::SubTask>& subTasks)
 {
     // Enqueue them subtasks if all the subtasks are available
     for (const auto& subTask : subTasks)
