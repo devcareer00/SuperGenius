@@ -93,6 +93,7 @@ namespace
     {
         // optional remote peer to connect to
         std::optional<std::string> remote;
+        size_t nTasks = 1;
         size_t nSubTasks = 5;
         size_t nChunks = 1;
         bool addValidationSubtask = false;
@@ -108,6 +109,7 @@ namespace
             po::options_description desc("processing service options");
             desc.add_options()("help,h", "print usage message")
                 ("remote,r", po::value(&remote), "remote service multiaddress to connect to")
+                ("ntasks,t", po::value(&o.nTasks), "number of tasks to process")
                 ("nsubtasks,n", po::value(&o.nSubTasks), "number of subtasks that task is split to")
                 ("addvalidationsubtask,v", po::value(&o.addValidationSubtask),
                     "add a subtask that contains a randon (actually first) chunk of each of processing subtasks")
@@ -212,17 +214,20 @@ int main(int argc, char* argv[])
 
     std::list<SGProcessing::Task> tasks;
 
-    // Put a single task to Global DB
+    // Put tasks to Global DB
+    for (size_t taskIdx = 0; taskIdx < options->nTasks; ++taskIdx)
+    {
     // And wait for its processing
-    SGProcessing::Task task;
-    task.set_ipfs_block_id("IPFS_BLOCK_ID_1");
-    task.set_block_len(1000);
-    task.set_block_line_stride(2);
-    task.set_block_stride(4);
-    task.set_random_seed(0);
-    task.set_results_channel("RESULT_CHANNEL_ID_1");
-    tasks.push_back(std::move(task));
-
+        SGProcessing::Task task;
+        task.set_ipfs_block_id((boost::format("IPFS_BLOCK_ID_%1%") % (taskIdx + 1)).str());
+        task.set_block_len(1000);
+        task.set_block_line_stride(2);
+        task.set_block_stride(4);
+        task.set_random_seed(0);
+        task.set_results_channel((boost::format("RESULT_CHANNEL_ID_%1%") % (taskIdx + 1)).str());
+        tasks.push_back(std::move(task));
+    }
+    
     auto io = std::make_shared<boost::asio::io_context>();
     auto globalDB = std::make_shared<sgns::crdt::GlobalDB>(
         io, "CRDT.Datastore.TEST", 40000,
