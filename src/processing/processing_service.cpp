@@ -133,6 +133,7 @@ void ProcessingServiceImpl::SetChannelListRequestTimeout(
 
 void ProcessingServiceImpl::HandleRequestTimeout()
 {
+    m_logger->debug("QUEUE_REQUEST_TIMEOUT");
     m_timerChannelListRequestTimeout.expires_at(boost::posix_time::pos_infin);
     auto& processingNodes = GetProcessingNodes();
     while (processingNodes.size() < m_maximalNodesCount)
