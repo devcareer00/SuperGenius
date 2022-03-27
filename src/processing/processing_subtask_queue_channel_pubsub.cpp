@@ -3,7 +3,7 @@
 namespace sgns::processing
 {
 ////////////////////////////////////////////////////////////////////////////////
-    ProcessingSubTaskQueueChannelPubSub::ProcessingSubTaskQueueChannelPubSub(
+ProcessingSubTaskQueueChannelPubSub::ProcessingSubTaskQueueChannelPubSub(
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> gossipPubSub,
     const std::string& processingQueueChannelId)
     : m_gossipPubSub(gossipPubSub)
@@ -16,7 +16,9 @@ void ProcessingSubTaskQueueChannelPubSub::Listen(size_t msSubscriptionWaitingDur
 {
     // Run messages processing once all dependent object are created
     m_processingQueueChannel->Subscribe(
-        std::bind(&ProcessingSubTaskQueueChannelPubSub::OnProcessingChannelMessage, this, std::placeholders::_1));
+        std::bind(
+            &ProcessingSubTaskQueueChannelPubSub::OnProcessingChannelMessage, 
+            weak_from_this(), std::placeholders::_1));
     if (msSubscriptionWaitingDuration > 0)
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(msSubscriptionWaitingDuration));
@@ -51,8 +53,15 @@ void ProcessingSubTaskQueueChannelPubSub::SetQueueUpdateSink(QueueUpdateSink que
 }
 
 void ProcessingSubTaskQueueChannelPubSub::OnProcessingChannelMessage(
+    std::weak_ptr<ProcessingSubTaskQueueChannelPubSub> weakThis,
     boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message)
 {
+    auto _this = weakThis.lock();
+    if (!_this)
+    {
+        return;
+    }
+    
     if (message)
     {
         SGProcessing::ProcessingChannelMessage channelMesssage;
@@ -60,11 +69,11 @@ void ProcessingSubTaskQueueChannelPubSub::OnProcessingChannelMessage(
         {
             if (channelMesssage.has_subtask_queue_request())
             {
-                HandleSubTaskQueueRequest(channelMesssage);
+                _this->HandleSubTaskQueueRequest(channelMesssage);
             }
             else if (channelMesssage.has_subtask_queue())
             {
-                HandleSubTaskQueue(channelMesssage);
+                _this->HandleSubTaskQueue(channelMesssage);
             }
         }
     }

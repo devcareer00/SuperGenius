@@ -16,7 +16,10 @@ void ProcessingEngine::StartQueueProcessing(
     std::lock_guard<std::mutex> queueGuard(m_mutexSubTaskQueue);
     m_subTaskQueueAccessor = subTaskQueueAccessor;
 
-    m_subTaskQueueAccessor->GrabSubTask(std::bind(&ProcessingEngine::OnSubTaskGrabbed, this, std::placeholders::_1));
+    m_subTaskQueueAccessor->GrabSubTask(
+        std::bind(
+            &ProcessingEngine::OnSubTaskGrabbed, 
+            shared_from_this(), std::placeholders::_1));
 }
 
 void ProcessingEngine::StopQueueProcessing()
@@ -43,20 +46,22 @@ void ProcessingEngine::OnSubTaskGrabbed(boost::optional<const SGProcessing::SubT
 void ProcessingEngine::ProcessSubTask(SGProcessing::SubTask subTask)
 {
     m_logger->debug("[PROCESSING_STARTED]. ({}).", subTask.subtaskid());
-    std::thread thread([subTask(std::move(subTask)), this]()
+    std::thread thread([subTask(std::move(subTask)), _this(shared_from_this())]()
     {
         SGProcessing::SubTaskResult result;
         // @todo set initial hash code that depends on node id
-        m_processingCore->ProcessSubTask(subTask, result, std::hash<std::string>{}(m_nodeId));
+        _this->m_processingCore->ProcessSubTask(
+            subTask, result, std::hash<std::string>{}(_this->m_nodeId));
         // @todo replace results_channel with subtaskid
         result.set_subtaskid(subTask.subtaskid());
-        m_logger->debug("[PROCESSED]. ({}).", subTask.subtaskid());
-        std::lock_guard<std::mutex> queueGuard(m_mutexSubTaskQueue);
-        if (m_subTaskQueueAccessor)
+        _this->m_logger->debug("[PROCESSED]. ({}).", subTask.subtaskid());
+        std::lock_guard<std::mutex> queueGuard(_this->m_mutexSubTaskQueue);
+        if (_this->m_subTaskQueueAccessor)
         {
-            m_subTaskQueueAccessor->CompleteSubTask(subTask.subtaskid(), result);
+            _this->m_subTaskQueueAccessor->CompleteSubTask(subTask.subtaskid(), result);
             // @todo Should a new subtask be grabbed once the perivious one is processed?
-            m_subTaskQueueAccessor->GrabSubTask(std::bind(&ProcessingEngine::OnSubTaskGrabbed, this, std::placeholders::_1));
+            _this->m_subTaskQueueAccessor->GrabSubTask(
+                std::bind(&ProcessingEngine::OnSubTaskGrabbed, _this, std::placeholders::_1));
         }
     });
     thread.detach();

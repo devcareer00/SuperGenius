@@ -14,7 +14,8 @@ namespace sgns::processing
 {
 /** Subtask queue channel implementation that uses pubsub as a data transport protocol
 */
-class ProcessingSubTaskQueueChannelPubSub : public ProcessingSubTaskQueueChannel
+class ProcessingSubTaskQueueChannelPubSub : public ProcessingSubTaskQueueChannel,
+    public std::enable_shared_from_this<ProcessingSubTaskQueueChannelPubSub>
 {
 public:
     typedef std::function<bool(const SGProcessing::SubTaskQueueRequest&)> QueueRequestSink;
@@ -49,7 +50,9 @@ public:
 private:
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSubTopic> m_processingQueueChannel;
 
-    void OnProcessingChannelMessage(boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message);
+    static void OnProcessingChannelMessage(
+        std::weak_ptr<ProcessingSubTaskQueueChannelPubSub> weakThis,
+        boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message);
 
     void HandleSubTaskQueueRequest(SGProcessing::ProcessingChannelMessage& channelMesssage);
     void HandleSubTaskQueue(SGProcessing::ProcessingChannelMessage& channelMesssage);

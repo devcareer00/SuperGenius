@@ -69,6 +69,8 @@ void ProcessingServiceImpl::OnQueueProcessingCompleted(
     const std::string& subTaskQueueId, const SGProcessing::TaskResult& taskResult)
 {
     m_logger->debug("SUBTASK_QUEUE_PROCESSING_COMPLETED: {}", subTaskQueueId);
+    m_processingNodes.erase(subTaskQueueId);
+    
     SendChannelListRequest();
     // @todo finalize task
     // @todo Add notification of finished task

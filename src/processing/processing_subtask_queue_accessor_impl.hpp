@@ -17,7 +17,8 @@ namespace sgns::processing
 {
 /** Subtask storage implementation
 */
-class SubTaskQueueAccessorImpl: public SubTaskQueueAccessor
+class SubTaskQueueAccessorImpl : public SubTaskQueueAccessor,
+    public std::enable_shared_from_this<SubTaskQueueAccessorImpl>
 {
 public:
     /** Creates subtask queue accessor implementation object
@@ -48,7 +49,9 @@ public:
 private:
     void OnResultReceived(const std::string& subTaskId, const SGProcessing::SubTaskResult& subTaskResult);
     
-    void OnResultChannelMessage(boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message);
+    static void OnResultChannelMessage(
+        std::weak_ptr<SubTaskQueueAccessorImpl> weakThis,
+        boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message);
 
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> m_gossipPubSub;
     std::shared_ptr<ProcessingSubTaskQueueManager> m_subTaskQueueManager;

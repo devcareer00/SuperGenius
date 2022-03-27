@@ -16,12 +16,18 @@ SubTaskQueueAccessorImpl::SubTaskQueueAccessorImpl(
 {
     // @todo replace hardcoded channel identified with an input value
     m_resultChannel = std::make_shared<ipfs_pubsub::GossipPubSubTopic>(m_gossipPubSub, "RESULT_CHANNEL_ID");
-    m_resultChannel->Subscribe(std::bind(&SubTaskQueueAccessorImpl::OnResultChannelMessage, this, std::placeholders::_1));
 }
 
 void SubTaskQueueAccessorImpl::AssignSubTasks(std::list<SGProcessing::SubTask>& subTasks)
 {
-    // Enqueue them subtasks if all the subtasks are available
+    // It cannot be called in class constructor because shared_from_this doesn't work for the case
+    // The shared_from_this() is required to prevent a case when the message processing callback
+    // is called using an invalid 'this' pointer to destroyed object
+    m_resultChannel->Subscribe(
+        std::bind(
+            &SubTaskQueueAccessorImpl::OnResultChannelMessage,
+            weak_from_this(), std::placeholders::_1));
+
     for (const auto& subTask : subTasks)
     {
         m_subTaskStateStorage->ChangeSubTaskState(
@@ -96,21 +102,28 @@ std::vector<std::tuple<std::string, SGProcessing::SubTaskResult>> SubTaskQueueAc
 }
 
 void SubTaskQueueAccessorImpl::OnResultChannelMessage(
+    std::weak_ptr<SubTaskQueueAccessorImpl> weakThis,
     boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message)
 {
+    auto _this = weakThis.lock();
+    if (!_this)
+    {
+        return;
+    }
+    
     if (message)
     {
         auto result = std::make_shared<SGProcessing::SubTaskResult>();
         if (result->ParseFromArray(message->data.data(), static_cast<int>(message->data.size())))
         {
-            m_logger->debug("[RESULT_RECEIVED]. ({}).", result->ipfs_results_data_id());
+            _this->m_logger->debug("[RESULT_RECEIVED]. ({}).", result->ipfs_results_data_id());
 
-            OnResultReceived(result->subtaskid(), *result);
+            _this->OnResultReceived(result->subtaskid(), *result);
 
             // Results accumulation
             {
-                std::lock_guard<std::mutex> guard(m_mutexResults);
-                m_results.insert({ result->subtaskid(), std::move(result) });
+                std::lock_guard<std::mutex> guard(_this->m_mutexResults);
+                _this->m_results.insert({ result->subtaskid(), std::move(result) });
             }
         }
     }

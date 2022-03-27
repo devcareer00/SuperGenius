@@ -14,7 +14,7 @@ namespace sgns::processing
 {
 /** Handles subtask processing and processing results accumulation
 */
-class ProcessingEngine
+class ProcessingEngine : public std::enable_shared_from_this<ProcessingEngine>
 {
 public:
     /** Create a processing engine object

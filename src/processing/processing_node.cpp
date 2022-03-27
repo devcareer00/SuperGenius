@@ -22,6 +22,10 @@ ProcessingNode::ProcessingNode(
 
 ProcessingNode::~ProcessingNode()
 {
+    if (m_processingEngine)
+    {
+        m_processingEngine->StopQueueProcessing();
+    }
 }
 
 void ProcessingNode::Initialize(const std::string& processingQueueChannelId, size_t msSubscriptionWaitingDuration)
@@ -47,7 +51,7 @@ void ProcessingNode::Initialize(const std::string& processingQueueChannelId, siz
         std::bind(&ProcessingSubTaskQueueManager::ProcessSubTaskQueueMessage,
             m_subtaskQueueManager, std::placeholders::_1));
 
-    m_processingEngine = std::make_unique<ProcessingEngine>(m_nodeId, m_processingCore);
+    m_processingEngine = std::make_shared<ProcessingEngine>(m_nodeId, m_processingCore);
         
     // Run messages processing once all dependent object are created
     processingQueueChannel->Listen(msSubscriptionWaitingDuration);

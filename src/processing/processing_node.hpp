@@ -56,7 +56,7 @@ private:
     std::shared_ptr<SubTaskStateStorage> m_subTaskStateStorage;
     std::shared_ptr<SubTaskResultStorage> m_subTaskResultStorage;
 
-    std::unique_ptr<ProcessingEngine> m_processingEngine;
+    std::shared_ptr<ProcessingEngine> m_processingEngine;
     std::shared_ptr<ProcessingSubTaskQueueChannel> m_queueChannel;
     std::shared_ptr<ProcessingSubTaskQueueManager> m_subtaskQueueManager;
     std::shared_ptr<SubTaskQueueAccessor> m_subTaskQueueAccessor;
