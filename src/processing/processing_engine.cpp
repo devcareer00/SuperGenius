@@ -10,6 +10,11 @@ ProcessingEngine::ProcessingEngine(
 {
 }
 
+ProcessingEngine::~ProcessingEngine()
+{
+    m_logger->debug("[RELEASED] this: {}", reinterpret_cast<size_t>(this));
+}
+
 void ProcessingEngine::StartQueueProcessing(
     std::shared_ptr<SubTaskQueueAccessor> subTaskQueueAccessor)
 {
@@ -26,6 +31,7 @@ void ProcessingEngine::StopQueueProcessing()
 {
     std::lock_guard<std::mutex> queueGuard(m_mutexSubTaskQueue);
     m_subTaskQueueAccessor.reset();
+    m_logger->debug("[PROCESSING_STOPPED] this: {}", reinterpret_cast<size_t>(this));
 }
 
 bool ProcessingEngine::IsQueueProcessingStarted() const
@@ -41,6 +47,8 @@ void ProcessingEngine::OnSubTaskGrabbed(boost::optional<const SGProcessing::SubT
         m_logger->debug("[GRABBED]. ({}).", subTask->subtaskid());
         ProcessSubTask(*subTask);
     }
+
+    // When results for all subtasks are available, no subtask is received (optnull).
 }
 
 void ProcessingEngine::ProcessSubTask(SGProcessing::SubTask subTask)

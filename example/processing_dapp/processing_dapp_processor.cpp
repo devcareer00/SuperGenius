@@ -242,6 +242,9 @@ int main(int argc, char* argv[])
 
     auto loggerEnqueuer = sgns::base::createLogger("SubTaskEnqueuerImpl");
     loggerEnqueuer->set_level(spdlog::level::debug);
+
+    auto loggerQueueChannel = sgns::base::createLogger("ProcessingSubTaskQueueChannelPubSub");
+    loggerQueueChannel->set_level(spdlog::level::debug);
     
     //
     const std::string processingGridChannel = "GRID_CHANNEL_ID";

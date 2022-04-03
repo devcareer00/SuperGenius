@@ -18,6 +18,11 @@ SubTaskQueueAccessorImpl::SubTaskQueueAccessorImpl(
     m_resultChannel = std::make_shared<ipfs_pubsub::GossipPubSubTopic>(m_gossipPubSub, "RESULT_CHANNEL_ID");
 }
 
+SubTaskQueueAccessorImpl::~SubTaskQueueAccessorImpl()
+{
+    m_logger->debug("[RELEASED] this: {}", reinterpret_cast<size_t>(this));
+}
+
 void SubTaskQueueAccessorImpl::AssignSubTasks(std::list<SGProcessing::SubTask>& subTasks)
 {
     // It cannot be called in class constructor because shared_from_this doesn't work for the case
@@ -34,6 +39,7 @@ void SubTaskQueueAccessorImpl::AssignSubTasks(std::list<SGProcessing::SubTask>& 
             subTask.subtaskid(), SGProcessing::SubTaskState::ENQUEUED);
     }
 
+    // @todo Read results from DB and add them to queue manager
     m_subTaskQueueManager->CreateQueue(subTasks);
 }
 

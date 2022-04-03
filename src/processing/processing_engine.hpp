@@ -24,6 +24,7 @@ public:
     ProcessingEngine(
         std::string nodeId,
         std::shared_ptr<ProcessingCore> processingCore);
+    ~ProcessingEngine();
 
     // @todo rename to StartProcessing
     void StartQueueProcessing(std::shared_ptr<SubTaskQueueAccessor> subTaskQueueAccessor);

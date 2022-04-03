@@ -9,6 +9,7 @@
 #include <processing/processing_subtask_queue_channel.hpp>
 
 #include <ipfs_pubsub/gossip_pubsub_topic.hpp>
+#include <base/logger.hpp>
 
 namespace sgns::processing
 {
@@ -28,6 +29,8 @@ public:
     ProcessingSubTaskQueueChannelPubSub(
         std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> gossipPubSub,
         const std::string& processingQueueChannelId);
+
+    virtual ~ProcessingSubTaskQueueChannelPubSub();
 
     /** ProcessingSubTaskQueueChannel overrides
     */
@@ -62,6 +65,8 @@ private:
 
     std::function<bool(const SGProcessing::SubTaskQueueRequest&)> m_queueRequestSink;
     std::function<bool(SGProcessing::SubTaskQueue*)> m_queueUpdateSink;
+
+    base::Logger m_logger = base::createLogger("ProcessingSubTaskQueueChannelPubSub");
 };
 }
 #endif // SUPERGENIUS_PROCESSING_SUBTASK_QUEUE_CHANNEL_PUBSUB_HPP

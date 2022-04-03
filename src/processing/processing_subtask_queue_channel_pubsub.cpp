@@ -12,6 +12,11 @@ ProcessingSubTaskQueueChannelPubSub::ProcessingSubTaskQueueChannelPubSub(
     m_processingQueueChannel = std::make_shared<GossipPubSubTopic>(m_gossipPubSub, processingQueueChannelId);
 }
 
+ProcessingSubTaskQueueChannelPubSub::~ProcessingSubTaskQueueChannelPubSub()
+{
+    m_logger->debug("[RELEASED] this: {}", reinterpret_cast<size_t>(this));
+}
+
 void ProcessingSubTaskQueueChannelPubSub::Listen(size_t msSubscriptionWaitingDuration)
 {
     // Run messages processing once all dependent object are created

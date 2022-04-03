@@ -32,6 +32,7 @@ public:
         std::shared_ptr<ProcessingSubTaskQueueChannel> queueChannel,
         std::shared_ptr<boost::asio::io_context> context,
         const std::string& localNodeId);
+    ~ProcessingSubTaskQueueManager();
 
     /** Create a subtask queue by splitting the task to subtasks using the processing code
     * @param subTasks - a list of subtasks that should be added to the queue

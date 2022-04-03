@@ -18,6 +18,11 @@ ProcessingSubTaskQueueManager::ProcessingSubTaskQueueManager(
 {
 }
 
+ProcessingSubTaskQueueManager::~ProcessingSubTaskQueueManager()
+{
+    m_logger->debug("[RELEASED] this: {}", reinterpret_cast<size_t>(this));
+}
+
 bool ProcessingSubTaskQueueManager::CreateQueue(std::list<SGProcessing::SubTask>& subTasks)
 {
     auto timestamp = std::chrono::system_clock::now();
@@ -378,6 +383,7 @@ void ProcessingSubTaskQueueManager::LogQueue() const
     {
         std::stringstream ss;
         ss << "{";
+        ss << "\"this\":\"" << reinterpret_cast<size_t>(this) << "\"";
         ss << "\"owner_node_id\":\"" << m_queue->processing_queue().owner_node_id() << "\"";
         ss << "," << "\"last_update_timestamp\":" << m_queue->processing_queue().last_update_timestamp();
         ss << "," << "\"items\":[";

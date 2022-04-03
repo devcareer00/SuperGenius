@@ -22,10 +22,6 @@ ProcessingNode::ProcessingNode(
 
 ProcessingNode::~ProcessingNode()
 {
-    if (m_processingEngine)
-    {
-        m_processingEngine->StopQueueProcessing();
-    }
 }
 
 void ProcessingNode::Initialize(const std::string& processingQueueChannelId, size_t msSubscriptionWaitingDuration)
@@ -44,15 +40,29 @@ void ProcessingNode::Initialize(const std::string& processingQueueChannelId, siz
         m_taskResultProcessingSink);
 
     processingQueueChannel->SetQueueRequestSink(
-        std::bind(&ProcessingSubTaskQueueManager::ProcessSubTaskQueueRequestMessage,
-            m_subtaskQueueManager, std::placeholders::_1));
+        [qmWeak(std::weak_ptr<ProcessingSubTaskQueueManager>(m_subtaskQueueManager))] (
+            const SGProcessing::SubTaskQueueRequest& request) {
+            auto qm = qmWeak.lock();
+            if (qm)
+            {
+                return qm->ProcessSubTaskQueueRequestMessage(request);
+            }
+            return false;
+        });
 
     processingQueueChannel->SetQueueUpdateSink(
-        std::bind(&ProcessingSubTaskQueueManager::ProcessSubTaskQueueMessage,
-            m_subtaskQueueManager, std::placeholders::_1));
-
+        [qmWeak(std::weak_ptr<ProcessingSubTaskQueueManager>(m_subtaskQueueManager))](
+            SGProcessing::SubTaskQueue* queue) {
+            auto qm = qmWeak.lock();
+            if (qm)
+            {
+                return qm->ProcessSubTaskQueueMessage(queue);
+            }
+            return false;
+        });
+      
     m_processingEngine = std::make_shared<ProcessingEngine>(m_nodeId, m_processingCore);
-        
+
     // Run messages processing once all dependent object are created
     processingQueueChannel->Listen(msSubscriptionWaitingDuration);
 
