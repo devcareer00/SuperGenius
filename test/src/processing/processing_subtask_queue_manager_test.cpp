@@ -341,8 +341,10 @@ TEST_F(ProcessingSubTaskQueueManagerTest, AddUnexpectedResult)
     queueManager1.CreateQueue(subTasks);
 
     SGProcessing::SubTaskResult subTaskResult;
-    ASSERT_TRUE(queueManager1.AddSubTaskResult("SUBTASK_1", subTaskResult));
-    ASSERT_FALSE(queueManager1.AddSubTaskResult("SUBTASK_UNKNOWN", subTaskResult));
+    subTaskResult.set_subtaskid("SUBTASK_1");
+    ASSERT_TRUE(queueManager1.AddSubTaskResult(subTaskResult));
+    subTaskResult.set_subtaskid("SUBTASK_UNKNOWN");
+    ASSERT_FALSE(queueManager1.AddSubTaskResult(subTaskResult));
 }
 
 /**
@@ -375,11 +377,13 @@ TEST_F(ProcessingSubTaskQueueManagerTest, CheckProcessedQueue)
     queueManager1.CreateQueue(subTasks);
 
     SGProcessing::SubTaskResult subTaskResult;
-    queueManager1.AddSubTaskResult("SUBTASK_1", subTaskResult);
+    subTaskResult.set_subtaskid("SUBTASK_1");
+    queueManager1.AddSubTaskResult(subTaskResult);
 
     ASSERT_FALSE(queueManager1.IsProcessed());
 
-    queueManager1.AddSubTaskResult("SUBTASK_2", subTaskResult);
+    subTaskResult.set_subtaskid("SUBTASK_2");
+    queueManager1.AddSubTaskResult(subTaskResult);
 
     ASSERT_TRUE(queueManager1.IsProcessed());
 }
@@ -431,12 +435,14 @@ TEST_F(ProcessingSubTaskQueueManagerTest, ValidateResults)
 
     SGProcessing::SubTaskResult subTaskResult;
     subTaskResult.add_chunk_hashes(1);
+    subTaskResult.set_subtaskid("SUBTASK_1");
 
-    queueManager1.AddSubTaskResult("SUBTASK_1", subTaskResult);
+    queueManager1.AddSubTaskResult(subTaskResult);
 
     ASSERT_FALSE(queueManager1.ValidateResults());
 
-    queueManager1.AddSubTaskResult("SUBTASK_2", subTaskResult);
+    subTaskResult.set_subtaskid("SUBTASK_2");
+    queueManager1.AddSubTaskResult(subTaskResult);
 
     ASSERT_TRUE(queueManager1.ValidateResults());
 }

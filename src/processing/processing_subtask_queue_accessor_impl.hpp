@@ -52,7 +52,7 @@ public:
     std::vector<std::tuple<std::string, SGProcessing::SubTaskResult>> GetResults() const;
 
 private:
-    void OnResultReceived(const std::string& subTaskId, const SGProcessing::SubTaskResult& subTaskResult);
+    void OnResultReceived(const SGProcessing::SubTaskResult& subTaskResult);
     
     static void OnResultChannelMessage(
         std::weak_ptr<SubTaskQueueAccessorImpl> weakThis,

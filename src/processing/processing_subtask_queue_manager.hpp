@@ -74,12 +74,10 @@ public:
     std::unique_ptr<SGProcessing::SubTaskQueue> GetQueueSnapshot() const;
 
     /** Add a results for a processed subtask into the queue
-    * @param subTaskId - subtask identifier
     * @param subTaskResult - subtask result
     * @return true if the result was added
     */
-    bool AddSubTaskResult(
-        const std::string& subTaskId, const SGProcessing::SubTaskResult& subTaskResult);
+    bool AddSubTaskResult(const SGProcessing::SubTaskResult& subTaskResult);
 
     /** Checks if all subtask in the queue are processed
     * @return true if the queue is processed

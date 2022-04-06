@@ -262,9 +262,11 @@ std::unique_ptr<SGProcessing::SubTaskQueue> ProcessingSubTaskQueueManager::GetQu
 }
 
 bool ProcessingSubTaskQueueManager::AddSubTaskResult(
-    const std::string& subTaskId, const SGProcessing::SubTaskResult& subTaskResult)
+    const SGProcessing::SubTaskResult& subTaskResult)
 {
     std::lock_guard<std::mutex> guard(m_queueMutex);
+
+    const std::string& subTaskId = subTaskResult.subtaskid();
     bool channelFound = false;
     for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks_size(); ++subTaskIdx)
     {

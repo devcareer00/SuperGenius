@@ -61,9 +61,9 @@ void SubTaskQueueAccessorImpl::CompleteSubTask(const std::string& subTaskId, con
     m_logger->debug("[RESULT_SENT]. ({}).", subTaskId);
 }
 
-void SubTaskQueueAccessorImpl::OnResultReceived(const std::string& subTaskId, const SGProcessing::SubTaskResult& subTaskResult)
+void SubTaskQueueAccessorImpl::OnResultReceived(const SGProcessing::SubTaskResult& subTaskResult)
 {
-    m_subTaskQueueManager->AddSubTaskResult(subTaskId, subTaskResult);
+    m_subTaskQueueManager->AddSubTaskResult(subTaskResult);
 
     // Task processing finished
     if (m_subTaskQueueManager->IsProcessed()) 
@@ -127,7 +127,7 @@ void SubTaskQueueAccessorImpl::OnResultChannelMessage(
         {
             _this->m_logger->debug("[RESULT_RECEIVED]. ({}).", result->ipfs_results_data_id());
 
-            _this->OnResultReceived(result->subtaskid(), *result);
+            _this->OnResultReceived(*result);
 
             // Results accumulation
             {
