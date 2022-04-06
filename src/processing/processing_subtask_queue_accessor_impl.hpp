@@ -36,6 +36,10 @@ public:
         std::function<void(const SGProcessing::TaskResult&)> taskResultProcessingSink);
     virtual ~SubTaskQueueAccessorImpl();
     
+    /** Start listening to results channel
+    */
+    void ConnectToResultChannel();
+
     /** SubTaskQueueAccessor overrides
     */
     void AssignSubTasks(std::list<SGProcessing::SubTask>& subTasks) override;

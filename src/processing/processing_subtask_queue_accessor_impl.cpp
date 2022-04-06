@@ -23,7 +23,7 @@ SubTaskQueueAccessorImpl::~SubTaskQueueAccessorImpl()
     m_logger->debug("[RELEASED] this: {}", reinterpret_cast<size_t>(this));
 }
 
-void SubTaskQueueAccessorImpl::AssignSubTasks(std::list<SGProcessing::SubTask>& subTasks)
+void SubTaskQueueAccessorImpl::ConnectToResultChannel()
 {
     // It cannot be called in class constructor because shared_from_this doesn't work for the case
     // The shared_from_this() is required to prevent a case when the message processing callback
@@ -32,7 +32,10 @@ void SubTaskQueueAccessorImpl::AssignSubTasks(std::list<SGProcessing::SubTask>& 
         std::bind(
             &SubTaskQueueAccessorImpl::OnResultChannelMessage,
             weak_from_this(), std::placeholders::_1));
+}
 
+void SubTaskQueueAccessorImpl::AssignSubTasks(std::list<SGProcessing::SubTask>& subTasks)
+{
     for (const auto& subTask : subTasks)
     {
         m_subTaskStateStorage->ChangeSubTaskState(

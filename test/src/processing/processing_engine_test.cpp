@@ -164,7 +164,7 @@ TEST_F(ProcessingEngineTest, SubTaskProcessing)
     auto processingCore = std::make_shared<ProcessingCoreImpl>(0);
 
     auto nodeId = "NODE_1";
-    ProcessingEngine engine(nodeId, processingCore);
+    auto engine = std::make_shared<ProcessingEngine>(nodeId, processingCore);
 
     std::list<SGProcessing::SubTask> subTasks;
     auto subTaskQueueAccessor = std::make_shared<SubTaskQueueAccessorMock>(context);
@@ -181,7 +181,7 @@ TEST_F(ProcessingEngineTest, SubTaskProcessing)
     subTaskQueueAccessor->AssignSubTasks(subTasks);
 
     std::thread contextThread([&context]() { context.run(); });
-    engine.StartQueueProcessing(subTaskQueueAccessor);
+    engine->StartQueueProcessing(subTaskQueueAccessor);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(2000));
 
@@ -208,8 +208,8 @@ TEST_F(ProcessingEngineTest, SharedSubTaskProcessing)
     auto nodeId1 = "NODE_1";
     auto nodeId2 = "NODE_2";
 
-    ProcessingEngine engine1(nodeId1, processingCore);
-    ProcessingEngine engine2(nodeId2, processingCore);
+    auto engine1 = std::make_shared<ProcessingEngine>(nodeId1, processingCore);
+    auto engine2 = std::make_shared<ProcessingEngine>(nodeId2, processingCore);
 
     auto subTaskQueueAccessor1 = std::make_shared<SubTaskQueueAccessorMock>(context);
     {
@@ -231,10 +231,10 @@ TEST_F(ProcessingEngineTest, SharedSubTaskProcessing)
 
     std::thread contextThread([&context]() { context.run(); });
 
-    engine1.StartQueueProcessing(subTaskQueueAccessor1);
+    engine1->StartQueueProcessing(subTaskQueueAccessor1);
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    engine2.StartQueueProcessing(subTaskQueueAccessor2);
+    engine2->StartQueueProcessing(subTaskQueueAccessor2);
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
     context.stop();

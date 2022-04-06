@@ -52,30 +52,30 @@ TEST_F(ProcessingSubTaskChannelPubSubTest, RequestTransmittingOnSinglePubSubHost
     auto pubs1 = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();;
     pubs1->Start(40001, {});
 
-    ProcessingSubTaskQueueChannelPubSub queueChannel1(pubs1, "PROCESSING_CHANNEL_ID");
-    ProcessingSubTaskQueueChannelPubSub queueChannel2(pubs1, "PROCESSING_CHANNEL_ID");
+    auto queueChannel1 = std::make_shared<ProcessingSubTaskQueueChannelPubSub>(pubs1, "PROCESSING_CHANNEL_ID");
+    auto queueChannel2 = std::make_shared<ProcessingSubTaskQueueChannelPubSub>(pubs1, "PROCESSING_CHANNEL_ID");
 
     std::vector<std::string> requestedNodeIds1;
-    queueChannel1.SetQueueRequestSink([&requestedNodeIds1](const SGProcessing::SubTaskQueueRequest& request) {
+    queueChannel1->SetQueueRequestSink([&requestedNodeIds1](const SGProcessing::SubTaskQueueRequest& request) {
             requestedNodeIds1.push_back(request.node_id());
             return true;
         });
 
     std::vector<std::string> requestedNodeIds2;
-    queueChannel2.SetQueueRequestSink([&requestedNodeIds2](const SGProcessing::SubTaskQueueRequest& request) {
+    queueChannel2->SetQueueRequestSink([&requestedNodeIds2](const SGProcessing::SubTaskQueueRequest& request) {
         requestedNodeIds2.push_back(request.node_id());
         return true;
         });
 
-    queueChannel1.Listen(100);
-    queueChannel2.Listen(100);
+    queueChannel1->Listen(100);
+    queueChannel2->Listen(100);
 
     std::string nodeId1 = "NODE1_ID";
-    queueChannel1.RequestQueueOwnership(nodeId1);
+    queueChannel1->RequestQueueOwnership(nodeId1);
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     std::string nodeId2 = "NODE2_ID";
-    queueChannel2.RequestQueueOwnership(nodeId2);
+    queueChannel2->RequestQueueOwnership(nodeId2);
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     pubs1->Stop();
@@ -102,30 +102,30 @@ TEST_F(ProcessingSubTaskChannelPubSubTest, RequestTransmittingOnDifferentPubSubH
     auto pubs2 = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();;
     pubs2->Start(40001, { pubs1->GetLocalAddress() });
 
-    ProcessingSubTaskQueueChannelPubSub queueChannel1(pubs1, "PROCESSING_CHANNEL_ID");
-    ProcessingSubTaskQueueChannelPubSub queueChannel2(pubs2, "PROCESSING_CHANNEL_ID");
+    auto queueChannel1 = std::make_shared<ProcessingSubTaskQueueChannelPubSub>(pubs1, "PROCESSING_CHANNEL_ID");
+    auto queueChannel2 = std::make_shared<ProcessingSubTaskQueueChannelPubSub>(pubs2, "PROCESSING_CHANNEL_ID");
 
     std::set<std::string> requestedNodeIds1;
-    queueChannel1.SetQueueRequestSink([&requestedNodeIds1](const SGProcessing::SubTaskQueueRequest& request) {
+    queueChannel1->SetQueueRequestSink([&requestedNodeIds1](const SGProcessing::SubTaskQueueRequest& request) {
         requestedNodeIds1.insert(request.node_id());
         return true;
         });
 
     std::set<std::string> requestedNodeIds2;
-    queueChannel2.SetQueueRequestSink([&requestedNodeIds2](const SGProcessing::SubTaskQueueRequest& request) {
+    queueChannel2->SetQueueRequestSink([&requestedNodeIds2](const SGProcessing::SubTaskQueueRequest& request) {
         requestedNodeIds2.insert(request.node_id());
         return true;
         });
 
-    queueChannel1.Listen(100);
-    queueChannel2.Listen(100);
+    queueChannel1->Listen(100);
+    queueChannel2->Listen(100);
 
     std::string nodeId1 = "NODE1_ID";
-    queueChannel1.RequestQueueOwnership(nodeId1);
+    queueChannel1->RequestQueueOwnership(nodeId1);
     std::this_thread::sleep_for(std::chrono::milliseconds(1500));
 
     std::string nodeId2 = "NODE2_ID";
-    queueChannel2.RequestQueueOwnership(nodeId2);
+    queueChannel2->RequestQueueOwnership(nodeId2);
     std::this_thread::sleep_for(std::chrono::milliseconds(1500));
 
     pubs1->Stop();
@@ -145,11 +145,11 @@ TEST_F(ProcessingSubTaskChannelPubSubTest, QueueTransmittingOnSinglePubSubHost)
     auto pubs1 = std::make_shared<sgns::ipfs_pubsub::GossipPubSub>();;
     pubs1->Start(40001, {});
 
-    ProcessingSubTaskQueueChannelPubSub queueChannel1(pubs1, "PROCESSING_CHANNEL_ID");
-    ProcessingSubTaskQueueChannelPubSub queueChannel2(pubs1, "PROCESSING_CHANNEL_ID");
+    auto queueChannel1 = std::make_shared<ProcessingSubTaskQueueChannelPubSub>(pubs1, "PROCESSING_CHANNEL_ID");
+    auto queueChannel2 = std::make_shared<ProcessingSubTaskQueueChannelPubSub>(pubs1, "PROCESSING_CHANNEL_ID");
 
     std::vector<std::shared_ptr<SGProcessing::SubTaskQueue>> queueSnapshotSet1;
-    queueChannel1.SetQueueUpdateSink([&queueSnapshotSet1](SGProcessing::SubTaskQueue* queue) {
+    queueChannel1->SetQueueUpdateSink([&queueSnapshotSet1](SGProcessing::SubTaskQueue* queue) {
         std::shared_ptr<SGProcessing::SubTaskQueue> pQueue;
         pQueue.reset(queue);
         queueSnapshotSet1.push_back(pQueue);
@@ -157,15 +157,15 @@ TEST_F(ProcessingSubTaskChannelPubSubTest, QueueTransmittingOnSinglePubSubHost)
         });
 
     std::vector<std::shared_ptr<SGProcessing::SubTaskQueue>> queueSnapshotSet2;
-    queueChannel2.SetQueueUpdateSink([&queueSnapshotSet2](SGProcessing::SubTaskQueue* queue) {
+    queueChannel2->SetQueueUpdateSink([&queueSnapshotSet2](SGProcessing::SubTaskQueue* queue) {
         std::shared_ptr<SGProcessing::SubTaskQueue> pQueue;
         pQueue.reset(queue);
         queueSnapshotSet2.push_back(pQueue);
         return true;
         });
 
-    queueChannel1.Listen(100);
-    queueChannel2.Listen(100);
+    queueChannel1->Listen(100);
+    queueChannel2->Listen(100);
 
     std::string nodeId1 = "NODE1_ID";
     auto queue = std::make_shared<SGProcessing::SubTaskQueue>();
@@ -179,12 +179,12 @@ TEST_F(ProcessingSubTaskChannelPubSubTest, QueueTransmittingOnSinglePubSubHost)
         subtask->set_subtaskid("SUBTASK_2");
     }
 
-    queueChannel1.PublishQueue(queue);
+    queueChannel1->PublishQueue(queue);
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     std::string nodeId2 = "NODE2_ID";
     queue->mutable_processing_queue()->set_owner_node_id(nodeId2);
-    queueChannel2.PublishQueue(queue);
+    queueChannel2->PublishQueue(queue);
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     pubs1->Stop();

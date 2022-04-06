@@ -32,12 +32,15 @@ void ProcessingNode::Initialize(const std::string& processingQueueChannelId, siz
     m_subtaskQueueManager = std::make_shared<ProcessingSubTaskQueueManager>(
         processingQueueChannel, m_gossipPubSub->GetAsioContext(), m_nodeId);
 
-    m_subTaskQueueAccessor = std::make_shared<SubTaskQueueAccessorImpl>(
+    auto subTaskQueueAccessor = std::make_shared<SubTaskQueueAccessorImpl>(
         m_gossipPubSub,
         m_subtaskQueueManager,
         m_subTaskStateStorage,
         m_subTaskResultStorage,
         m_taskResultProcessingSink);
+
+    subTaskQueueAccessor->ConnectToResultChannel();
+    m_subTaskQueueAccessor = subTaskQueueAccessor;
 
     processingQueueChannel->SetQueueRequestSink(
         [qmWeak(std::weak_ptr<ProcessingSubTaskQueueManager>(m_subtaskQueueManager))] (

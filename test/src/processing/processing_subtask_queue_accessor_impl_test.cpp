@@ -151,7 +151,7 @@ TEST_F(SubTaskQueueAccessorImplTest, SubscribtionToResultChannel)
     auto processingCore = std::make_shared<ProcessingCoreImpl>(0);
 
     auto nodeId = "NODE_1";
-    ProcessingEngine engine(nodeId, processingCore);
+    auto engine = std::make_shared<ProcessingEngine>(nodeId, processingCore);
 
     auto queue = std::make_unique<SGProcessing::SubTaskQueue>();
     queue->mutable_processing_queue()->set_owner_node_id("DIFFERENT_NODE_ID");
@@ -172,7 +172,9 @@ TEST_F(SubTaskQueueAccessorImplTest, SubscribtionToResultChannel)
         std::make_shared<SubTaskResultStorageMock>(),
         [](const SGProcessing::TaskResult&) {});
 
-    engine.StartQueueProcessing(subTaskQueueAccessor);
+    subTaskQueueAccessor->ConnectToResultChannel();
+
+    engine->StartQueueProcessing(subTaskQueueAccessor);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
@@ -210,7 +212,7 @@ TEST_F(SubTaskQueueAccessorImplTest, TaskFinalization)
     auto nodeId1 = "NODE_1";
 
     bool isTaskFinalized = false;
-    ProcessingEngine engine1(nodeId1, processingCore);
+    auto engine1 = std::make_shared<ProcessingEngine>(nodeId1, processingCore);
     processingCore->m_chunkResultHashes["SUBTASK_ID1"] = { 0 };
     processingCore->m_chunkResultHashes["SUBTASK_ID2"] = { 0 };
 
@@ -252,7 +254,9 @@ TEST_F(SubTaskQueueAccessorImplTest, TaskFinalization)
         std::make_shared<SubTaskResultStorageMock>(),
         [&isTaskFinalized](const SGProcessing::TaskResult&) { isTaskFinalized = true; });
 
-    engine1.StartQueueProcessing(subTaskQueueAccessor1);
+    subTaskQueueAccessor1->ConnectToResultChannel();
+
+    engine1->StartQueueProcessing(subTaskQueueAccessor1);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
@@ -321,10 +325,10 @@ TEST_F(SubTaskQueueAccessorImplTest, InvalidSubTasksRestart)
     processingQueueManager1->ProcessSubTaskQueueMessage(queue.release());
 
     bool isTaskFinalized1 = false;
-    ProcessingEngine engine1(nodeId1, processingCore1);
+    auto engine1 = std::make_shared<ProcessingEngine>(nodeId1, processingCore1);
 
     bool isTaskFinalized2 = false;
-    ProcessingEngine engine2(nodeId2, processingCore2);
+    auto engine2 = std::make_shared<ProcessingEngine>(nodeId2, processingCore2);
 
     auto subTaskQueueAccessor1 = std::make_shared<SubTaskQueueAccessorImpl>(
         pubs1,
@@ -333,7 +337,9 @@ TEST_F(SubTaskQueueAccessorImplTest, InvalidSubTasksRestart)
         std::make_shared<SubTaskResultStorageMock>(),
         [&isTaskFinalized1](const SGProcessing::TaskResult&) { isTaskFinalized1 = true; });
 
-    engine1.StartQueueProcessing(subTaskQueueAccessor1);
+    subTaskQueueAccessor1->ConnectToResultChannel();
+
+    engine1->StartQueueProcessing(subTaskQueueAccessor1);
 
     // Wait for queue processing by node1
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
@@ -352,7 +358,7 @@ TEST_F(SubTaskQueueAccessorImplTest, InvalidSubTasksRestart)
     // Synchronize the queues
     processingQueueManager2->ProcessSubTaskQueueMessage(processingQueueManager1->GetQueueSnapshot().release());
     processingQueueManager1->ProcessSubTaskQueueMessage(processingQueueManager2->GetQueueSnapshot().release());
-    engine1.StopQueueProcessing();
+    engine1->StopQueueProcessing();
 
     // Wait for failed tasks expiration
     // @todo Automatically mark failed tasks as exired
@@ -365,7 +371,9 @@ TEST_F(SubTaskQueueAccessorImplTest, InvalidSubTasksRestart)
         std::make_shared<SubTaskResultStorageMock>(),
         [&isTaskFinalized2](const SGProcessing::TaskResult&) { isTaskFinalized2 = true; });
 
-    engine2.StartQueueProcessing(subTaskQueueAccessor2);
+    subTaskQueueAccessor2->ConnectToResultChannel();
+
+    engine2->StartQueueProcessing(subTaskQueueAccessor2);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
