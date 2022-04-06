@@ -10,13 +10,15 @@ ProcessingNode::ProcessingNode(
     std::shared_ptr<SubTaskStateStorage> subTaskStateStorage,
     std::shared_ptr<SubTaskResultStorage> subTaskResultStorage,
     std::shared_ptr<ProcessingCore> processingCore,
-    std::function<void(const SGProcessing::TaskResult&)> taskResultProcessingSink)
+    std::function<void(const SGProcessing::TaskResult&)> taskResultProcessingSink,
+    std::function<void(const std::string&)> processingErrorSink)
     : m_gossipPubSub(std::move(gossipPubSub))
     , m_nodeId(m_gossipPubSub->GetLocalAddress())
     , m_processingCore(processingCore)
     , m_subTaskStateStorage(subTaskStateStorage)
     , m_subTaskResultStorage(subTaskResultStorage)
     , m_taskResultProcessingSink(taskResultProcessingSink)
+    , m_processingErrorSink(processingErrorSink)
 {
 }
 
@@ -65,6 +67,8 @@ void ProcessingNode::Initialize(const std::string& processingQueueChannelId, siz
         });
       
     m_processingEngine = std::make_shared<ProcessingEngine>(m_nodeId, m_processingCore);
+
+    m_processingEngine->SetProcessingErrorSink(m_processingErrorSink);
 
     // Run messages processing once all dependent object are created
     processingQueueChannel->Listen(msSubscriptionWaitingDuration);

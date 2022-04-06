@@ -44,6 +44,7 @@ private:
     */
     void OnMessage(boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message);
     void OnQueueProcessingCompleted(const std::string& subTaskQueueId, const SGProcessing::TaskResult& taskResult);
+    void OnProcessingError(const std::string& subTaskQueueId, const std::string& errorMessage);
 
     void AcceptProcessingChannel(const std::string& channelId);
 

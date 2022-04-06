@@ -31,9 +31,11 @@ public:
         std::shared_ptr<SubTaskStateStorage> subTaskStateStorage,
         std::shared_ptr<SubTaskResultStorage> subTaskResultStorage,
         std::shared_ptr<ProcessingCore> processingCore,
-        std::function<void(const SGProcessing::TaskResult&)> taskResultProcessingSink);
+        std::function<void(const SGProcessing::TaskResult&)> taskResultProcessingSink,
+        std::function<void(const std::string&)> processingErrorSink);
 
     ~ProcessingNode();
+
     /** Attaches the node to the processing channel
     * @param processingQueueChannelId - identifier of a processing queue channel
     * @return flag indicating if the room is joined for block data processing
@@ -61,6 +63,7 @@ private:
     std::shared_ptr<ProcessingSubTaskQueueManager> m_subtaskQueueManager;
     std::shared_ptr<SubTaskQueueAccessor> m_subTaskQueueAccessor;
     std::function<void(const SGProcessing::TaskResult&)> m_taskResultProcessingSink;
+    std::function<void(const std::string&)> m_processingErrorSink;
 };
 }
 

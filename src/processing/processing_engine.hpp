@@ -32,6 +32,8 @@ public:
     void StopQueueProcessing();
     bool IsQueueProcessingStarted() const;
 
+    void SetProcessingErrorSink(std::function<void(const std::string&)> processingErrorSink);
+
 private:
     void OnSubTaskGrabbed(boost::optional<const SGProcessing::SubTask&> subTask);
 
@@ -42,6 +44,7 @@ private:
 
     std::string m_nodeId;
     std::shared_ptr<ProcessingCore> m_processingCore;
+    std::function<void(const std::string&)> m_processingErrorSink;
 
     std::shared_ptr<SubTaskQueueAccessor> m_subTaskQueueAccessor;
 

@@ -76,6 +76,16 @@ void ProcessingServiceImpl::OnQueueProcessingCompleted(
     // @todo Add notification of finished task
 }
 
+void ProcessingServiceImpl::OnProcessingError(
+    const std::string& subTaskQueueId, const std::string& errorMessage)
+{
+    m_logger->error("PROCESSING_ERROR reason: {}", errorMessage);
+    m_processingNodes.erase(subTaskQueueId);
+
+    // @todo Stop processing?
+    SendChannelListRequest();
+}
+
 void ProcessingServiceImpl::AcceptProcessingChannel(
     const std::string& processingQueuelId)
 {
@@ -88,7 +98,10 @@ void ProcessingServiceImpl::AcceptProcessingChannel(
             m_subTaskResultStorage,
             m_processingCore,
             std::bind(&ProcessingServiceImpl::OnQueueProcessingCompleted, 
+                this, processingQueuelId, std::placeholders::_1),
+            std::bind(&ProcessingServiceImpl::OnProcessingError,
                 this, processingQueuelId, std::placeholders::_1));
+
         node->AttachTo(processingQueuelId);
         processingNodes[processingQueuelId] = node;
     }
@@ -150,7 +163,10 @@ void ProcessingServiceImpl::HandleRequestTimeout()
                 m_subTaskResultStorage,
                 m_processingCore,
                 std::bind(&ProcessingServiceImpl::OnQueueProcessingCompleted, 
-                    this, subTaskQueueId, std::placeholders::_1));
+                    this, subTaskQueueId, std::placeholders::_1),
+                std::bind(&ProcessingServiceImpl::OnProcessingError,
+                    this, subTaskQueueId, std::placeholders::_1)
+                );
 
             // @todo Figure out if the task is still available for other peers
             // @todo Check if it is better to call EnqueueSubTasks within host 

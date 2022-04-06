@@ -51,27 +51,43 @@ void ProcessingEngine::OnSubTaskGrabbed(boost::optional<const SGProcessing::SubT
     // When results for all subtasks are available, no subtask is received (optnull).
 }
 
+void ProcessingEngine::SetProcessingErrorSink(std::function<void(const std::string&)> processingErrorSink)
+{
+    m_processingErrorSink = processingErrorSink;
+}
+
 void ProcessingEngine::ProcessSubTask(SGProcessing::SubTask subTask)
 {
     m_logger->debug("[PROCESSING_STARTED]. ({}).", subTask.subtaskid());
     std::thread thread([subTask(std::move(subTask)), _this(shared_from_this())]()
     {
-        SGProcessing::SubTaskResult result;
-        // @todo set initial hash code that depends on node id
-        _this->m_processingCore->ProcessSubTask(
-            subTask, result, std::hash<std::string>{}(_this->m_nodeId));
-        // @todo replace results_channel with subtaskid
-        result.set_subtaskid(subTask.subtaskid());
-        _this->m_logger->debug("[PROCESSED]. ({}).", subTask.subtaskid());
-        std::lock_guard<std::mutex> queueGuard(_this->m_mutexSubTaskQueue);
-        if (_this->m_subTaskQueueAccessor)
+        try
         {
-            _this->m_subTaskQueueAccessor->CompleteSubTask(subTask.subtaskid(), result);
-            // @todo Should a new subtask be grabbed once the perivious one is processed?
-            _this->m_subTaskQueueAccessor->GrabSubTask(
-                std::bind(&ProcessingEngine::OnSubTaskGrabbed, _this, std::placeholders::_1));
+            SGProcessing::SubTaskResult result;
+            // @todo set initial hash code that depends on node id
+            _this->m_processingCore->ProcessSubTask(
+                subTask, result, std::hash<std::string>{}(_this->m_nodeId));
+            // @todo replace results_channel with subtaskid
+            result.set_subtaskid(subTask.subtaskid());
+            _this->m_logger->debug("[PROCESSED]. ({}).", subTask.subtaskid());
+            std::lock_guard<std::mutex> queueGuard(_this->m_mutexSubTaskQueue);
+            if (_this->m_subTaskQueueAccessor)
+            {
+                _this->m_subTaskQueueAccessor->CompleteSubTask(subTask.subtaskid(), result);
+                // @todo Should a new subtask be grabbed once the perivious one is processed?
+                _this->m_subTaskQueueAccessor->GrabSubTask(
+                    std::bind(&ProcessingEngine::OnSubTaskGrabbed, _this, std::placeholders::_1));
+            }
+        }
+        catch (std::exception& ex)
+        {
+            if (_this->m_processingErrorSink)
+            {
+                _this->m_processingErrorSink(ex.what());
+            }
         }
     });
     thread.detach();
 }
+
 }
