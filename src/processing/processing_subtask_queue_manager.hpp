@@ -37,9 +37,12 @@ public:
     /** Create a subtask queue by splitting the task to subtasks using the processing code
     * @param subTasks - a list of subtasks that should be added to the queue
     * in subtasks to allow a validation
+    * @param subTaskResults - a list of available subtask results
     * @return false if not queue was created due to errors
     */
-    bool CreateQueue(std::list<SGProcessing::SubTask>& subTasks);
+    bool CreateQueue(
+        std::list<SGProcessing::SubTask>& subTasks,
+        const std::vector<SGProcessing::SubTaskResult>& subTaskResults);
 
     /** Asynchronous getting of a subtask from the queue
     * @param onSubTaskGrabbedCallback a callback that is called when a grapped iosubtask is locked by the local node
@@ -105,6 +108,7 @@ private:
     bool CheckSubTaskResultHashes(
         const SGProcessing::SubTask& subTask, 
         const std::map<std::string, std::vector<uint32_t>>& chunks) const;
+    bool AddSubTaskResultImpl(const SGProcessing::SubTaskResult& subTaskResult);
 
     std::shared_ptr<ProcessingSubTaskQueueChannel> m_queueChannel;
     std::shared_ptr<boost::asio::io_context> m_context;

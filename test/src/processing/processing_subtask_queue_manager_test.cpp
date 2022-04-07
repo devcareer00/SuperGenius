@@ -106,7 +106,7 @@ TEST_F(ProcessingSubTaskQueueManagerTest, QueueCreating)
     std::string nodeId = "SOME_ID";
     ProcessingSubTaskQueueManager queueManager(queueChannel, context, nodeId);
 
-    queueManager.CreateQueue(subTasks);
+    queueManager.CreateQueue(subTasks, {});
 
     ASSERT_EQ(0, requestedOwnerIds.size());
     ASSERT_EQ(1, queueSnapshotSet.size());
@@ -150,7 +150,7 @@ TEST_F(ProcessingSubTaskQueueManagerTest, QueueOwnershipTransfer)
     auto nodeId1 = "OLD_QUEUE_OWNER";
     ProcessingSubTaskQueueManager queueManager(queueChannel, context, nodeId1);
 
-    queueManager.CreateQueue(subTasks);
+    queueManager.CreateQueue(subTasks, {});
 
     auto nodeId2 = "NEW_QUEUE_OWNER";
     queueManager.MoveOwnershipTo(nodeId2);
@@ -197,7 +197,7 @@ TEST_F(ProcessingSubTaskQueueManagerTest, GrabSubTaskWithoutOwnershipTransferrin
     auto nodeId = "SOME_ID";
     ProcessingSubTaskQueueManager queueManager(queueChannel, context, nodeId);
 
-    queueManager.CreateQueue(subTasks);
+    queueManager.CreateQueue(subTasks, {});
 
     queueManager.GrabSubTask([](boost::optional<const SGProcessing::SubTask&> subtask) {
         if (subtask)
@@ -287,7 +287,7 @@ TEST_F(ProcessingSubTaskQueueManagerTest, GrabSubTaskWithOwnershipTransferring)
         };
 
     // Create the queue on node1
-    queueManager1.CreateQueue(subTasks);
+    queueManager1.CreateQueue(subTasks, {});
 
     // Grab subtask on Node2
     queueManager2.GrabSubTask([](boost::optional<const SGProcessing::SubTask&> subtask) {
@@ -338,7 +338,7 @@ TEST_F(ProcessingSubTaskQueueManagerTest, AddUnexpectedResult)
     ProcessingSubTaskQueueManager queueManager1(queueChannel1, context, nodeId1);
 
     // Create the queue on node1
-    queueManager1.CreateQueue(subTasks);
+    queueManager1.CreateQueue(subTasks, {});
 
     SGProcessing::SubTaskResult subTaskResult;
     subTaskResult.set_subtaskid("SUBTASK_1");
@@ -374,7 +374,7 @@ TEST_F(ProcessingSubTaskQueueManagerTest, CheckProcessedQueue)
     ProcessingSubTaskQueueManager queueManager1(queueChannel1, context, nodeId1);
 
     // Create the queue on node1
-    queueManager1.CreateQueue(subTasks);
+    queueManager1.CreateQueue(subTasks, {});
 
     SGProcessing::SubTaskResult subTaskResult;
     subTaskResult.set_subtaskid("SUBTASK_1");
@@ -431,7 +431,7 @@ TEST_F(ProcessingSubTaskQueueManagerTest, ValidateResults)
     ProcessingSubTaskQueueManager queueManager1(queueChannel1, context, nodeId1);
 
     // Create the queue on node1
-    queueManager1.CreateQueue(subTasks);
+    queueManager1.CreateQueue(subTasks, {});
 
     SGProcessing::SubTaskResult subTaskResult;
     subTaskResult.add_chunk_hashes(1);
@@ -476,7 +476,7 @@ TEST_F(ProcessingSubTaskQueueManagerTest, DISABLED_TaskSplitFailed)
     ProcessingSubTaskQueueManager queueManager1(queueChannel1, context, nodeId1);
 
     // Create the queue on node1
-    ASSERT_FALSE(queueManager1.CreateQueue(subTasks));
+    ASSERT_FALSE(queueManager1.CreateQueue(subTasks, {}));
 }
 
 /**
@@ -523,5 +523,5 @@ TEST_F(ProcessingSubTaskQueueManagerTest, TaskSplitSucceeded)
     ProcessingSubTaskQueueManager queueManager1(queueChannel1, context, nodeId1);
 
     // Create the queue on node1
-    ASSERT_TRUE(queueManager1.CreateQueue(subTasks));
+    ASSERT_TRUE(queueManager1.CreateQueue(subTasks, {}));
 }

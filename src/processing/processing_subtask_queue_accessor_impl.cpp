@@ -42,8 +42,16 @@ void SubTaskQueueAccessorImpl::AssignSubTasks(std::list<SGProcessing::SubTask>& 
             subTask.subtaskid(), SGProcessing::SubTaskState::ENQUEUED);
     }
 
-    // @todo Read results from DB and add them to queue manager
-    m_subTaskQueueManager->CreateQueue(subTasks);
+    std::vector<std::string> subTaskIds;
+    for (auto& subTask : subTasks)
+    {
+        subTaskIds.push_back(subTask.subtaskid());
+    }
+
+    std::vector<SGProcessing::SubTaskResult> results;
+    m_subTaskResultStorage->GetSubTaskResults(subTaskIds, results);
+
+    m_subTaskQueueManager->CreateQueue(subTasks, results);
 }
 
 void SubTaskQueueAccessorImpl::GrabSubTask(SubTaskGrabbedCallback onSubTaskGrabbedCallback)

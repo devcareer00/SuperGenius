@@ -23,7 +23,9 @@ ProcessingSubTaskQueueManager::~ProcessingSubTaskQueueManager()
     m_logger->debug("[RELEASED] this: {}", reinterpret_cast<size_t>(this));
 }
 
-bool ProcessingSubTaskQueueManager::CreateQueue(std::list<SGProcessing::SubTask>& subTasks)
+bool ProcessingSubTaskQueueManager::CreateQueue(
+    std::list<SGProcessing::SubTask>& subTasks, 
+    const std::vector<SGProcessing::SubTaskResult>& subTaskResults)
 {
     auto timestamp = std::chrono::system_clock::now();
 
@@ -43,6 +45,11 @@ bool ProcessingSubTaskQueueManager::CreateQueue(std::list<SGProcessing::SubTask>
     std::lock_guard<std::mutex> guard(m_queueMutex);
     m_queue = std::move(queue);
     m_processingQueue.CreateQueue(processingQueue);
+
+    for (const auto& subTaskResult : subTaskResults)
+    {
+        AddSubTaskResultImpl(subTaskResult);
+    }
 
     m_logger->debug("QUEUE_CREATED");
     LogQueue();
@@ -265,8 +272,14 @@ bool ProcessingSubTaskQueueManager::AddSubTaskResult(
     const SGProcessing::SubTaskResult& subTaskResult)
 {
     std::lock_guard<std::mutex> guard(m_queueMutex);
+    return AddSubTaskResultImpl(subTaskResult);
+}
 
+bool ProcessingSubTaskQueueManager::AddSubTaskResultImpl(
+    const SGProcessing::SubTaskResult& subTaskResult)
+{
     const std::string& subTaskId = subTaskResult.subtaskid();
+
     bool channelFound = false;
     for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks_size(); ++subTaskIdx)
     {
