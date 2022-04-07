@@ -31,11 +31,33 @@ namespace
     class SubTaskResultStorageImpl : public SubTaskResultStorage
     {
     public:
-        void AddSubTaskResult(const SGProcessing::SubTaskResult& subTaskResult) override {}
-        void RemoveSubTaskResult(const std::string& subTaskId) override {}
+        void AddSubTaskResult(const SGProcessing::SubTaskResult& subTaskResult) override
+        {
+            m_results[subTaskResult.subtaskid()] = subTaskResult;
+        }
+
+        void RemoveSubTaskResult(const std::string& subTaskId) override 
+        {
+            m_results.erase(subTaskId);
+        }
+
         void GetSubTaskResults(
             const std::vector<std::string>& subTaskIds,
-            std::vector<SGProcessing::SubTaskResult>& results) override {}
+            std::vector<SGProcessing::SubTaskResult>& results) override 
+        {
+            for (const auto& subTaskId : subTaskIds)
+            {
+                auto itResult = m_results.find(subTaskId);
+                if (itResult != m_results.end())
+                {
+                    results.push_back(itResult->second);
+                }
+            }
+        }
+
+    private:
+        // @todo replace with CRDT data storage
+        std::map<std::string, SGProcessing::SubTaskResult> m_results;
     };
 
     class ProcessingCoreImpl : public ProcessingCore
