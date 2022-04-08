@@ -25,16 +25,13 @@ public:
         const SGProcessing::Task& task,
         const std::list<SGProcessing::SubTask>& subTasks) = 0;
 
-    /** Returns a list of subtasks that satifsy to passed filter
-    * @param taskId - task id. Can be an empty option. It is ignored for the case
-    * @param states - a set of states. No states checked when the set is empty
-    * @param excludeSubTaskIds - subtask ids to exclude from the result
+    /** Returns a list of subtasks linked to taskId
+    * @param taskId - task id
     * @param subTasks - list of found subtasks
+    * @return false if task not found
     */
-    virtual void GetSubTasks(
-        const std::optional<std::string>& taskId,
-        const std::set<SGProcessing::SubTaskState::Type>& states,
-        const std::set<std::string>& excludeSubTaskIds,
+    virtual bool GetSubTasks(
+        const std::string& taskId,
         std::list<SGProcessing::SubTask>& subTasks) = 0;
 
     /** Grabs a task from task queue

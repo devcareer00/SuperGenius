@@ -94,22 +94,18 @@ namespace
             m_subTasks.emplace(task.ipfs_block_id(), subTasks);
         }
 
-        void GetSubTasks(
-            const std::optional<std::string>& taskId,
-            const std::set<SGProcessing::SubTaskState::Type>& states,
-            const std::set<std::string>& excludeSubTaskIds,
+        bool GetSubTasks(
+            const std::string& taskId,
             std::list<SGProcessing::SubTask>& subTasks)
         {
-            if (!taskId)
-        {
-                return;
-            }
-
-            auto it = m_subTasks.find(*taskId);
+            auto it = m_subTasks.find(taskId);
             if (it != m_subTasks.end())
             {
                 subTasks = it->second;
+                return true;
             }
+
+            return false;
         }
 
         bool GrabTask(std::string& taskKey, SGProcessing::Task& task) override

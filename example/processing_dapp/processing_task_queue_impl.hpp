@@ -68,45 +68,43 @@ namespace sgns::processing
             }
         }
 
-        void GetSubTasks(
-            const std::optional<std::string>& taskId,
-            const std::set<SGProcessing::SubTaskState::Type>& states,
-            const std::set<std::string>& excludeSubTaskIds,
+        bool GetSubTasks(
+            const std::string& taskId,
             std::list<SGProcessing::SubTask>& subTasks) override
         {
-            if (taskId)
+            m_logger->debug("SUBTASKS_REQUESTED. TaskId: {}", taskId);
+            auto key = (boost::format("subtasks/TASK_%s") % taskId).str();
+            auto querySubTasks = m_db->QueryKeyValues(key);
+
+            if (querySubTasks.has_failure())
             {
-                m_logger->debug("SUBTASKS_REQUESTED. TaskId: {}", *taskId);
-                auto key = (boost::format("subtasks/TASK_%s") % *taskId).str();
-                auto querySubTasks = m_db->QueryKeyValues(key);
+                m_logger->info("Unable list subtasks from CRDT datastore");
+                return false;
+            }
 
-                if (querySubTasks.has_failure())
+            if (querySubTasks.has_value())
+            {
+                m_logger->debug("SUBTASKS_FOUND {}", querySubTasks.value().size());
+
+                for (auto element : querySubTasks.value())
                 {
-                    m_logger->info("Unable list subtasks from CRDT datastore");
-                    return;
-                }
-
-                if (querySubTasks.has_value())
-                {
-                    m_logger->debug("SUBTASKS_FOUND {}", querySubTasks.value().size());
-
-                    for (auto element : querySubTasks.value())
+                    SGProcessing::SubTask subTask;
+                    if (subTask.ParseFromArray(element.second.data(), element.second.size()))
                     {
-                        SGProcessing::SubTask subTask;
-                        if (subTask.ParseFromArray(element.second.data(), element.second.size()))
-                        {
-                            subTasks.push_back(std::move(subTask));
-                        }
-                        else
-                        {
-                            m_logger->debug("Undable to parse a subtask");
-                        }
+                        subTasks.push_back(std::move(subTask));
+                    }
+                    else
+                    {
+                        m_logger->debug("Undable to parse a subtask");
                     }
                 }
-                else
-                {
-                    m_logger->debug("NO_SUBTASKS_FOUND. TaskId {}", *taskId);
-                }
+
+                return true;
+            }
+            else
+            {
+                m_logger->debug("NO_SUBTASKS_FOUND. TaskId {}", taskId);
+                return false;
             }
         }
 
