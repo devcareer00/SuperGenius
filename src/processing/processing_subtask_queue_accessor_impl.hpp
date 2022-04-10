@@ -10,6 +10,7 @@
 #include <processing/processing_subtask_queue_manager.hpp>
 #include <processing/processing_subtask_state_storage.hpp>
 #include <processing/processing_subtask_result_storage.hpp>
+#include <processing/processing_validation_core.hpp>
 
 #include <ipfs_pubsub/gossip_pubsub_topic.hpp>
 
@@ -76,6 +77,7 @@ private:
 
     mutable std::mutex m_mutexResults;
     std::map<std::string, SGProcessing::SubTaskResult> m_results;
+    ProcessingValidationCore m_validationCore;
 
     base::Logger m_logger = base::createLogger("ProcessingSubTaskQueueAccessorImpl");
 };
