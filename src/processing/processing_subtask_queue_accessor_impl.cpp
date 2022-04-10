@@ -69,9 +69,14 @@ void SubTaskQueueAccessorImpl::CompleteSubTask(const std::string& subTaskId, con
     m_logger->debug("[RESULT_SENT]. ({}).", subTaskId);
 }
 
-void SubTaskQueueAccessorImpl::OnResultReceived(const SGProcessing::SubTaskResult& subTaskResult)
+void SubTaskQueueAccessorImpl::OnResultReceived(SGProcessing::SubTaskResult&& subTaskResult)
 {
+    std::string subTaskId = subTaskResult.subtaskid();
     m_subTaskQueueManager->AddSubTaskResult(subTaskResult);
+
+    // Results accumulation
+    std::lock_guard<std::mutex> guard(m_mutexResults);
+    m_results.emplace(subTaskId, std::move(subTaskResult));
 
     // Task processing finished
     if (m_subTaskQueueManager->IsProcessed()) 
@@ -89,7 +94,7 @@ void SubTaskQueueAccessorImpl::OnResultReceived(const SGProcessing::SubTaskResul
                 for (const auto& r : m_results)
                 {
                     auto result = results->Add();
-                    result->CopyFrom(*r.second);
+                    result->CopyFrom(r.second);
                 }
                 m_taskResultProcessingSink(taskResult);
                 // @todo Notify other nodes that the task is finalized
@@ -109,7 +114,7 @@ std::vector<std::tuple<std::string, SGProcessing::SubTaskResult>> SubTaskQueueAc
     std::vector<std::tuple<std::string, SGProcessing::SubTaskResult>> results;
     for (auto& item : m_results)
     {
-        results.push_back({ item.first, *item.second });
+        results.push_back({ item.first, item.second });
     }
     std::sort(results.begin(), results.end(),
         [](const std::tuple<std::string, SGProcessing::SubTaskResult>& v1,
@@ -130,18 +135,12 @@ void SubTaskQueueAccessorImpl::OnResultChannelMessage(
     
     if (message)
     {
-        auto result = std::make_shared<SGProcessing::SubTaskResult>();
-        if (result->ParseFromArray(message->data.data(), static_cast<int>(message->data.size())))
+        SGProcessing::SubTaskResult result;
+        if (result.ParseFromArray(message->data.data(), static_cast<int>(message->data.size())))
         {
-            _this->m_logger->debug("[RESULT_RECEIVED]. ({}).", result->ipfs_results_data_id());
+            _this->m_logger->debug("[RESULT_RECEIVED]. ({}).", result.ipfs_results_data_id());
 
-            _this->OnResultReceived(*result);
-
-            // Results accumulation
-            {
-                std::lock_guard<std::mutex> guard(_this->m_mutexResults);
-                _this->m_results.insert({ result->subtaskid(), std::move(result) });
-            }
+            _this->OnResultReceived(std::move(result));
         }
     }
 }

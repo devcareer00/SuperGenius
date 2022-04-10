@@ -52,7 +52,7 @@ public:
     std::vector<std::tuple<std::string, SGProcessing::SubTaskResult>> GetResults() const;
 
 private:
-    void OnResultReceived(const SGProcessing::SubTaskResult& subTaskResult);
+    void OnResultReceived(SGProcessing::SubTaskResult&& subTaskResult);
     
     static void OnResultChannelMessage(
         std::weak_ptr<SubTaskQueueAccessorImpl> weakThis,
@@ -67,7 +67,7 @@ private:
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSubTopic> m_resultChannel;
 
     mutable std::mutex m_mutexResults;
-    std::map<std::string, std::shared_ptr<SGProcessing::SubTaskResult>> m_results;
+    std::map<std::string, SGProcessing::SubTaskResult> m_results;
 
     base::Logger m_logger = base::createLogger("ProcessingSubTaskQueueAccessorImpl");
 };
