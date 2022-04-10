@@ -31,7 +31,7 @@ ProcessingSubTaskQueueManager::~ProcessingSubTaskQueueManager()
 
 bool ProcessingSubTaskQueueManager::CreateQueue(
     std::list<SGProcessing::SubTask>& subTasks, 
-    const std::vector<SGProcessing::SubTaskResult>& subTaskResults)
+    const std::set<std::string>& processedSubTaskIds)
 {
     auto timestamp = std::chrono::system_clock::now();
 
@@ -51,20 +51,17 @@ bool ProcessingSubTaskQueueManager::CreateQueue(
     std::lock_guard<std::mutex> guard(m_queueMutex);
     m_queue = std::move(queue);
 
-    for (const auto& subTaskResult : subTaskResults)
-    {
-        AddSubTaskResultImpl(subTaskResult);
-    }
-
+    m_processedSubTaskIds = processedSubTaskIds;
     std::vector<int> unprocessedSubTaskIndices;
     for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks_size(); ++subTaskIdx)
     {
         const auto& subTaskId = m_queue->subtasks(subTaskIdx).subtaskid();
-        if (m_results.find(subTaskId) == m_results.end())
+        if (m_processedSubTaskIds.find(subTaskId) == m_processedSubTaskIds.end())
         {
             unprocessedSubTaskIndices.push_back(subTaskIdx);
         }
     }
+
     m_processingQueue.CreateQueue(processingQueue, unprocessedSubTaskIndices);
 
     m_logger->debug("QUEUE_CREATED");
@@ -84,7 +81,7 @@ bool ProcessingSubTaskQueueManager::UpdateQueue(SGProcessing::SubTaskQueue* pQue
         for (int subTaskIdx = 0; subTaskIdx < queue->subtasks_size(); ++subTaskIdx)
         {
             const auto& subTaskId = queue->subtasks(subTaskIdx).subtaskid();
-            if (m_results.find(subTaskId) == m_results.end())
+            if (m_processedSubTaskIds.find(subTaskId) == m_processedSubTaskIds.end())
             {
                 unprocessedSubTaskIndices.push_back(subTaskIdx);
             }
@@ -128,7 +125,7 @@ void ProcessingSubTaskQueueManager::ProcessPendingSubTaskGrabbing()
 
     if (!m_onSubTaskGrabbedCallbacks.empty())
     {
-        if (m_results.size() <(size_t)m_queue->processing_queue().items_size())
+        if (m_processedSubTaskIds.size() <(size_t)m_queue->processing_queue().items_size())
         {
             // Wait for subtasks are processed
             auto timestamp = std::chrono::system_clock::now();
@@ -169,7 +166,7 @@ void ProcessingSubTaskQueueManager::HandleGrabSubTaskTimeout(const boost::system
         m_dltGrabSubTaskTimeout.expires_at(boost::posix_time::pos_infin);
         m_logger->debug("HANDLE_GRAB_TIMEOUT");
         if (!m_onSubTaskGrabbedCallbacks.empty()
-            && (m_results.size() < (size_t)m_queue->processing_queue().items_size()))
+            && (m_processedSubTaskIds.size() < (size_t)m_queue->processing_queue().items_size()))
         {
             GrabSubTasks();
         }
@@ -284,132 +281,40 @@ std::unique_ptr<SGProcessing::SubTaskQueue> ProcessingSubTaskQueueManager::GetQu
     return std::move(queue);
 }
 
-bool ProcessingSubTaskQueueManager::AddSubTaskResult(
-    const SGProcessing::SubTaskResult& subTaskResult)
+void ProcessingSubTaskQueueManager::ChangeSubTaskProcessingStates(
+    const std::set<std::string>& subTaskIds, bool isProcessed)
 {
     std::lock_guard<std::mutex> guard(m_queueMutex);
-    if (AddSubTaskResultImpl(subTaskResult))
+    for (const auto& subTaskId: subTaskIds)
     {
-        std::vector<int> unprocessedSubTaskIndices;
-        for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks_size(); ++subTaskIdx)
+        if (isProcessed)
         {
-            const auto& subTaskId = m_queue->subtasks(subTaskIdx).subtaskid();
-            if (m_results.find(subTaskId) == m_results.end())
-            {
-                unprocessedSubTaskIndices.push_back(subTaskIdx);
-            }
+            m_processedSubTaskIds.insert(subTaskId);
         }
-        m_processingQueue.UpdateQueue(m_queue->mutable_processing_queue(), unprocessedSubTaskIndices);
-
-        return true;
+        else
+        {
+            m_processedSubTaskIds.erase(subTaskId);
+        }
     }
-    return false;
-}
 
-bool ProcessingSubTaskQueueManager::AddSubTaskResultImpl(
-    const SGProcessing::SubTaskResult& subTaskResult)
-{
-    const std::string& subTaskId = subTaskResult.subtaskid();
-
-    bool channelFound = false;
+    std::vector<int> unprocessedSubTaskIndices;
     for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks_size(); ++subTaskIdx)
     {
-        const auto& subTask = m_queue->subtasks(subTaskIdx);
-        if (subTask.subtaskid() == subTaskId)
+        const auto& subTaskId = m_queue->subtasks(subTaskIdx).subtaskid();
+        if (m_processedSubTaskIds.find(subTaskId) == m_processedSubTaskIds.end())
         {
-            channelFound = true;
-            break;
+            unprocessedSubTaskIndices.push_back(subTaskIdx);
         }
     }
-
-    if (!channelFound)
-    {
-        m_logger->error("UNEXPECTED_SUBTASK_ID {}", subTaskId);
-        return false;
-    }
-    
-    SGProcessing::SubTaskResult result;
-    result.CopyFrom(subTaskResult);
-    m_results.emplace(subTaskId, std::move(result));
-
-    return true;
+    m_processingQueue.UpdateQueue(m_queue->mutable_processing_queue(), unprocessedSubTaskIndices);
 }
 
 bool ProcessingSubTaskQueueManager::IsProcessed() const
 {
     std::lock_guard<std::mutex> guard(m_queueMutex);
     // The queue can contain only valid results
-    m_logger->debug("IS_PROCESSED: {} {} {}", m_results.size(), m_queue->subtasks_size(), (size_t)this);
-    return (m_results.size() == (size_t)m_queue->subtasks_size());
-}
-
-bool ProcessingSubTaskQueueManager::ValidateResults()
-{
-    std::lock_guard<std::mutex> guard(m_queueMutex);
-    if ((m_results.size() != (size_t)m_queue->subtasks_size()))
-    {
-        return false;
-    }
-
-    bool areResultsValid = true;
-    // Compare result hashes for each chunk
-    // If a chunk hashes didn't match each other add the all subtasks with invalid hashes to VALID ITEMS LIST
-    std::map<std::string, std::vector<uint32_t>> chunks;
-    std::set<int> invalidSubtasksIndices;
-    for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks_size(); ++subTaskIdx)
-    {
-        const auto& subTask = m_queue->subtasks(subTaskIdx);
-        auto itResult = m_results.find(subTask.subtaskid());
-        if (itResult != m_results.end())
-        {
-            if (itResult->second.chunk_hashes_size() != subTask.chunkstoprocess_size())
-            {
-                m_logger->error("WRONG_RESULT_HASHES_LENGTH {}", subTask.subtaskid());
-                invalidSubtasksIndices.insert(subTaskIdx);
-            }
-            else
-            {
-                for (int chunkIdx = 0; chunkIdx < subTask.chunkstoprocess_size(); ++chunkIdx)
-                {
-                    auto it = chunks.insert(std::make_pair(
-                        subTask.chunkstoprocess(chunkIdx).SerializeAsString(), std::vector<uint32_t>()));
-
-                    it.first->second.push_back(itResult->second.chunk_hashes(chunkIdx));
-                }
-            }
-        }
-        else
-        {
-            // Since all subtasks are processed a result should be found for all of them
-            m_logger->error("NO_RESULTS_FOUND {}", subTask.subtaskid());
-            invalidSubtasksIndices.insert(subTaskIdx);
-        }
-    }
-
-    for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks_size(); ++subTaskIdx)
-    {
-        const auto& subTask = m_queue->subtasks(subTaskIdx);
-        if ((invalidSubtasksIndices.find(subTaskIdx) == invalidSubtasksIndices.end())
-            && !CheckSubTaskResultHashes(subTask, chunks))
-        {
-            invalidSubtasksIndices.insert(subTaskIdx);
-        }
-    }
-
-    if (!invalidSubtasksIndices.empty())
-    {
-        areResultsValid = false;
-
-        std::vector<int> validItemIndices;
-        for (auto invalidSubTaskIndex : invalidSubtasksIndices)
-        {
-            m_results.erase(m_queue->subtasks(invalidSubTaskIndex).subtaskid());
-            validItemIndices.push_back(invalidSubTaskIndex);
-        }
-
-        m_processingQueue.UpdateQueue(m_queue->mutable_processing_queue(), validItemIndices);
-    }
-    return areResultsValid;
+    m_logger->debug("IS_PROCESSED: {} {} {}", m_processedSubTaskIds.size(), m_queue->subtasks_size(), (size_t)this);
+    return (m_processedSubTaskIds.size() == (size_t)m_queue->subtasks_size());
 }
 
 void ProcessingSubTaskQueueManager::LogQueue() const
@@ -432,33 +337,6 @@ void ProcessingSubTaskQueueManager::LogQueue() const
 
         m_logger->trace(ss.str());
     }
-}
-
-bool ProcessingSubTaskQueueManager::CheckSubTaskResultHashes(
-    const SGProcessing::SubTask& subTask,
-    const std::map<std::string, std::vector<uint32_t>>& chunks) const
-{
-    for (int chunkIdx = 0; chunkIdx < subTask.chunkstoprocess_size(); ++chunkIdx)
-    {
-        const auto& chunk = subTask.chunkstoprocess(chunkIdx);
-        auto it = chunks.find(chunk.SerializeAsString());
-        if (it != chunks.end())
-        {
-            // Check duplicated chunks only
-            if ((it->second.size() >= 2) 
-                && !std::equal(it->second.begin() + 1, it->second.end(), it->second.begin()))
-            {
-                m_logger->debug("INVALID_CHUNK_RESULT_HASH [{}, {}]", subTask.subtaskid(), chunk.chunkid());
-                return false;
-            }
-        }
-        else
-        {
-            m_logger->debug("NO_CHUNK_RESULT_FOUND [{}, {}]", subTask.subtaskid(), chunk.chunkid());
-            return false;
-        }
-    }
-    return true;
 }
 
 }

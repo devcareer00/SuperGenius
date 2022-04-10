@@ -43,12 +43,12 @@ public:
     /** Create a subtask queue by splitting the task to subtasks using the processing code
     * @param subTasks - a list of subtasks that should be added to the queue
     * in subtasks to allow a validation
-    * @param subTaskResults - a list of available subtask results
+    * @param processedSubTaskIds - a list processed subtasks
     * @return false if not queue was created due to errors
     */
     bool CreateQueue(
         std::list<SGProcessing::SubTask>& subTasks,
-        const std::vector<SGProcessing::SubTaskResult>& subTaskResults);
+        const std::set<std::string>& processedSubTaskIds);
 
     /** Asynchronous getting of a subtask from the queue
     * @param onSubTaskGrabbedCallback a callback that is called when a grapped iosubtask is locked by the local node
@@ -82,22 +82,17 @@ public:
     */
     std::unique_ptr<SGProcessing::SubTaskQueue> GetQueueSnapshot() const;
 
-    /** Add a results for a processed subtask into the queue
-    * @param subTaskResult - subtask result
-    * @return true if the result was added
+    /** Mark a subtask as processed/unprocessed
+    * @param subTaskIds - a list of subtask which state should be changed
+    * @param isProcessed - new state
     */
-    bool AddSubTaskResult(const SGProcessing::SubTaskResult& subTaskResult);
+    void ChangeSubTaskProcessingStates(
+        const std::set<std::string>& subTaskIds, bool isProcessed);
 
     /** Checks if all subtask in the queue are processed
     * @return true if the queue is processed
     */
     bool IsProcessed() const;
-        
-    /** Checks if chenk result hashes are valid.
-    * If invalid chunk hashes found corresponding subtasks are invalidated and returned to processing queue
-    * @return true if all chunk results are valid
-    */
-    bool ValidateResults();
         
 private:
     /** Updates the local queue with a snapshot that have the most recent timestamp
@@ -111,10 +106,6 @@ private:
     void GrabSubTasks();
     void HandleGrabSubTaskTimeout(const boost::system::error_code& ec);
     void LogQueue() const;
-    bool CheckSubTaskResultHashes(
-        const SGProcessing::SubTask& subTask, 
-        const std::map<std::string, std::vector<uint32_t>>& chunks) const;
-    bool AddSubTaskResultImpl(const SGProcessing::SubTaskResult& subTaskResult);
 
     std::shared_ptr<ProcessingSubTaskQueueChannel> m_queueChannel;
     std::shared_ptr<boost::asio::io_context> m_context;
@@ -124,7 +115,7 @@ private:
     mutable std::mutex m_queueMutex;
     std::list<SubTaskGrabbedCallback> m_onSubTaskGrabbedCallbacks;
 
-    std::map<std::string, SGProcessing::SubTaskResult> m_results;
+    std::set<std::string> m_processedSubTaskIds;
 
     boost::asio::deadline_timer m_dltQueueResponseTimeout;
     boost::posix_time::time_duration m_queueResponseTimeout;

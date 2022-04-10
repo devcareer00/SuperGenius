@@ -58,6 +58,14 @@ private:
         std::weak_ptr<SubTaskQueueAccessorImpl> weakThis,
         boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message);
 
+    bool ValidateResults(
+        const std::list<SGProcessing::SubTask>& subTasks,
+        std::set<std::string>& invalidSubTaskIds);
+
+    bool CheckSubTaskResultHashes(
+        const SGProcessing::SubTask& subTask, 
+        const std::map<std::string, std::vector<uint32_t>>& chunks) const;
+
     std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> m_gossipPubSub;
     std::shared_ptr<ProcessingSubTaskQueueManager> m_subTaskQueueManager;
     std::shared_ptr<SubTaskStateStorage> m_subTaskStateStorage;

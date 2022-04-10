@@ -51,7 +51,14 @@ void SubTaskQueueAccessorImpl::AssignSubTasks(std::list<SGProcessing::SubTask>& 
     std::vector<SGProcessing::SubTaskResult> results;
     m_subTaskResultStorage->GetSubTaskResults(subTaskIds, results);
 
-    m_subTaskQueueManager->CreateQueue(subTasks, results);
+    std::set<std::string> processedSubTaskIds;
+    for (auto& result : results)
+    {
+        processedSubTaskIds.insert(result.subtaskid());
+        m_results.emplace(result.subtaskid(), std::move(result));
+    }
+
+    m_subTaskQueueManager->CreateQueue(subTasks, processedSubTaskIds);
 }
 
 void SubTaskQueueAccessorImpl::GrabSubTask(SubTaskGrabbedCallback onSubTaskGrabbedCallback)
@@ -72,16 +79,27 @@ void SubTaskQueueAccessorImpl::CompleteSubTask(const std::string& subTaskId, con
 void SubTaskQueueAccessorImpl::OnResultReceived(SGProcessing::SubTaskResult&& subTaskResult)
 {
     std::string subTaskId = subTaskResult.subtaskid();
-    m_subTaskQueueManager->AddSubTaskResult(subTaskResult);
 
     // Results accumulation
     std::lock_guard<std::mutex> guard(m_mutexResults);
     m_results.emplace(subTaskId, std::move(subTaskResult));
 
+    m_subTaskQueueManager->ChangeSubTaskProcessingStates({ subTaskId }, true);
+
     // Task processing finished
     if (m_subTaskQueueManager->IsProcessed()) 
     {
-        bool valid = m_subTaskQueueManager->ValidateResults();
+        std::set<std::string> invalidSubTaskIds;
+
+        auto queue = m_subTaskQueueManager->GetQueueSnapshot();
+        std::list<SGProcessing::SubTask> subTasks;
+        for (size_t subTaskIdx = 0; subTaskIdx < queue->subtasks_size(); ++subTaskIdx)
+        {
+            subTasks.push_back(queue->subtasks(subTaskIdx));
+        }
+
+        bool valid = ValidateResults(subTasks, invalidSubTaskIds);
+
         m_logger->debug("RESULTS_VALIDATED: {}", valid ? "VALID" : "INVALID");
         if (valid)
         {
@@ -102,6 +120,14 @@ void SubTaskQueueAccessorImpl::OnResultReceived(SGProcessing::SubTaskResult&& su
             else
             {
                 // @todo Process task finalization expiration
+            }
+        }
+        else
+        {
+            m_subTaskQueueManager->ChangeSubTaskProcessingStates(invalidSubTaskIds, false);
+            for (const auto& subTaskId : invalidSubTaskIds)
+            {
+                m_results.erase(subTaskId);
             }
         }
     }
@@ -144,4 +170,85 @@ void SubTaskQueueAccessorImpl::OnResultChannelMessage(
         }
     }
 }
+
+bool SubTaskQueueAccessorImpl::ValidateResults(
+    const std::list<SGProcessing::SubTask>& subTasks,
+    std::set<std::string>& invalidSubTaskIds)
+{
+    bool areResultsValid = true;
+    // Compare result hashes for each chunk
+    // If a chunk hashes didn't match each other add the all subtasks with invalid hashes to VALID ITEMS LIST
+    std::map<std::string, std::vector<uint32_t>> chunks;
+    for (const auto subTask : subTasks)
+    {
+        auto itResult = m_results.find(subTask.subtaskid());
+        if (itResult != m_results.end())
+        {
+            if (itResult->second.chunk_hashes_size() != subTask.chunkstoprocess_size())
+            {
+                m_logger->error("WRONG_RESULT_HASHES_LENGTH {}", subTask.subtaskid());
+                invalidSubTaskIds.insert(subTask.subtaskid());
+            }
+            else
+            {
+                for (int chunkIdx = 0; chunkIdx < subTask.chunkstoprocess_size(); ++chunkIdx)
+                {
+                    auto it = chunks.insert(std::make_pair(
+                        subTask.chunkstoprocess(chunkIdx).SerializeAsString(), std::vector<uint32_t>()));
+
+                    it.first->second.push_back(itResult->second.chunk_hashes(chunkIdx));
+                }
+            }
+        }
+        else
+        {
+            // Since all subtasks are processed a result should be found for all of them
+            m_logger->error("NO_RESULTS_FOUND {}", subTask.subtaskid());
+            invalidSubTaskIds.insert(subTask.subtaskid());
+        }
+    }
+
+    for (const auto subTask : subTasks)
+    {
+        if ((invalidSubTaskIds.find(subTask.subtaskid()) == invalidSubTaskIds.end())
+            && !CheckSubTaskResultHashes(subTask, chunks))
+        {
+            invalidSubTaskIds.insert(subTask.subtaskid());
+        }
+    }
+
+    if (!invalidSubTaskIds.empty())
+    {
+        areResultsValid = false;
+    }
+    return areResultsValid;
+}
+
+bool SubTaskQueueAccessorImpl::CheckSubTaskResultHashes(
+    const SGProcessing::SubTask& subTask,
+    const std::map<std::string, std::vector<uint32_t>>& chunks) const
+{
+    for (int chunkIdx = 0; chunkIdx < subTask.chunkstoprocess_size(); ++chunkIdx)
+    {
+        const auto& chunk = subTask.chunkstoprocess(chunkIdx);
+        auto it = chunks.find(chunk.SerializeAsString());
+        if (it != chunks.end())
+        {
+            // Check duplicated chunks only
+            if ((it->second.size() >= 2) 
+                && !std::equal(it->second.begin() + 1, it->second.end(), it->second.begin()))
+            {
+                m_logger->debug("INVALID_CHUNK_RESULT_HASH [{}, {}]", subTask.subtaskid(), chunk.chunkid());
+                return false;
+            }
+        }
+        else
+        {
+            m_logger->debug("NO_CHUNK_RESULT_FOUND [{}, {}]", subTask.subtaskid(), chunk.chunkid());
+            return false;
+        }
+    }
+    return true;
+}
+
 }
