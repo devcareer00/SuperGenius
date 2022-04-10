@@ -50,12 +50,22 @@ bool ProcessingSubTaskQueueManager::CreateQueue(
 
     std::lock_guard<std::mutex> guard(m_queueMutex);
     m_queue = std::move(queue);
-    m_processingQueue.CreateQueue(processingQueue);
 
     for (const auto& subTaskResult : subTaskResults)
     {
         AddSubTaskResultImpl(subTaskResult);
     }
+
+    std::vector<int> unprocessedSubTaskIndices;
+    for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks_size(); ++subTaskIdx)
+    {
+        const auto& subTaskId = m_queue->subtasks(subTaskIdx).subtaskid();
+        if (m_results.find(subTaskId) == m_results.end())
+        {
+            unprocessedSubTaskIndices.push_back(subTaskIdx);
+        }
+    }
+    m_processingQueue.CreateQueue(processingQueue, unprocessedSubTaskIndices);
 
     m_logger->debug("QUEUE_CREATED");
     LogQueue();
@@ -70,19 +80,19 @@ bool ProcessingSubTaskQueueManager::UpdateQueue(SGProcessing::SubTaskQueue* pQue
     if (pQueue)
     {
         std::shared_ptr<SGProcessing::SubTaskQueue> queue(pQueue);
-        if (m_processingQueue.UpdateQueue(queue->mutable_processing_queue()))
+        std::vector<int> unprocessedSubTaskIndices;
+        for (int subTaskIdx = 0; subTaskIdx < queue->subtasks_size(); ++subTaskIdx)
+        {
+            const auto& subTaskId = queue->subtasks(subTaskIdx).subtaskid();
+            if (m_results.find(subTaskId) == m_results.end())
+            {
+                unprocessedSubTaskIndices.push_back(subTaskIdx);
+            }
+        }
+
+        if (m_processingQueue.UpdateQueue(queue->mutable_processing_queue(), unprocessedSubTaskIndices))
         {
             m_queue.swap(queue);
-            std::vector<int> validItemIndices;
-            for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks_size(); ++subTaskIdx)
-            {
-                const auto& subTask = m_queue->subtasks(subTaskIdx);
-                if (m_results.find(subTask.subtaskid()) == m_results.end())
-                {
-                    validItemIndices.push_back(subTaskIdx);
-                }
-            }
-            m_processingQueue.SetValidItemIndices(std::move(validItemIndices));
             LogQueue();
             return true;
         }
@@ -278,7 +288,22 @@ bool ProcessingSubTaskQueueManager::AddSubTaskResult(
     const SGProcessing::SubTaskResult& subTaskResult)
 {
     std::lock_guard<std::mutex> guard(m_queueMutex);
-    return AddSubTaskResultImpl(subTaskResult);
+    if (AddSubTaskResultImpl(subTaskResult))
+    {
+        std::vector<int> unprocessedSubTaskIndices;
+        for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks_size(); ++subTaskIdx)
+        {
+            const auto& subTaskId = m_queue->subtasks(subTaskIdx).subtaskid();
+            if (m_results.find(subTaskId) == m_results.end())
+            {
+                unprocessedSubTaskIndices.push_back(subTaskIdx);
+            }
+        }
+        m_processingQueue.UpdateQueue(m_queue->mutable_processing_queue(), unprocessedSubTaskIndices);
+
+        return true;
+    }
+    return false;
 }
 
 bool ProcessingSubTaskQueueManager::AddSubTaskResultImpl(
@@ -305,18 +330,7 @@ bool ProcessingSubTaskQueueManager::AddSubTaskResultImpl(
     
     SGProcessing::SubTaskResult result;
     result.CopyFrom(subTaskResult);
-    m_results.insert(std::make_pair(subTaskId, std::move(result)));
-
-    std::vector<int> validItemIndices;
-    for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks_size(); ++subTaskIdx)
-    {
-        const auto& subTask = m_queue->subtasks(subTaskIdx);
-        if (m_results.find(subTask.subtaskid()) == m_results.end())
-        {
-            validItemIndices.push_back(subTaskIdx);
-        }
-    }
-    m_processingQueue.SetValidItemIndices(std::move(validItemIndices));
+    m_results.emplace(subTaskId, std::move(result));
 
     return true;
 }
@@ -393,7 +407,7 @@ bool ProcessingSubTaskQueueManager::ValidateResults()
             validItemIndices.push_back(invalidSubTaskIndex);
         }
 
-        m_processingQueue.SetValidItemIndices(std::move(validItemIndices));
+        m_processingQueue.UpdateQueue(m_queue->mutable_processing_queue(), validItemIndices);
     }
     return areResultsValid;
 }

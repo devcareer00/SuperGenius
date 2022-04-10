@@ -13,20 +13,22 @@ ProcessingSubTaskQueue::ProcessingSubTaskQueue(
 {
 }
 
-void ProcessingSubTaskQueue::CreateQueue(SGProcessing::ProcessingQueue* queue)
+void ProcessingSubTaskQueue::CreateQueue(
+    SGProcessing::ProcessingQueue* queue, const std::vector<int>& enabledItemIndices)
 {
     m_queue = queue;
-    m_validItemIndices = std::vector<int>(m_queue->items_size());
-    std::iota(m_validItemIndices.begin(), m_validItemIndices.end(), 0);
+    m_enabledItemIndices = enabledItemIndices;
     ChangeOwnershipTo(m_localNodeId);
 }
 
-bool ProcessingSubTaskQueue::UpdateQueue(SGProcessing::ProcessingQueue* queue)
+bool ProcessingSubTaskQueue::UpdateQueue(
+    SGProcessing::ProcessingQueue* queue, const std::vector<int>& enabledItemIndices)
 {
     if (!m_queue
-        || (m_queue->last_update_timestamp() < queue->last_update_timestamp()))
+        || (m_queue->last_update_timestamp() <= queue->last_update_timestamp()))
     {
         m_queue = queue;
+        m_enabledItemIndices = enabledItemIndices;
         LogQueue();
         return true;
     }
@@ -36,7 +38,7 @@ bool ProcessingSubTaskQueue::UpdateQueue(SGProcessing::ProcessingQueue* queue)
 bool ProcessingSubTaskQueue::LockItem(size_t& lockedItemIndex)
 {
     // The method has to be called in scoped lock of queue mutex
-    for (auto itemIdx : m_validItemIndices)
+    for (auto itemIdx : m_enabledItemIndices)
     {
         if (m_queue->items(itemIdx).lock_node_id().empty())
         {
@@ -172,7 +174,7 @@ bool ProcessingSubTaskQueue::UnlockExpiredItems(std::chrono::system_clock::durat
     if (HasOwnership())
     {
         auto timestamp = std::chrono::system_clock::now();
-        for (auto itemIdx : m_validItemIndices)
+        for (auto itemIdx : m_enabledItemIndices)
         {
             // Check if a subtask is locked, expired and no result was obtained for it
             // @todo replace the result channel with subtask id to identify a subtask that should be unlocked
@@ -205,7 +207,7 @@ std::chrono::system_clock::time_point ProcessingSubTaskQueue::GetLastLockTimesta
 {
     std::chrono::system_clock::time_point lastLockTimestamp;
 
-    for (auto itemIdx : m_validItemIndices)
+    for (auto itemIdx : m_enabledItemIndices)
     {
         // Check if an item is locked and no result was obtained for it
         if (!m_queue->items(itemIdx).lock_node_id().empty())
@@ -217,11 +219,6 @@ std::chrono::system_clock::time_point ProcessingSubTaskQueue::GetLastLockTimesta
     }
 
     return lastLockTimestamp;
-}
-
-void ProcessingSubTaskQueue::SetValidItemIndices(std::vector<int>&& indices)
-{
-    m_validItemIndices = std::move(indices);
 }
 
 void ProcessingSubTaskQueue::LogQueue() const

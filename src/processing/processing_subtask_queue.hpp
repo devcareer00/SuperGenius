@@ -23,8 +23,9 @@ public:
 
     /** Create a subtask queue by splitting the task to subtasks using the processing code
     * @param task - task that should be split into subtasks
+    * @param enabledItemIndices - indexes of enabled items. Disabled items are considered as deleted.
     */
-    void CreateQueue(SGProcessing::ProcessingQueue* queue);
+    void CreateQueue(SGProcessing::ProcessingQueue* queue, const std::vector<int>& enabledItemIndices);
 
     /** Asynchronous getting of a subtask from the queue
     * @param onSubTaskGrabbedCallback a callback that is called when a grapped iosubtask is locked by the local node
@@ -48,8 +49,9 @@ public:
 
     /** Updates the local queue with a snapshot that have the most recent timestamp
     * @param queue - the queue snapshot
+    * @param enabledItemIndices - indexes of enabled items. Disabled items are considered as deleted.
     */
-    bool UpdateQueue(SGProcessing::ProcessingQueue* queue);
+    bool UpdateQueue(SGProcessing::ProcessingQueue* queue, const std::vector<int>& enabledItemIndices);
 
     /** Unlocks expired queue items
     * @param expirationTimeout - timeout applied to detect expired items
@@ -61,11 +63,6 @@ public:
     */
     std::chrono::system_clock::time_point GetLastLockTimestamp() const;
 
-    /** Sets indices of valid queue items.
-    * Invalid items are considered as deleted.
-    */
-    void SetValidItemIndices(std::vector<int>&& indices);
-
 private:
     void ChangeOwnershipTo(const std::string& nodeId);
 
@@ -76,7 +73,7 @@ private:
     std::string m_localNodeId;
     SGProcessing::ProcessingQueue* m_queue;
 
-    std::vector<int> m_validItemIndices;
+    std::vector<int> m_enabledItemIndices;
 
     base::Logger m_logger = base::createLogger("ProcessingSubTaskQueue");
 };
