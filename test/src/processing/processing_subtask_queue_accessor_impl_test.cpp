@@ -303,7 +303,7 @@ TEST_F(SubTaskQueueAccessorImplTest, InvalidSubTasksRestart)
     chunk1.set_subchunk_width(10);
 
     auto queue = std::make_unique<SGProcessing::SubTaskQueue>();
-    // Local queue wrapped owns the queue
+    // Local queue wrapper owns the queue
     queue->mutable_processing_queue()->set_owner_node_id(nodeId1);
     {
         auto item = queue->mutable_processing_queue()->add_items();
@@ -349,6 +349,7 @@ TEST_F(SubTaskQueueAccessorImplTest, InvalidSubTasksRestart)
 
     auto processingQueueManager2 = std::make_shared<ProcessingSubTaskQueueManager>(
         queueChannel, pubs1->GetAsioContext(), nodeId2);
+    processingQueueManager2->SetProcessingTimeout(std::chrono::milliseconds(500));
 
     // Change queue owner
     SGProcessing::SubTaskQueueRequest queueRequest;
@@ -360,9 +361,9 @@ TEST_F(SubTaskQueueAccessorImplTest, InvalidSubTasksRestart)
     processingQueueManager1->ProcessSubTaskQueueMessage(processingQueueManager2->GetQueueSnapshot().release());
     engine1->StopQueueProcessing();
 
-    // Wait for failed tasks expiration
-    // @todo Automatically mark failed tasks as exired
-    std::this_thread::sleep_for(std::chrono::milliseconds(10000));
+    // Wait for failed tasks expiration. Check processingQueueManager2->SetProcessingTimeout() call
+    // @todo Automatically mark failed tasks as exired.
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
     auto subTaskQueueAccessor2 = std::make_shared<SubTaskQueueAccessorImpl>(
         pubs1,
@@ -380,5 +381,6 @@ TEST_F(SubTaskQueueAccessorImplTest, InvalidSubTasksRestart)
     pubs1->Stop();
 
     // Task should be finalized because chunks have valid hashes
+    ASSERT_TRUE(processingQueueManager2->HasOwnership());
     ASSERT_TRUE(isTaskFinalized2);
 }

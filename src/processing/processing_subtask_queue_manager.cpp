@@ -18,6 +18,12 @@ ProcessingSubTaskQueueManager::ProcessingSubTaskQueueManager(
 {
 }
 
+void ProcessingSubTaskQueueManager::SetProcessingTimeout(
+    const std::chrono::system_clock::duration& processingTimeout)
+{
+    m_processingTimeout = processingTimeout;
+}
+
 ProcessingSubTaskQueueManager::~ProcessingSubTaskQueueManager()
 {
     m_logger->debug("[RELEASED] this: {}", reinterpret_cast<size_t>(this));

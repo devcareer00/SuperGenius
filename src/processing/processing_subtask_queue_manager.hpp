@@ -34,6 +34,12 @@ public:
         const std::string& localNodeId);
     ~ProcessingSubTaskQueueManager();
 
+    /** Set a timeout for subtask processing
+    * @param processingTimeout - subtask processing timeout
+    * Once the timeout is exceeded the subtask is marked as expired.
+    */
+    void SetProcessingTimeout(const std::chrono::system_clock::duration& processingTimeout);
+
     /** Create a subtask queue by splitting the task to subtasks using the processing code
     * @param subTasks - a list of subtasks that should be added to the queue
     * in subtasks to allow a validation
