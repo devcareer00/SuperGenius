@@ -1,5 +1,8 @@
 #include <processing/processing_subtask_queue_manager.hpp>
 
+// @todo Move to separate test suite
+#include <processing/processing_validation_core.hpp>
+
 #include <libp2p/log/configurator.hpp>
 #include <libp2p/log/logger.hpp>
 
@@ -315,7 +318,6 @@ TEST_F(ProcessingSubTaskQueueManagerTest, GrabSubTaskWithOwnershipTransferring)
  * @when Results for all subtasks added
  * @then Queue is marked as processed.
  */
-/*
 TEST_F(ProcessingSubTaskQueueManagerTest, CheckProcessedQueue)
 {
     auto context = std::make_shared<boost::asio::io_context>();
@@ -344,24 +346,18 @@ TEST_F(ProcessingSubTaskQueueManagerTest, CheckProcessedQueue)
 
     ASSERT_FALSE(queueManager1.IsProcessed());
 
-    subTaskResult.set_subtaskid("SUBTASK_2");
-    queueManager1.AddSubTaskResult(subTaskResult);
+    queueManager1.ChangeSubTaskProcessingStates({ "SUBTASK_2" }, true);
 
     ASSERT_TRUE(queueManager1.IsProcessed());
 }
-*/
 
 /**
  * @given A subtask queue
  * @when Results for all subtasks added
  * @then Queue result hashes are valid by default.
  */
-/*
 TEST_F(ProcessingSubTaskQueueManagerTest, ValidateResults)
 {
-    // @todo extend the test to get determite invalid result hashes
-    auto context = std::make_shared<boost::asio::io_context>();
-
     std::list<SGProcessing::SubTask> subTasks;
     // A single chunk is added to 2 subtasks
     SGProcessing::ProcessingChunk chunk1;
@@ -389,28 +385,28 @@ TEST_F(ProcessingSubTaskQueueManagerTest, ValidateResults)
         subTasks.push_back(std::move(subtask));
     }
 
-    auto queueChannel1 = std::make_shared<ProcessingSubTaskQueueChannelImpl>();
-    auto nodeId1 = "NODE1_ID";
-
-    ProcessingSubTaskQueueManager queueManager1(queueChannel1, context, nodeId1);
-
-    // Create the queue on node1
-    queueManager1.CreateQueue(subTasks, {});
-
+    std::map<std::string, SGProcessing::SubTaskResult> results;
     SGProcessing::SubTaskResult subTaskResult;
     subTaskResult.add_chunk_hashes(1);
     subTaskResult.set_subtaskid("SUBTASK_1");
 
-    queueManager1.AddSubTaskResult(subTaskResult);
+    results.emplace(subTaskResult.subtaskid(), subTaskResult);
 
-    ASSERT_FALSE(queueManager1.ValidateResults());
+    ProcessingValidationCore validationCore;
+    {
+        std::set<std::string> invalidSubTaskIds;
+        ASSERT_FALSE(validationCore.ValidateResults(subTasks, results, invalidSubTaskIds));
+    }
 
     subTaskResult.set_subtaskid("SUBTASK_2");
-    queueManager1.AddSubTaskResult(subTaskResult);
+    results.emplace(subTaskResult.subtaskid(), subTaskResult);
 
-    ASSERT_TRUE(queueManager1.ValidateResults());
+    {
+        std::set<std::string> invalidSubTaskIds;
+        ASSERT_TRUE(validationCore.ValidateResults(subTasks, results, invalidSubTaskIds));
+        ASSERT_EQ(0, invalidSubTaskIds.size());
+    }
 }
-*/
 
 /**
  * @given A subtask queue
