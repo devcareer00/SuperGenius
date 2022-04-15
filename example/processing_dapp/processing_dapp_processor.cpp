@@ -65,9 +65,12 @@ namespace
     public:
         ProcessingCoreImpl(
             std::shared_ptr<sgns::crdt::GlobalDB> db,
-            size_t subTaskProcessingTime)
+            size_t subTaskProcessingTime,
+            size_t maximalProcessingSubTaskCount)
             : m_db(db)
             , m_subTaskProcessingTime(subTaskProcessingTime)
+            , m_maximalProcessingSubTaskCount(maximalProcessingSubTaskCount)
+            , m_processingSubTaskCount(0)
         {
         }
 
@@ -75,6 +78,18 @@ namespace
             const SGProcessing::SubTask& subTask, SGProcessing::SubTaskResult& result,
             uint32_t initialHashCode) override 
         {
+            {
+                std::scoped_lock<std::mutex> subTaskCountLock(m_subTaskCountMutex);
+                ++m_processingSubTaskCount;
+                if ((m_maximalProcessingSubTaskCount > 0)
+                    && (m_processingSubTaskCount > m_maximalProcessingSubTaskCount))
+                {
+                    // Reset the counter to allow processing restart
+                    m_processingSubTaskCount = 0;
+                    throw std::runtime_error("Maximal number of processed subtasks exceeded");
+                }
+            }
+
             std::this_thread::sleep_for(std::chrono::milliseconds(m_subTaskProcessingTime));
             result.set_ipfs_results_data_id((boost::format("%s_%s") % "RESULT_IPFS" % subTask.subtaskid()).str());
 
@@ -118,6 +133,10 @@ namespace
     private:
         std::shared_ptr<sgns::crdt::GlobalDB> m_db;
         size_t m_subTaskProcessingTime;
+        size_t m_maximalProcessingSubTaskCount;
+
+        std::mutex m_subTaskCountMutex;
+        size_t m_processingSubTaskCount;
     };
 
     // cmd line options
@@ -131,6 +150,7 @@ namespace
         std::optional<std::string> remote;
         std::vector<size_t> chunkResultHashes;
         std::vector<size_t> validationChunkHashes;
+        size_t maximalSubTaskCount = 0; // Maximal number of subtasks that can be processed by a single processing core
     };
 
     boost::optional<Options> parseCommandLine(int argc, char** argv) {
@@ -148,6 +168,7 @@ namespace
                 ("channellisttimeout,t", po::value(&o.channelListRequestTimeout), "chnnel list request timeout (ms)")
                 ("serviceindex,i", po::value(&o.serviceIndex), "index of the service in computational grid (has to be a unique value)")
                 ("chunkresulthashes,h", po::value<std::vector<size_t>>()->multitoken(), "chunk result hashes")
+                ("maxsubtasks,m", po::value(&o.maximalSubTaskCount), "maximal number of subtasks that can be processed by a single processing core")
                 ("validationchunkhashes", po::value<std::vector<size_t>>()->multitoken(), "validation chunk result hashes");
 
             po::variables_map vm;
@@ -311,7 +332,8 @@ int main(int argc, char* argv[])
 
     auto processingCore = std::make_shared<ProcessingCoreImpl>(
         globalDB,
-        options->subTaskProcessingTime);
+        options->subTaskProcessingTime,
+        options->maximalSubTaskCount);
     processingCore->m_chunkResulHashes = options->chunkResultHashes;
     processingCore->m_validationChunkHashes = options->validationChunkHashes;
     
