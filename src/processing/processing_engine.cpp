@@ -12,7 +12,7 @@ ProcessingEngine::ProcessingEngine(
 
 ProcessingEngine::~ProcessingEngine()
 {
-    m_logger->debug("[RELEASED] this: {}", reinterpret_cast<size_t>(this));
+    m_logger->debug("[RELEASED] this: {}, thread_id {}", reinterpret_cast<size_t>(this), std::this_thread::get_id());
 }
 
 void ProcessingEngine::StartQueueProcessing(
@@ -22,9 +22,14 @@ void ProcessingEngine::StartQueueProcessing(
     m_subTaskQueueAccessor = subTaskQueueAccessor;
 
     m_subTaskQueueAccessor->GrabSubTask(
-        std::bind(
-            &ProcessingEngine::OnSubTaskGrabbed, 
-            shared_from_this(), std::placeholders::_1));
+        [weakThis(weak_from_this())](boost::optional<const SGProcessing::SubTask&> subTask) {
+            auto _this = weakThis.lock();
+            if (!_this)
+            {
+                return;
+            }
+            _this->OnSubTaskGrabbed(subTask);
+        });
 }
 
 void ProcessingEngine::StopQueueProcessing()
@@ -76,7 +81,14 @@ void ProcessingEngine::ProcessSubTask(SGProcessing::SubTask subTask)
                 _this->m_subTaskQueueAccessor->CompleteSubTask(subTask.subtaskid(), result);
                 // @todo Should a new subtask be grabbed once the perivious one is processed?
                 _this->m_subTaskQueueAccessor->GrabSubTask(
-                    std::bind(&ProcessingEngine::OnSubTaskGrabbed, _this, std::placeholders::_1));
+                    [weakThis(std::weak_ptr(_this))](boost::optional<const SGProcessing::SubTask&> subTask) {
+                    auto _this = weakThis.lock();
+                    if (!_this)
+                    {
+                        return;
+                    }
+                    _this->OnSubTaskGrabbed(subTask);
+                });
             }
         }
         catch (std::exception& ex)

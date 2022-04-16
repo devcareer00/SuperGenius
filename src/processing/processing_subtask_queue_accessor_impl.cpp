@@ -16,17 +16,18 @@ SubTaskQueueAccessorImpl::SubTaskQueueAccessorImpl(
 {
     // @todo replace hardcoded channel identified with an input value
     m_resultChannel = std::make_shared<ipfs_pubsub::GossipPubSubTopic>(m_gossipPubSub, "RESULT_CHANNEL_ID");
+    m_logger->debug("[CREATED] this: {}, thread_id {}", reinterpret_cast<size_t>(this), std::this_thread::get_id());
 }
 
 SubTaskQueueAccessorImpl::~SubTaskQueueAccessorImpl()
 {
-    m_logger->debug("[RELEASED] this: {}", reinterpret_cast<size_t>(this));
+    m_logger->debug("[RELEASED] this: {}, thread_id {}", reinterpret_cast<size_t>(this), std::this_thread::get_id());
 }
 
 void SubTaskQueueAccessorImpl::ConnectToResultChannel()
 {
     // It cannot be called in class constructor because shared_from_this doesn't work for the case
-    // The shared_from_this() is required to prevent a case when the message processing callback
+    // The weak_from_this() is required to prevent a case when the message processing callback
     // is called using an invalid 'this' pointer to destroyed object
     m_resultChannel->Subscribe(
         std::bind(
