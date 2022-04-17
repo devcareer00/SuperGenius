@@ -319,10 +319,9 @@ int main(int argc, char* argv[])
         std::make_shared<SubTaskResultStorageImpl>(),
         processingCore);
 
-    processingService.Listen(processingGridChannel);
     processingService.SetChannelListRequestTimeout(boost::posix_time::milliseconds(options->channelListRequestTimeout));
 
-    processingService.SendChannelListRequest();
+    processingService.StartProcessing(processingGridChannel);
 
     // Gracefully shutdown on signal
     boost::asio::signal_set signals(*pubs->GetAsioContext(), SIGINT, SIGTERM);

@@ -23,19 +23,20 @@ public:
         std::shared_ptr<SubTaskResultStorage> subTaskResultStorage,
         std::shared_ptr<ProcessingCore> processingCore);
 
-    /** Listen to data feed channel.
-    * @param dataChannelId - identifier of a data feed channel
-    */
-    void Listen(const std::string& processingGridChannelId);
-
-    void SendChannelListRequest();
+    void StartProcessing(const std::string& processingGridChannelId);
+    void StopProcessing();
 
     size_t GetProcessingNodesCount() const;
 
     void SetChannelListRequestTimeout(
         boost::posix_time::time_duration channelListRequestTimeout);
-
 private:
+    /** Listen to data feed channel.
+    * @param dataChannelId - identifier of a data feed channel
+    */
+    void Listen(const std::string& processingGridChannelId);
+    void SendChannelListRequest();
+
     std::map<std::string, std::shared_ptr<ProcessingNode>>& GetProcessingNodes();
 
     /** Asynschonous callback to process received messages other processing services.
@@ -66,6 +67,10 @@ private:
 
     boost::asio::deadline_timer m_timerChannelListRequestTimeout;
     boost::posix_time::time_duration m_channelListRequestTimeout;
+
+    std::atomic<bool> m_isStopped;
+    mutable std::mutex m_mutexNodes;
+
     base::Logger m_logger = base::createLogger("ProcessingService");
 };
 }

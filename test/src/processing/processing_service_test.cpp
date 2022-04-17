@@ -126,7 +126,7 @@ TEST_F(ProcessingServiceTest, ProcessingSlotsAreAvailable)
     gridChannel.Subscribe([](boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message) {});
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
-    processingService.Listen("GRID_CHANNEL_ID");
+    processingService.StartProcessing("GRID_CHANNEL_ID");
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
     SGProcessing::GridChannelMessage gridMessage;
@@ -169,7 +169,7 @@ TEST_F(ProcessingServiceTest, DISABLED_NoProcessingSlotsAvailable)
     gridChannel.Subscribe([](boost::optional<const sgns::ipfs_pubsub::GossipPubSub::Message&> message) {});
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
-    processingService.Listen("GRID_CHANNEL_ID");
+    processingService.StartProcessing("GRID_CHANNEL_ID");
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
     // No queue channel message sent

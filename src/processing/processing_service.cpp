@@ -18,7 +18,42 @@ ProcessingServiceImpl::ProcessingServiceImpl(
     , m_processingCore(processingCore)
     , m_timerChannelListRequestTimeout(*m_context.get())
     , m_channelListRequestTimeout(boost::posix_time::seconds(5))
+    , m_isStopped(true)
 {
+}
+
+void ProcessingServiceImpl::StartProcessing(const std::string& processingGridChannelId)
+{
+    if (!m_isStopped)
+    {
+        m_logger->debug("[SERVICE_WAS_PREVIOUSLY_STARTED]");
+        return;
+    }
+
+    m_isStopped = false;
+
+    Listen(processingGridChannelId);
+    SendChannelListRequest();
+    m_logger->debug("[SERVICE_STARTED]");
+}
+
+void ProcessingServiceImpl::StopProcessing()
+{
+    if (m_isStopped)
+    {
+        return;
+    }
+
+    m_isStopped = true;
+
+    m_gridChannel->Unsubscribe();
+
+    {
+        std::scoped_lock lock(m_mutexNodes);
+        m_processingNodes = {};
+    }
+
+    m_logger->debug("[SERVICE_STOPPED]");
 }
 
 void ProcessingServiceImpl::Listen(const std::string& processingGridChannelId)
@@ -69,9 +104,16 @@ void ProcessingServiceImpl::OnQueueProcessingCompleted(
     const std::string& subTaskQueueId, const SGProcessing::TaskResult& taskResult)
 {
     m_logger->debug("SUBTASK_QUEUE_PROCESSING_COMPLETED: {}", subTaskQueueId);
-    m_processingNodes.erase(subTaskQueueId);
+
+    {
+        std::scoped_lock lock(m_mutexNodes);
+        m_processingNodes.erase(subTaskQueueId);
+    }
     
-    SendChannelListRequest();
+    if (!m_isStopped)
+    {
+        SendChannelListRequest();
+    }
     // @todo finalize task
     // @todo Add notification of finished task
 }
@@ -80,16 +122,31 @@ void ProcessingServiceImpl::OnProcessingError(
     const std::string& subTaskQueueId, const std::string& errorMessage)
 {
     m_logger->error("PROCESSING_ERROR reason: {}", errorMessage);
-    m_processingNodes.erase(subTaskQueueId);
+
+    {
+        std::scoped_lock lock(m_mutexNodes);
+        m_processingNodes.erase(subTaskQueueId);
+    }
 
     // @todo Stop processing?
-    SendChannelListRequest();
+
+    if (!m_isStopped)
+    {
+        SendChannelListRequest();
+    }
 }
 
 void ProcessingServiceImpl::AcceptProcessingChannel(
     const std::string& processingQueuelId)
 {
+    if (m_isStopped)
+    {
+        return;
+    }
+
+    std::scoped_lock lock(m_mutexNodes);
     auto& processingNodes = GetProcessingNodes();
+
     if (processingNodes.size() < m_maximalNodesCount)
     {
         auto node = std::make_shared<ProcessingNode>(
@@ -114,6 +171,7 @@ void ProcessingServiceImpl::AcceptProcessingChannel(
 
 void ProcessingServiceImpl::PublishLocalChannelList()
 {
+    std::scoped_lock lock(m_mutexNodes);
     const auto& processingNodes = GetProcessingNodes();
     for (auto itNode = processingNodes.begin(); itNode != processingNodes.end(); ++itNode)
     {
@@ -137,6 +195,7 @@ std::map<std::string, std::shared_ptr<ProcessingNode>>& ProcessingServiceImpl::G
 
 size_t ProcessingServiceImpl::GetProcessingNodesCount() const
 {
+    std::scoped_lock lock(m_mutexNodes);
     return m_processingNodes.size();
 }
 
@@ -150,7 +209,15 @@ void ProcessingServiceImpl::HandleRequestTimeout()
 {
     m_logger->debug("QUEUE_REQUEST_TIMEOUT");
     m_timerChannelListRequestTimeout.expires_at(boost::posix_time::pos_infin);
+
+    if (m_isStopped)
+    {
+        return;
+    }
+
+    std::scoped_lock lock(m_mutexNodes);
     auto& processingNodes = GetProcessingNodes();
+
     while (processingNodes.size() < m_maximalNodesCount)
     {
         std::string subTaskQueueId;
