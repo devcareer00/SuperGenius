@@ -31,14 +31,26 @@ namespace
     class SubTaskResultStorageImpl : public SubTaskResultStorage
     {
     public:
-        void AddSubTaskResult(const SGProcessing::SubTaskResult& subTaskResult) override
+        SubTaskResultStorageImpl(std::shared_ptr<sgns::crdt::GlobalDB> db)
+            : m_db(db)
         {
-            m_results[subTaskResult.subtaskid()] = subTaskResult;
+        }
+
+        void AddSubTaskResult(const SGProcessing::SubTaskResult& result) override
+        {
+            sgns::crdt::GlobalDB::Buffer data;
+            data.put(result.SerializeAsString());
+
+            auto taskId =
+                m_db->Put(
+                    sgns::crdt::HierarchicalKey((boost::format("results/%s") % result.subtaskid()).str().c_str()),
+                    data);
         }
 
         void RemoveSubTaskResult(const std::string& subTaskId) override 
         {
-            m_results.erase(subTaskId);
+            m_db->Remove(
+                sgns::crdt::HierarchicalKey((boost::format("results/%s") % subTaskId).str().c_str()));
         }
 
         void GetSubTaskResults(
@@ -47,17 +59,20 @@ namespace
         {
             for (const auto& subTaskId : subTaskIds)
             {
-                auto itResult = m_results.find(subTaskId);
-                if (itResult != m_results.end())
+                auto data = m_db->Get(sgns::crdt::HierarchicalKey((boost::format("results/%s") % subTaskId).str().c_str()));
+                if (data)
                 {
-                    results.push_back(itResult->second);
+                    SGProcessing::SubTaskResult result;
+                    if (result.ParseFromArray(data.value().data(), data.value().size()))
+                    {
+                        results.push_back(std::move(result));
+                    }
                 }
             }
         }
 
     private:
-        // @todo replace with CRDT data storage
-        std::map<std::string, SGProcessing::SubTaskResult> m_results;
+        std::shared_ptr<sgns::crdt::GlobalDB> m_db;
     };
 
     class ProcessingCoreImpl : public ProcessingCore
@@ -118,13 +133,6 @@ namespace
             }
 
             result.set_result_hash(subTaskResultHash);
-            sgns::crdt::GlobalDB::Buffer data;
-            data.put(result.SerializeAsString());
-
-            auto taskId = 
-            m_db->Put(
-                sgns::crdt::HierarchicalKey((boost::format("results/%s") % subTask.subtaskid()).str().c_str()),
-                data);
         }
 
         std::vector<size_t> m_chunkResulHashes;
@@ -344,7 +352,7 @@ int main(int argc, char* argv[])
         maximalNodesCount,
         enqueuer,
         std::make_shared<SubTaskStateStorageImpl>(),
-        std::make_shared<SubTaskResultStorageImpl>(),
+        std::make_shared<SubTaskResultStorageImpl>(globalDB),
         processingCore);
 
     processingService.SetChannelListRequestTimeout(boost::posix_time::milliseconds(options->channelListRequestTimeout));
