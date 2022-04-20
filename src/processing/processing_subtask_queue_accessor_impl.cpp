@@ -14,6 +14,10 @@ SubTaskQueueAccessorImpl::SubTaskQueueAccessorImpl(
     , m_subTaskResultStorage(subTaskResultStorage)
     , m_taskResultProcessingSink(taskResultProcessingSink)
 {
+    m_subTaskQueueManager->SetSubTaskQueueAssignmentEventSink(
+        std::bind(&SubTaskQueueAccessorImpl::OnSubTaskQueueAssigned, 
+            this, std::placeholders::_1, std::placeholders::_2));
+
     // @todo replace hardcoded channel identified with an input value
     m_resultChannel = std::make_shared<ipfs_pubsub::GossipPubSubTopic>(m_gossipPubSub, "RESULT_CHANNEL_ID");
     m_logger->debug("[CREATED] this: {}, thread_id {}", reinterpret_cast<size_t>(this), std::this_thread::get_id());
@@ -42,24 +46,35 @@ void SubTaskQueueAccessorImpl::AssignSubTasks(std::list<SGProcessing::SubTask>& 
         m_subTaskStateStorage->ChangeSubTaskState(
             subTask.subtaskid(), SGProcessing::SubTaskState::ENQUEUED);
     }
+    m_subTaskQueueManager->CreateQueue(subTasks);
+}
 
-    std::vector<std::string> subTaskIds;
-    for (auto& subTask : subTasks)
-    {
-        subTaskIds.push_back(subTask.subtaskid());
-    }
-
+void SubTaskQueueAccessorImpl::UpdateResultsFromStorage(const std::vector<std::string>& subTaskIds)
+{
     std::vector<SGProcessing::SubTaskResult> results;
     m_subTaskResultStorage->GetSubTaskResults(subTaskIds, results);
 
-    std::set<std::string> processedSubTaskIds;
-    for (auto& result : results)
-    {
-        processedSubTaskIds.insert(result.subtaskid());
-        m_results.emplace(result.subtaskid(), std::move(result));
-    }
+    m_logger->debug("[RESULTS_LOADED] {} results loaded from results storage", results.size());
 
-    m_subTaskQueueManager->CreateQueue(subTasks, processedSubTaskIds);
+    if (!results.empty())
+    {
+        for (auto& result : results)
+        {
+            m_results.emplace(result.subtaskid(), std::move(result));
+        }
+    }
+}
+
+void SubTaskQueueAccessorImpl::OnSubTaskQueueAssigned(
+    const std::vector<std::string>& subTaskIds, std::set<std::string>& processedSubTaskIds)
+{
+    std::lock_guard<std::mutex> guard(m_mutexResults);
+    UpdateResultsFromStorage(subTaskIds);
+
+    for (const auto& [subTaskId, result]: m_results)
+    {
+        processedSubTaskIds.insert(subTaskId);
+    }
 }
 
 void SubTaskQueueAccessorImpl::GrabSubTask(SubTaskGrabbedCallback onSubTaskGrabbedCallback)
@@ -86,6 +101,34 @@ void SubTaskQueueAccessorImpl::OnResultReceived(SGProcessing::SubTaskResult&& su
     m_results.emplace(subTaskId, std::move(subTaskResult));
 
     m_subTaskQueueManager->ChangeSubTaskProcessingStates({ subTaskId }, true);
+
+    // Loading results from results storage
+    // @todo Check if the action needs to be executed by timer or add some kind of subscription to results data in 
+    // CRDT datatore
+    if (!m_subTaskQueueManager->IsProcessed())
+    {
+        const auto& queue = m_subTaskQueueManager->GetQueueSnapshot();
+        std::vector<std::string> subTaskIds;
+        // @todo optimized the loop
+        // Instead of iterating over the whole subtask list keep pending results id list
+        // m_results U pending results = full ids set
+        for (size_t subTaskIdx = 0; subTaskIdx < queue->subtasks_size(); ++subTaskIdx)
+        {
+            const auto& subTask = queue->subtasks(subTaskIdx);
+            subTaskIds.push_back(subTask.subtaskid());
+        }
+
+        UpdateResultsFromStorage(subTaskIds);
+
+        std::set<std::string> processedSubTaskIds;
+        for (const auto& [subTaskId, result] : m_results)
+        {
+            processedSubTaskIds.insert(result.subtaskid());
+            m_results.emplace(result.subtaskid(), std::move(result));
+        }
+        m_subTaskQueueManager->ChangeSubTaskProcessingStates(processedSubTaskIds, true);
+
+    }
 
     // Task processing finished
     if (m_subTaskQueueManager->IsProcessed()) 
@@ -165,7 +208,7 @@ void SubTaskQueueAccessorImpl::OnResultChannelMessage(
         SGProcessing::SubTaskResult result;
         if (result.ParseFromArray(message->data.data(), static_cast<int>(message->data.size())))
         {
-            _this->m_logger->debug("[RESULT_RECEIVED]. ({}).", result.ipfs_results_data_id());
+            _this->m_logger->debug("[RESULT_RECEIVED]. ({}).", result.subtaskid());
 
             _this->OnResultReceived(std::move(result));
         }

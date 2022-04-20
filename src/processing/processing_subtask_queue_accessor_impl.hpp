@@ -54,6 +54,8 @@ public:
 
 private:
     void OnResultReceived(SGProcessing::SubTaskResult&& subTaskResult);
+    void OnSubTaskQueueAssigned(const std::vector<std::string>& subTaskIds, std::set<std::string>& processedSubTaskIds);
+    void UpdateResultsFromStorage(const std::vector<std::string>& subTaskIds);
     
     static void OnResultChannelMessage(
         std::weak_ptr<SubTaskQueueAccessorImpl> weakThis,

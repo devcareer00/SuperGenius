@@ -30,8 +30,7 @@ ProcessingSubTaskQueueManager::~ProcessingSubTaskQueueManager()
 }
 
 bool ProcessingSubTaskQueueManager::CreateQueue(
-    std::list<SGProcessing::SubTask>& subTasks, 
-    const std::set<std::string>& processedSubTaskIds)
+    std::list<SGProcessing::SubTask>& subTasks)
 {
     auto timestamp = std::chrono::system_clock::now();
 
@@ -51,7 +50,18 @@ bool ProcessingSubTaskQueueManager::CreateQueue(
     std::lock_guard<std::mutex> guard(m_queueMutex);
     m_queue = std::move(queue);
 
-    m_processedSubTaskIds = processedSubTaskIds;
+    m_processedSubTaskIds = {};
+    if (m_subTaskQueueAssignmentEventSink)
+    {
+        std::vector<std::string> subTaskIds;
+        for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks_size(); ++subTaskIdx)
+        {
+            subTaskIds.push_back(m_queue->subtasks(subTaskIdx).subtaskid());
+        }
+        m_subTaskQueueAssignmentEventSink(subTaskIds, m_processedSubTaskIds);
+    }
+    
+    // Map subtask IDs to subtask indices
     std::vector<int> unprocessedSubTaskIndices;
     for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks_size(); ++subTaskIdx)
     {
@@ -77,6 +87,18 @@ bool ProcessingSubTaskQueueManager::UpdateQueue(SGProcessing::SubTaskQueue* pQue
     if (pQueue)
     {
         std::shared_ptr<SGProcessing::SubTaskQueue> queue(pQueue);
+
+        if (m_subTaskQueueAssignmentEventSink && !m_queue)
+        {
+            std::vector<std::string> subTaskIds;
+            for (int subTaskIdx = 0; subTaskIdx < queue->subtasks_size(); ++subTaskIdx)
+            {
+                subTaskIds.push_back(queue->subtasks(subTaskIdx).subtaskid());
+            }
+            m_subTaskQueueAssignmentEventSink(subTaskIds, m_processedSubTaskIds);
+        }
+
+        // Map subtask IDs to subtask indices
         std::vector<int> unprocessedSubTaskIndices;
         for (int subTaskIdx = 0; subTaskIdx < queue->subtasks_size(); ++subTaskIdx)
         {
@@ -297,6 +319,7 @@ void ProcessingSubTaskQueueManager::ChangeSubTaskProcessingStates(
         }
     }
 
+    // Map subtask IDs to subtask indices
     std::vector<int> unprocessedSubTaskIndices;
     for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks_size(); ++subTaskIdx)
     {
@@ -315,6 +338,12 @@ bool ProcessingSubTaskQueueManager::IsProcessed() const
     // The queue can contain only valid results
     m_logger->debug("IS_PROCESSED: {} {} {}", m_processedSubTaskIds.size(), m_queue->subtasks_size(), (size_t)this);
     return (m_processedSubTaskIds.size() == (size_t)m_queue->subtasks_size());
+}
+
+void ProcessingSubTaskQueueManager::SetSubTaskQueueAssignmentEventSink(
+    std::function<void(const std::vector<std::string>&, std::set<std::string>&)> subTaskQueueAssignmentEventSink)
+{
+    m_subTaskQueueAssignmentEventSink = subTaskQueueAssignmentEventSink;
 }
 
 void ProcessingSubTaskQueueManager::LogQueue() const

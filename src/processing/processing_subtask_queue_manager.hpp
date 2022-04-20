@@ -43,12 +43,9 @@ public:
     /** Create a subtask queue by splitting the task to subtasks using the processing code
     * @param subTasks - a list of subtasks that should be added to the queue
     * in subtasks to allow a validation
-    * @param processedSubTaskIds - a list processed subtasks
     * @return false if not queue was created due to errors
     */
-    bool CreateQueue(
-        std::list<SGProcessing::SubTask>& subTasks,
-        const std::set<std::string>& processedSubTaskIds);
+    bool CreateQueue(std::list<SGProcessing::SubTask>& subTasks);
 
     /** Asynchronous getting of a subtask from the queue
     * @param onSubTaskGrabbedCallback a callback that is called when a grapped iosubtask is locked by the local node
@@ -93,6 +90,9 @@ public:
     * @return true if the queue is processed
     */
     bool IsProcessed() const;
+
+    void SetSubTaskQueueAssignmentEventSink(
+        std::function<void(const std::vector<std::string>&, std::set<std::string>&)> subTaskQueueAssignmentEventSink);
         
 private:
     /** Updates the local queue with a snapshot that have the most recent timestamp
@@ -115,6 +115,7 @@ private:
     mutable std::mutex m_queueMutex;
     std::list<SubTaskGrabbedCallback> m_onSubTaskGrabbedCallbacks;
 
+    std::function<void(const std::vector<std::string>&, std::set<std::string>&)> m_subTaskQueueAssignmentEventSink;
     std::set<std::string> m_processedSubTaskIds;
 
     boost::asio::deadline_timer m_dltQueueResponseTimeout;
