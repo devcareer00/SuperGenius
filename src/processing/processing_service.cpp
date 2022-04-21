@@ -145,9 +145,7 @@ void ProcessingServiceImpl::AcceptProcessingChannel(
     }
 
     std::scoped_lock lock(m_mutexNodes);
-    auto& processingNodes = GetProcessingNodes();
-
-    if (processingNodes.size() < m_maximalNodesCount)
+    if (m_processingNodes.size() < m_maximalNodesCount)
     {
         auto node = std::make_shared<ProcessingNode>(
             m_gossipPubSub,
@@ -160,10 +158,10 @@ void ProcessingServiceImpl::AcceptProcessingChannel(
                 this, processingQueuelId, std::placeholders::_1));
 
         node->AttachTo(processingQueuelId);
-        processingNodes[processingQueuelId] = node;
+        m_processingNodes[processingQueuelId] = node;
     }
 
-    if (processingNodes.size() == m_maximalNodesCount)
+    if (m_processingNodes.size() == m_maximalNodesCount)
     {
         m_timerChannelListRequestTimeout.expires_at(boost::posix_time::pos_infin);
     }
@@ -172,8 +170,7 @@ void ProcessingServiceImpl::AcceptProcessingChannel(
 void ProcessingServiceImpl::PublishLocalChannelList()
 {
     std::scoped_lock lock(m_mutexNodes);
-    const auto& processingNodes = GetProcessingNodes();
-    for (auto itNode = processingNodes.begin(); itNode != processingNodes.end(); ++itNode)
+    for (auto itNode = m_processingNodes.begin(); itNode != m_processingNodes.end(); ++itNode)
     {
         // Only channel host answers to reduce a number of published messages
         if (itNode->second->HasQueueOwnership())
@@ -186,11 +183,6 @@ void ProcessingServiceImpl::PublishLocalChannelList()
             m_logger->debug("Channel published. {}", channelResponse->channel_id());
         }
     }
-}
-
-std::map<std::string, std::shared_ptr<ProcessingNode>>& ProcessingServiceImpl::GetProcessingNodes()
-{
-    return m_processingNodes;
 }
 
 size_t ProcessingServiceImpl::GetProcessingNodesCount() const
@@ -216,9 +208,7 @@ void ProcessingServiceImpl::HandleRequestTimeout()
     }
 
     std::scoped_lock lock(m_mutexNodes);
-    auto& processingNodes = GetProcessingNodes();
-
-    while (processingNodes.size() < m_maximalNodesCount)
+    while (m_processingNodes.size() < m_maximalNodesCount)
     {
         std::string subTaskQueueId;
         std::list<SGProcessing::SubTask> subTasks;
@@ -240,7 +230,7 @@ void ProcessingServiceImpl::HandleRequestTimeout()
             // and return subTaskQueueId from processing host?
             node->CreateProcessingHost(subTaskQueueId, subTasks);
 
-            processingNodes[subTaskQueueId] = node;
+            m_processingNodes[subTaskQueueId] = node;
             m_logger->debug("New processing channel created. {}", subTaskQueueId);
         }
         else

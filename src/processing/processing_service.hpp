@@ -37,8 +37,6 @@ private:
     void Listen(const std::string& processingGridChannelId);
     void SendChannelListRequest();
 
-    std::map<std::string, std::shared_ptr<ProcessingNode>>& GetProcessingNodes();
-
     /** Asynschonous callback to process received messages other processing services.
     * @param message - a message structure containing the messsage data and its sender peer information.
     * @return None
