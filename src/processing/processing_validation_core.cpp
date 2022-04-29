@@ -8,7 +8,7 @@ ProcessingValidationCore::ProcessingValidationCore()
 }
 
 bool ProcessingValidationCore::ValidateResults(
-    const std::list<SGProcessing::SubTask>& subTasks,
+    const SGProcessing::SubTaskCollection& subTasks,
     const std::map<std::string, SGProcessing::SubTaskResult>& results,
     std::set<std::string>& invalidSubTaskIds)
 {
@@ -16,8 +16,9 @@ bool ProcessingValidationCore::ValidateResults(
     // Compare result hashes for each chunk
     // If a chunk hashes didn't match each other add the all subtasks with invalid hashes to VALID ITEMS LIST
     std::map<std::string, std::vector<uint32_t>> chunks;
-    for (const auto& subTask: subTasks)
+    for (int itemIdx = 0; itemIdx < subTasks.items_size(); ++itemIdx)
     {
+        const auto& subTask = subTasks.items(itemIdx);
         auto itResult = results.find(subTask.subtaskid());
         if (itResult != results.end())
         {
@@ -45,8 +46,9 @@ bool ProcessingValidationCore::ValidateResults(
         }
     }
 
-    for (const auto& subTask: subTasks)
+    for (int itemIdx = 0; itemIdx < subTasks.items_size(); ++itemIdx)
     {
+        const auto& subTask = subTasks.items(itemIdx);
         if ((invalidSubTaskIds.find(subTask.subtaskid()) == invalidSubTaskIds.end())
             && !CheckSubTaskResultHashes(subTask, chunks))
         {

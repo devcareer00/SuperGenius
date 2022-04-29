@@ -28,7 +28,7 @@ public:
     * @return true if all chunk results are valid
     */
     bool ValidateResults(
-        const std::list<SGProcessing::SubTask>& subTasks,
+        const SGProcessing::SubTaskCollection& subTasks,
         const std::map<std::string, SGProcessing::SubTaskResult>& results,
         std::set<std::string>& invalidSubTaskIds);
 

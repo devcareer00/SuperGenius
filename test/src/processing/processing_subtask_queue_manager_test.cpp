@@ -358,7 +358,7 @@ TEST_F(ProcessingSubTaskQueueManagerTest, CheckProcessedQueue)
  */
 TEST_F(ProcessingSubTaskQueueManagerTest, ValidateResults)
 {
-    std::list<SGProcessing::SubTask> subTasks;
+    SGProcessing::SubTaskCollection subTasks;
     // A single chunk is added to 2 subtasks
     SGProcessing::ProcessingChunk chunk1;
     chunk1.set_chunkid("CHUNK_1");
@@ -370,19 +370,17 @@ TEST_F(ProcessingSubTaskQueueManagerTest, ValidateResults)
     chunk1.set_subchunk_width(10);
 
     {
-        SGProcessing::SubTask subtask;
-        subtask.set_subtaskid("SUBTASK_1");
-        auto chunk = subtask.add_chunkstoprocess();
+        auto subtask = subTasks.add_items();
+        subtask->set_subtaskid("SUBTASK_1");
+        auto chunk = subtask->add_chunkstoprocess();
         chunk->CopyFrom(chunk1);
-        subTasks.push_back(std::move(subtask));
     }
 
     {
-        SGProcessing::SubTask subtask;
-        subtask.set_subtaskid("SUBTASK_2");
-        auto chunk = subtask.add_chunkstoprocess();
+        auto subtask = subTasks.add_items();
+        subtask->set_subtaskid("SUBTASK_2");
+        auto chunk = subtask->add_chunkstoprocess();
         chunk->CopyFrom(chunk1);
-        subTasks.push_back(std::move(subtask));
     }
 
     std::map<std::string, SGProcessing::SubTaskResult> results;

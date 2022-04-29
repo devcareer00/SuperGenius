@@ -142,7 +142,7 @@ void SubTaskQueueAccessorImpl::OnResultReceived(SGProcessing::SubTaskResult&& su
             subTasks.push_back(queue->subtasks().items(subTaskIdx));
         }
 
-        bool valid = m_validationCore.ValidateResults(subTasks, m_results, invalidSubTaskIds);
+        bool valid = m_validationCore.ValidateResults(queue->subtasks(), m_results, invalidSubTaskIds);
 
         m_logger->debug("RESULTS_VALIDATED: {}", valid ? "VALID" : "INVALID");
         if (valid)
