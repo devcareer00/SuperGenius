@@ -171,11 +171,11 @@ TEST_F(ProcessingSubTaskChannelPubSubTest, QueueTransmittingOnSinglePubSubHost)
     auto queue = std::make_shared<SGProcessing::SubTaskQueue>();
     queue->mutable_processing_queue()->set_owner_node_id(nodeId1);
     {
-        auto subtask = queue->add_subtasks();
+        auto subtask = queue->mutable_subtasks()->add_items();
         subtask->set_subtaskid("SUBTASK_1");
     }
     {
-        auto subtask = queue->add_subtasks();
+        auto subtask = queue->mutable_subtasks()->add_items();
         subtask->set_subtaskid("SUBTASK_2");
     }
 

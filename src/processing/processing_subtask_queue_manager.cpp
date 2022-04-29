@@ -43,7 +43,7 @@ bool ProcessingSubTaskQueueManager::CreateQueue(
     {
         // Move subtask to heap
         auto subTask = std::make_unique<SGProcessing::SubTask>(std::move(*itSubTask));
-        queueSubTasks->AddAllocated(subTask.release());
+        queueSubTasks->mutable_items()->AddAllocated(subTask.release());
         processingQueue->add_items();
     }
 
@@ -54,18 +54,18 @@ bool ProcessingSubTaskQueueManager::CreateQueue(
     if (m_subTaskQueueAssignmentEventSink)
     {
         std::vector<std::string> subTaskIds;
-        for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks_size(); ++subTaskIdx)
+        for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks().items_size(); ++subTaskIdx)
         {
-            subTaskIds.push_back(m_queue->subtasks(subTaskIdx).subtaskid());
+            subTaskIds.push_back(m_queue->subtasks().items(subTaskIdx).subtaskid());
         }
         m_subTaskQueueAssignmentEventSink(subTaskIds, m_processedSubTaskIds);
     }
     
     // Map subtask IDs to subtask indices
     std::vector<int> unprocessedSubTaskIndices;
-    for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks_size(); ++subTaskIdx)
+    for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks().items_size(); ++subTaskIdx)
     {
-        const auto& subTaskId = m_queue->subtasks(subTaskIdx).subtaskid();
+        const auto& subTaskId = m_queue->subtasks().items(subTaskIdx).subtaskid();
         if (m_processedSubTaskIds.find(subTaskId) == m_processedSubTaskIds.end())
         {
             unprocessedSubTaskIndices.push_back(subTaskIdx);
@@ -91,18 +91,18 @@ bool ProcessingSubTaskQueueManager::UpdateQueue(SGProcessing::SubTaskQueue* pQue
         if (m_subTaskQueueAssignmentEventSink && !m_queue)
         {
             std::vector<std::string> subTaskIds;
-            for (int subTaskIdx = 0; subTaskIdx < queue->subtasks_size(); ++subTaskIdx)
+            for (int subTaskIdx = 0; subTaskIdx < queue->subtasks().items_size(); ++subTaskIdx)
             {
-                subTaskIds.push_back(queue->subtasks(subTaskIdx).subtaskid());
+                subTaskIds.push_back(queue->subtasks().items(subTaskIdx).subtaskid());
             }
             m_subTaskQueueAssignmentEventSink(subTaskIds, m_processedSubTaskIds);
         }
 
         // Map subtask IDs to subtask indices
         std::vector<int> unprocessedSubTaskIndices;
-        for (int subTaskIdx = 0; subTaskIdx < queue->subtasks_size(); ++subTaskIdx)
+        for (int subTaskIdx = 0; subTaskIdx < queue->subtasks().items_size(); ++subTaskIdx)
         {
-            const auto& subTaskId = queue->subtasks(subTaskIdx).subtaskid();
+            const auto& subTaskId = queue->subtasks().items(subTaskIdx).subtaskid();
             if (m_processedSubTaskIds.find(subTaskId) == m_processedSubTaskIds.end())
             {
                 unprocessedSubTaskIndices.push_back(subTaskIdx);
@@ -131,7 +131,7 @@ void ProcessingSubTaskQueueManager::ProcessPendingSubTaskGrabbing()
             LogQueue();
             PublishSubTaskQueue();
 
-            m_onSubTaskGrabbedCallbacks.front()({ m_queue->subtasks(itemIdx) });
+            m_onSubTaskGrabbedCallbacks.front()({ m_queue->subtasks().items(itemIdx) });
             m_onSubTaskGrabbedCallbacks.pop_front();
         }
         else
@@ -321,9 +321,9 @@ void ProcessingSubTaskQueueManager::ChangeSubTaskProcessingStates(
 
     // Map subtask IDs to subtask indices
     std::vector<int> unprocessedSubTaskIndices;
-    for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks_size(); ++subTaskIdx)
+    for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks().items_size(); ++subTaskIdx)
     {
-        const auto& subTaskId = m_queue->subtasks(subTaskIdx).subtaskid();
+        const auto& subTaskId = m_queue->subtasks().items(subTaskIdx).subtaskid();
         if (m_processedSubTaskIds.find(subTaskId) == m_processedSubTaskIds.end())
         {
             unprocessedSubTaskIndices.push_back(subTaskIdx);
@@ -336,8 +336,8 @@ bool ProcessingSubTaskQueueManager::IsProcessed() const
 {
     std::lock_guard<std::mutex> guard(m_queueMutex);
     // The queue can contain only valid results
-    m_logger->debug("IS_PROCESSED: {} {} {}", m_processedSubTaskIds.size(), m_queue->subtasks_size(), (size_t)this);
-    return (m_processedSubTaskIds.size() == (size_t)m_queue->subtasks_size());
+    m_logger->debug("IS_PROCESSED: {} {} {}", m_processedSubTaskIds.size(), m_queue->subtasks().items_size(), (size_t)this);
+    return (m_processedSubTaskIds.size() == (size_t)m_queue->subtasks().items_size());
 }
 
 void ProcessingSubTaskQueueManager::SetSubTaskQueueAssignmentEventSink(

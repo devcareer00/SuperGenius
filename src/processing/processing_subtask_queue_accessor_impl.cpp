@@ -112,9 +112,9 @@ void SubTaskQueueAccessorImpl::OnResultReceived(SGProcessing::SubTaskResult&& su
         // @todo optimized the loop
         // Instead of iterating over the whole subtask list keep pending results id list
         // m_results U pending results = full ids set
-        for (size_t subTaskIdx = 0; subTaskIdx < queue->subtasks_size(); ++subTaskIdx)
+        for (size_t subTaskIdx = 0; subTaskIdx < queue->subtasks().items_size(); ++subTaskIdx)
         {
-            const auto& subTask = queue->subtasks(subTaskIdx);
+            const auto& subTask = queue->subtasks().items(subTaskIdx);
             subTaskIds.push_back(subTask.subtaskid());
         }
 
@@ -137,9 +137,9 @@ void SubTaskQueueAccessorImpl::OnResultReceived(SGProcessing::SubTaskResult&& su
 
         auto queue = m_subTaskQueueManager->GetQueueSnapshot();
         std::list<SGProcessing::SubTask> subTasks;
-        for (size_t subTaskIdx = 0; subTaskIdx < queue->subtasks_size(); ++subTaskIdx)
+        for (size_t subTaskIdx = 0; subTaskIdx < queue->subtasks().items_size(); ++subTaskIdx)
         {
-            subTasks.push_back(queue->subtasks(subTaskIdx));
+            subTasks.push_back(queue->subtasks().items(subTaskIdx));
         }
 
         bool valid = m_validationCore.ValidateResults(subTasks, m_results, invalidSubTaskIds);

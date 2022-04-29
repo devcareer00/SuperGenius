@@ -157,7 +157,7 @@ TEST_F(SubTaskQueueAccessorImplTest, SubscribtionToResultChannel)
     queue->mutable_processing_queue()->set_owner_node_id("DIFFERENT_NODE_ID");
 
     auto item = queue->mutable_processing_queue()->add_items();
-    auto subTask = queue->add_subtasks();
+    auto subTask = queue->mutable_subtasks()->add_items();
     subTask->set_subtaskid("SUBTASK_ID");
 
     auto processingQueueManager = std::make_shared<ProcessingSubTaskQueueManager>(
@@ -230,14 +230,14 @@ TEST_F(SubTaskQueueAccessorImplTest, TaskFinalization)
     queue->mutable_processing_queue()->set_owner_node_id(nodeId1);
     {
         auto item = queue->mutable_processing_queue()->add_items();
-        auto subTask = queue->add_subtasks();
+        auto subTask = queue->mutable_subtasks()->add_items();
         subTask->set_subtaskid("SUBTASK_ID1");
         auto chunk = subTask->add_chunkstoprocess();
         chunk->CopyFrom(chunk1);
     }
     {
         auto item = queue->mutable_processing_queue()->add_items();
-        auto subTask = queue->add_subtasks();
+        auto subTask = queue->mutable_subtasks()->add_items();
         subTask->set_subtaskid("SUBTASK_ID2");
         auto chunk = subTask->add_chunkstoprocess();
         chunk->CopyFrom(chunk1);
@@ -307,14 +307,14 @@ TEST_F(SubTaskQueueAccessorImplTest, InvalidSubTasksRestart)
     queue->mutable_processing_queue()->set_owner_node_id(nodeId1);
     {
         auto item = queue->mutable_processing_queue()->add_items();
-        auto subTask = queue->add_subtasks();
+        auto subTask = queue->mutable_subtasks()->add_items();
         subTask->set_subtaskid("SUBTASK_ID1");
         auto chunk = subTask->add_chunkstoprocess();
         chunk->CopyFrom(chunk1);
     }
     {
         auto item = queue->mutable_processing_queue()->add_items();
-        auto subTask = queue->add_subtasks();
+        auto subTask = queue->mutable_subtasks()->add_items();
         subTask->set_subtaskid("SUBTASK_ID2");
         auto chunk = subTask->add_chunkstoprocess();
         chunk->CopyFrom(chunk1);

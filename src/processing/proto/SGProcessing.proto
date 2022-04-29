@@ -56,10 +56,15 @@ message ProcessingQueue
     string owner_node_id = 3;
 }
 
+message SubTaskCollection
+{
+    repeated SubTask items = 1;
+}
+
 message SubTaskQueue
 {
     ProcessingQueue processing_queue = 1;
-    repeated SubTask subtasks = 2;
+    SubTaskCollection subtasks = 2;
 }
 
 message SubTaskQueueRequest
