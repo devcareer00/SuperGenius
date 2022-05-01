@@ -54,7 +54,7 @@ namespace
         }
 
         void GetSubTaskResults(
-            const std::vector<std::string>& subTaskIds,
+            const std::set<std::string>& subTaskIds,
             std::vector<SGProcessing::SubTaskResult>& results) override 
         {
             for (const auto& subTaskId : subTaskIds)

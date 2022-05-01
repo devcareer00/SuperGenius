@@ -34,7 +34,7 @@ public:
     * @return results
     */
     virtual void GetSubTaskResults(
-        const std::vector<std::string>& subTaskIds, 
+        const std::set<std::string>& subTaskIds, 
         std::vector<SGProcessing::SubTaskResult>& results) = 0;
 
 };

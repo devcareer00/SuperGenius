@@ -49,7 +49,7 @@ void SubTaskQueueAccessorImpl::AssignSubTasks(std::list<SGProcessing::SubTask>& 
     m_subTaskQueueManager->CreateQueue(subTasks);
 }
 
-void SubTaskQueueAccessorImpl::UpdateResultsFromStorage(const std::vector<std::string>& subTaskIds)
+void SubTaskQueueAccessorImpl::UpdateResultsFromStorage(const std::set<std::string>& subTaskIds)
 {
     std::vector<SGProcessing::SubTaskResult> results;
     m_subTaskResultStorage->GetSubTaskResults(subTaskIds, results);
@@ -60,7 +60,15 @@ void SubTaskQueueAccessorImpl::UpdateResultsFromStorage(const std::vector<std::s
     {
         for (auto& result : results)
         {
-            m_results.emplace(result.subtaskid(), std::move(result));
+            const auto& subTaskId = result.subtaskid();
+            if (subTaskIds.find(subTaskId) != subTaskIds.end())
+            {
+                m_results.emplace(subTaskId, std::move(result));
+            }
+            else
+            {
+                m_logger->error("INVALID_RESULT_FOUND subtaskid: '{}'", subTaskId);
+            }
         }
     }
 }
@@ -81,10 +89,10 @@ void SubTaskQueueAccessorImpl::GrabSubTask(SubTaskGrabbedCallback onSubTaskGrabb
     std::lock_guard<std::mutex> guard(m_mutexResults);
     auto queue = m_subTaskQueueManager->GetQueueSnapshot();
 
-    std::vector<std::string> subTaskIds;
+    std::set<std::string> subTaskIds;
     for (size_t itemIdx = 0; itemIdx < queue->subtasks().items_size(); ++itemIdx)
     {
-        subTaskIds.push_back(queue->subtasks().items(itemIdx).subtaskid());
+        subTaskIds.insert(queue->subtasks().items(itemIdx).subtaskid());
     }
 
     UpdateResultsFromStorage(subTaskIds);

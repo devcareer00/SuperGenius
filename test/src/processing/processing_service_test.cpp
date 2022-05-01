@@ -27,7 +27,7 @@ public:
     void AddSubTaskResult(const SGProcessing::SubTaskResult& subTaskResult) override {}
     void RemoveSubTaskResult(const std::string& subTaskId) override {}
     void GetSubTaskResults(
-        const std::vector<std::string>& subTaskIds,
+        const std::set<std::string>& subTaskIds,
         std::vector<SGProcessing::SubTaskResult>& results) override {}
 };
 
