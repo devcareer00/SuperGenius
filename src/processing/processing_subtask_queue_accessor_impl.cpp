@@ -69,14 +69,6 @@ void SubTaskQueueAccessorImpl::OnSubTaskQueueAssigned(
     const std::vector<std::string>& subTaskIds, std::set<std::string>& processedSubTaskIds,
      std::function<void()> onSubTaskQueueConnectedEventSink)
 {
-    std::lock_guard<std::mutex> guard(m_mutexResults);
-    UpdateResultsFromStorage(subTaskIds);
-
-    for (const auto& [subTaskId, result]: m_results)
-    {
-        processedSubTaskIds.insert(subTaskId);
-    }
-
     // Call it asynchronously finalize initialization
     m_gossipPubSub->GetAsioContext()->post([onSubTaskQueueConnectedEventSink]() {
         onSubTaskQueueConnectedEventSink();
@@ -85,6 +77,33 @@ void SubTaskQueueAccessorImpl::OnSubTaskQueueAssigned(
 
 void SubTaskQueueAccessorImpl::GrabSubTask(SubTaskGrabbedCallback onSubTaskGrabbedCallback)
 {
+    std::lock_guard<std::mutex> guard(m_mutexResults);
+    auto queue = m_subTaskQueueManager->GetQueueSnapshot();
+
+    std::vector<std::string> subTaskIds;
+    for (size_t itemIdx = 0; itemIdx < queue->subtasks().items_size(); ++itemIdx)
+    {
+        subTaskIds.push_back(queue->subtasks().items(itemIdx).subtaskid());
+    }
+
+    UpdateResultsFromStorage(subTaskIds);
+
+    std::set<std::string> processedSubTaskIds;
+    for (const auto& [subTaskId, result]: m_results)
+    {
+        processedSubTaskIds.insert(subTaskId);
+    }
+
+    m_subTaskQueueManager->ChangeSubTaskProcessingStates(processedSubTaskIds, true);
+    if (m_subTaskQueueManager->IsProcessed())
+    {
+        std::set<std::string> invalidSubTaskIds;
+        if (!FinalizeQueueProcessing(queue->subtasks(), invalidSubTaskIds))
+        {
+            m_subTaskQueueManager->ChangeSubTaskProcessingStates(processedSubTaskIds, false);
+        }
+    }
+
     m_subTaskQueueManager->GrabSubTask(onSubTaskGrabbedCallback);
 }
 
@@ -107,34 +126,6 @@ void SubTaskQueueAccessorImpl::OnResultReceived(SGProcessing::SubTaskResult&& su
     m_results.emplace(subTaskId, std::move(subTaskResult));
 
     m_subTaskQueueManager->ChangeSubTaskProcessingStates({ subTaskId }, true);
-
-    // Loading results from results storage
-    // @todo Check if the action needs to be executed by timer or add some kind of subscription to results data in 
-    // CRDT datatore
-    if (!m_subTaskQueueManager->IsProcessed())
-    {
-        const auto& queue = m_subTaskQueueManager->GetQueueSnapshot();
-        std::vector<std::string> subTaskIds;
-        // @todo optimized the loop
-        // Instead of iterating over the whole subtask list keep pending results id list
-        // m_results U pending results = full ids set
-        for (size_t subTaskIdx = 0; subTaskIdx < queue->subtasks().items_size(); ++subTaskIdx)
-        {
-            const auto& subTask = queue->subtasks().items(subTaskIdx);
-            subTaskIds.push_back(subTask.subtaskid());
-        }
-
-        UpdateResultsFromStorage(subTaskIds);
-
-        std::set<std::string> processedSubTaskIds;
-        for (const auto& [subTaskId, result] : m_results)
-        {
-            processedSubTaskIds.insert(result.subtaskid());
-            m_results.emplace(result.subtaskid(), std::move(result));
-        }
-        m_subTaskQueueManager->ChangeSubTaskProcessingStates(processedSubTaskIds, true);
-
-    }
 
     // Task processing finished
     if (m_subTaskQueueManager->IsProcessed()) 
