@@ -70,7 +70,10 @@ void SubTaskQueueAccessorImpl::OnSubTaskQueueAssigned(
      std::function<void()> onSubTaskQueueConnectedEventSink)
 {
     // @todo Consider possibility to use the received subTaskIds instead of m_subTaskQueueManager->GetQueueSnapshot() call
-    onSubTaskQueueConnectedEventSink();
+    // Call it asynchronously to prevent multiple mutex locks
+    m_gossipPubSub->GetAsioContext()->post([onSubTaskQueueConnectedEventSink]() {
+        onSubTaskQueueConnectedEventSink();
+        });
 }
 
 void SubTaskQueueAccessorImpl::GrabSubTask(SubTaskGrabbedCallback onSubTaskGrabbedCallback)
