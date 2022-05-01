@@ -92,7 +92,7 @@ public:
     bool IsProcessed() const;
 
     void SetSubTaskQueueAssignmentEventSink(
-        std::function<void(const std::vector<std::string>&, std::set<std::string>&)> subTaskQueueAssignmentEventSink);
+        std::function<void(const std::vector<std::string>&)> subTaskQueueAssignmentEventSink);
         
 private:
     /** Updates the local queue with a snapshot that have the most recent timestamp
@@ -115,7 +115,7 @@ private:
     mutable std::mutex m_queueMutex;
     std::list<SubTaskGrabbedCallback> m_onSubTaskGrabbedCallbacks;
 
-    std::function<void(const std::vector<std::string>&, std::set<std::string>&)> m_subTaskQueueAssignmentEventSink;
+    std::function<void(const std::vector<std::string>&)> m_subTaskQueueAssignmentEventSink;
     std::set<std::string> m_processedSubTaskIds;
 
     boost::asio::deadline_timer m_dltQueueResponseTimeout;

@@ -47,20 +47,10 @@ bool ProcessingSubTaskQueueManager::CreateQueue(
         processingQueue->add_items();
     }
 
-    std::lock_guard<std::mutex> guard(m_queueMutex);
+    std::unique_lock<std::mutex> guard(m_queueMutex);
     m_queue = std::move(queue);
 
     m_processedSubTaskIds = {};
-    if (m_subTaskQueueAssignmentEventSink)
-    {
-        std::vector<std::string> subTaskIds;
-        for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks().items_size(); ++subTaskIdx)
-        {
-            subTaskIds.push_back(m_queue->subtasks().items(subTaskIdx).subtaskid());
-        }
-        m_subTaskQueueAssignmentEventSink(subTaskIds, m_processedSubTaskIds);
-    }
-    
     // Map subtask IDs to subtask indices
     std::vector<int> unprocessedSubTaskIndices;
     for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks().items_size(); ++subTaskIdx)
@@ -79,6 +69,18 @@ bool ProcessingSubTaskQueueManager::CreateQueue(
 
     PublishSubTaskQueue();
 
+    if (m_subTaskQueueAssignmentEventSink)
+    {
+        std::vector<std::string> subTaskIds;
+        for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks().items_size(); ++subTaskIdx)
+        {
+            subTaskIds.push_back(m_queue->subtasks().items(subTaskIdx).subtaskid());
+        }
+        
+        guard.unlock();
+        m_subTaskQueueAssignmentEventSink(subTaskIds);
+    }
+
     return true;
 }
 
@@ -87,16 +89,6 @@ bool ProcessingSubTaskQueueManager::UpdateQueue(SGProcessing::SubTaskQueue* pQue
     if (pQueue)
     {
         std::shared_ptr<SGProcessing::SubTaskQueue> queue(pQueue);
-
-        if (m_subTaskQueueAssignmentEventSink && !m_queue)
-        {
-            std::vector<std::string> subTaskIds;
-            for (int subTaskIdx = 0; subTaskIdx < queue->subtasks().items_size(); ++subTaskIdx)
-            {
-                subTaskIds.push_back(queue->subtasks().items(subTaskIdx).subtaskid());
-            }
-            m_subTaskQueueAssignmentEventSink(subTaskIds, m_processedSubTaskIds);
-        }
 
         // Map subtask IDs to subtask indices
         std::vector<int> unprocessedSubTaskIndices;
@@ -241,14 +233,30 @@ void ProcessingSubTaskQueueManager::PublishSubTaskQueue() const
 
 bool ProcessingSubTaskQueueManager::ProcessSubTaskQueueMessage(SGProcessing::SubTaskQueue* queue)
 {
-    std::lock_guard<std::mutex> guard(m_queueMutex);
+    std::unique_lock<std::mutex> guard(m_queueMutex);
     m_dltQueueResponseTimeout.expires_at(boost::posix_time::pos_infin);
 
+    bool queueInitilalized = (m_queue != nullptr);
     bool queueChanged = UpdateQueue(queue);
     if (queueChanged && m_processingQueue.HasOwnership())
     {
         ProcessPendingSubTaskGrabbing();
     }
+
+    if (m_subTaskQueueAssignmentEventSink)
+    {
+        if (!queueInitilalized && queueChanged)
+        {    
+            std::vector<std::string> subTaskIds;
+            for (int subTaskIdx = 0; subTaskIdx < queue->subtasks().items_size(); ++subTaskIdx)
+            {
+                subTaskIds.push_back(queue->subtasks().items(subTaskIdx).subtaskid());
+            }
+            guard.unlock();
+            m_subTaskQueueAssignmentEventSink(subTaskIds);
+        }
+    }
+
     return queueChanged;
 }
 
@@ -341,7 +349,7 @@ bool ProcessingSubTaskQueueManager::IsProcessed() const
 }
 
 void ProcessingSubTaskQueueManager::SetSubTaskQueueAssignmentEventSink(
-    std::function<void(const std::vector<std::string>&, std::set<std::string>&)> subTaskQueueAssignmentEventSink)
+    std::function<void(const std::vector<std::string>&)> subTaskQueueAssignmentEventSink)
 {
     m_subTaskQueueAssignmentEventSink = subTaskQueueAssignmentEventSink;
     if (m_subTaskQueueAssignmentEventSink)
@@ -356,7 +364,8 @@ void ProcessingSubTaskQueueManager::SetSubTaskQueueAssignmentEventSink(
             {
                 subTaskIds.push_back(m_queue->subtasks().items(subTaskIdx).subtaskid());
             }
-            m_subTaskQueueAssignmentEventSink(subTaskIds, m_processedSubTaskIds);
+            guard.unlock();
+            m_subTaskQueueAssignmentEventSink(subTaskIds);
         }
     }
 }

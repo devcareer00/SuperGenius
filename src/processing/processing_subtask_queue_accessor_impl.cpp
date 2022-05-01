@@ -28,7 +28,7 @@ void SubTaskQueueAccessorImpl::ConnectToSubTaskQueue(std::function<void()> onSub
 {
     m_subTaskQueueManager->SetSubTaskQueueAssignmentEventSink(
         std::bind(&SubTaskQueueAccessorImpl::OnSubTaskQueueAssigned, 
-            this, std::placeholders::_1, std::placeholders::_2,  onSubTaskQueueConnectedEventSink));
+            this, std::placeholders::_1, onSubTaskQueueConnectedEventSink));
 
     // It cannot be called in class constructor because shared_from_this doesn't work for the case
     // The weak_from_this() is required to prevent a case when the message processing callback
@@ -66,13 +66,11 @@ void SubTaskQueueAccessorImpl::UpdateResultsFromStorage(const std::vector<std::s
 }
 
 void SubTaskQueueAccessorImpl::OnSubTaskQueueAssigned(
-    const std::vector<std::string>& subTaskIds, std::set<std::string>& processedSubTaskIds,
+    const std::vector<std::string>& subTaskIds,
      std::function<void()> onSubTaskQueueConnectedEventSink)
 {
-    // Call it asynchronously finalize initialization
-    m_gossipPubSub->GetAsioContext()->post([onSubTaskQueueConnectedEventSink]() {
-        onSubTaskQueueConnectedEventSink();
-        });
+    // @todo Consider possibility to use the received subTaskIds instead of m_subTaskQueueManager->GetQueueSnapshot() call
+    onSubTaskQueueConnectedEventSink();
 }
 
 void SubTaskQueueAccessorImpl::GrabSubTask(SubTaskGrabbedCallback onSubTaskGrabbedCallback)

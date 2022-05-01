@@ -54,7 +54,6 @@ private:
     void OnResultReceived(SGProcessing::SubTaskResult&& subTaskResult);
     void OnSubTaskQueueAssigned(
         const std::vector<std::string>& subTaskIds,
-        std::set<std::string>& processedSubTaskIds,
         std::function<void()> onSubTaskQueueConnectedEventSink);
     void UpdateResultsFromStorage(const std::vector<std::string>& subTaskIds);
     bool FinalizeQueueProcessing(
