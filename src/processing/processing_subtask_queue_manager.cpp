@@ -344,6 +344,21 @@ void ProcessingSubTaskQueueManager::SetSubTaskQueueAssignmentEventSink(
     std::function<void(const std::vector<std::string>&, std::set<std::string>&)> subTaskQueueAssignmentEventSink)
 {
     m_subTaskQueueAssignmentEventSink = subTaskQueueAssignmentEventSink;
+    if (m_subTaskQueueAssignmentEventSink)
+    {
+        std::unique_lock<std::mutex> guard(m_queueMutex);
+        bool isQueueInitialized = (m_queue != nullptr);
+
+        if (isQueueInitialized)
+        {
+            std::vector<std::string> subTaskIds;
+            for (int subTaskIdx = 0; subTaskIdx < m_queue->subtasks().items_size(); ++subTaskIdx)
+            {
+                subTaskIds.push_back(m_queue->subtasks().items(subTaskIdx).subtaskid());
+            }
+            m_subTaskQueueAssignmentEventSink(subTaskIds, m_processedSubTaskIds);
+        }
+    }
 }
 
 void ProcessingSubTaskQueueManager::LogQueue() const

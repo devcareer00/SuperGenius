@@ -172,9 +172,9 @@ TEST_F(SubTaskQueueAccessorImplTest, SubscribtionToResultChannel)
         std::make_shared<SubTaskResultStorageMock>(),
         [](const SGProcessing::TaskResult&) {});
 
-    subTaskQueueAccessor->ConnectToResultChannel();
-
-    engine->StartQueueProcessing(subTaskQueueAccessor);
+    subTaskQueueAccessor->ConnectToSubTaskQueue([&]() {
+        engine->StartQueueProcessing(subTaskQueueAccessor);
+        });
 
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
@@ -254,9 +254,9 @@ TEST_F(SubTaskQueueAccessorImplTest, TaskFinalization)
         std::make_shared<SubTaskResultStorageMock>(),
         [&isTaskFinalized](const SGProcessing::TaskResult&) { isTaskFinalized = true; });
 
-    subTaskQueueAccessor1->ConnectToResultChannel();
-
-    engine1->StartQueueProcessing(subTaskQueueAccessor1);
+    subTaskQueueAccessor1->ConnectToSubTaskQueue([&]() {
+        engine1->StartQueueProcessing(subTaskQueueAccessor1);
+        });
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
@@ -337,9 +337,9 @@ TEST_F(SubTaskQueueAccessorImplTest, InvalidSubTasksRestart)
         std::make_shared<SubTaskResultStorageMock>(),
         [&isTaskFinalized1](const SGProcessing::TaskResult&) { isTaskFinalized1 = true; });
 
-    subTaskQueueAccessor1->ConnectToResultChannel();
-
-    engine1->StartQueueProcessing(subTaskQueueAccessor1);
+    subTaskQueueAccessor1->ConnectToSubTaskQueue([&]() {
+        engine1->StartQueueProcessing(subTaskQueueAccessor1);
+        });
 
     // Wait for queue processing by node1
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
@@ -372,9 +372,9 @@ TEST_F(SubTaskQueueAccessorImplTest, InvalidSubTasksRestart)
         std::make_shared<SubTaskResultStorageMock>(),
         [&isTaskFinalized2](const SGProcessing::TaskResult&) { isTaskFinalized2 = true; });
 
-    subTaskQueueAccessor2->ConnectToResultChannel();
-
-    engine2->StartQueueProcessing(subTaskQueueAccessor2);
+    subTaskQueueAccessor2->ConnectToSubTaskQueue([&]() {
+        engine2->StartQueueProcessing(subTaskQueueAccessor2);
+        });
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 

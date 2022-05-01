@@ -34,15 +34,12 @@ void ProcessingNode::Initialize(const std::string& processingQueueChannelId, siz
     m_subtaskQueueManager = std::make_shared<ProcessingSubTaskQueueManager>(
         processingQueueChannel, m_gossipPubSub->GetAsioContext(), m_nodeId);
 
-    auto subTaskQueueAccessor = std::make_shared<SubTaskQueueAccessorImpl>(
+    m_subTaskQueueAccessor = std::make_shared<SubTaskQueueAccessorImpl>(
         m_gossipPubSub,
         m_subtaskQueueManager,
         m_subTaskStateStorage,
         m_subTaskResultStorage,
         m_taskResultProcessingSink);
-
-    subTaskQueueAccessor->ConnectToResultChannel();
-    m_subTaskQueueAccessor = subTaskQueueAccessor;
 
     processingQueueChannel->SetQueueRequestSink(
         [qmWeak(std::weak_ptr<ProcessingSubTaskQueueManager>(m_subtaskQueueManager))] (
@@ -80,9 +77,17 @@ void ProcessingNode::Initialize(const std::string& processingQueueChannelId, siz
 void ProcessingNode::AttachTo(const std::string& processingQueueChannelId, size_t msSubscriptionWaitingDuration)
 {
     Initialize(processingQueueChannelId, msSubscriptionWaitingDuration);
-    m_processingEngine->StartQueueProcessing(m_subTaskQueueAccessor);
 
-    // Set timer to handle queue request timeout
+    m_subTaskQueueAccessor->ConnectToSubTaskQueue(
+        [engineWeak(std::weak_ptr<ProcessingEngine>(m_processingEngine)), accessor(m_subTaskQueueAccessor)]() {
+        auto engine = engineWeak.lock();
+        if (engine)
+        {
+            engine->StartQueueProcessing(accessor);
+        }
+    });
+
+    // @todo Set timer to handle queue request timeout
 }
 
 void ProcessingNode::CreateProcessingHost(
@@ -92,9 +97,16 @@ void ProcessingNode::CreateProcessingHost(
 {
     Initialize(processingQueueChannelId, msSubscriptionWaitingDuration);
 
-    m_subTaskQueueAccessor->AssignSubTasks(subTasks);
+    m_subTaskQueueAccessor->ConnectToSubTaskQueue(
+        [engineWeak(std::weak_ptr<ProcessingEngine>(m_processingEngine)), accessor(m_subTaskQueueAccessor)]() {
+            auto engine = engineWeak.lock();
+            if (engine)
+            {
+                engine->StartQueueProcessing(accessor);
+            }
+        });
 
-    m_processingEngine->StartQueueProcessing(m_subTaskQueueAccessor);
+    m_subTaskQueueAccessor->AssignSubTasks(subTasks);
 }
 
 bool ProcessingNode::HasQueueOwnership() const

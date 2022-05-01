@@ -14,10 +14,6 @@ SubTaskQueueAccessorImpl::SubTaskQueueAccessorImpl(
     , m_subTaskResultStorage(subTaskResultStorage)
     , m_taskResultProcessingSink(taskResultProcessingSink)
 {
-    m_subTaskQueueManager->SetSubTaskQueueAssignmentEventSink(
-        std::bind(&SubTaskQueueAccessorImpl::OnSubTaskQueueAssigned, 
-            this, std::placeholders::_1, std::placeholders::_2));
-
     // @todo replace hardcoded channel identified with an input value
     m_resultChannel = std::make_shared<ipfs_pubsub::GossipPubSubTopic>(m_gossipPubSub, "RESULT_CHANNEL_ID");
     m_logger->debug("[CREATED] this: {}, thread_id {}", reinterpret_cast<size_t>(this), std::this_thread::get_id());
@@ -28,8 +24,12 @@ SubTaskQueueAccessorImpl::~SubTaskQueueAccessorImpl()
     m_logger->debug("[RELEASED] this: {}, thread_id {}", reinterpret_cast<size_t>(this), std::this_thread::get_id());
 }
 
-void SubTaskQueueAccessorImpl::ConnectToResultChannel()
+void SubTaskQueueAccessorImpl::ConnectToSubTaskQueue(std::function<void()> onSubTaskQueueConnectedEventSink)
 {
+    m_subTaskQueueManager->SetSubTaskQueueAssignmentEventSink(
+        std::bind(&SubTaskQueueAccessorImpl::OnSubTaskQueueAssigned, 
+            this, std::placeholders::_1, std::placeholders::_2,  onSubTaskQueueConnectedEventSink));
+
     // It cannot be called in class constructor because shared_from_this doesn't work for the case
     // The weak_from_this() is required to prevent a case when the message processing callback
     // is called using an invalid 'this' pointer to destroyed object
@@ -66,7 +66,8 @@ void SubTaskQueueAccessorImpl::UpdateResultsFromStorage(const std::vector<std::s
 }
 
 void SubTaskQueueAccessorImpl::OnSubTaskQueueAssigned(
-    const std::vector<std::string>& subTaskIds, std::set<std::string>& processedSubTaskIds)
+    const std::vector<std::string>& subTaskIds, std::set<std::string>& processedSubTaskIds,
+     std::function<void()> onSubTaskQueueConnectedEventSink)
 {
     std::lock_guard<std::mutex> guard(m_mutexResults);
     UpdateResultsFromStorage(subTaskIds);
@@ -75,6 +76,11 @@ void SubTaskQueueAccessorImpl::OnSubTaskQueueAssigned(
     {
         processedSubTaskIds.insert(subTaskId);
     }
+
+    // Call it asynchronously finalize initialization
+    m_gossipPubSub->GetAsioContext()->post([onSubTaskQueueConnectedEventSink]() {
+        onSubTaskQueueConnectedEventSink();
+        });
 }
 
 void SubTaskQueueAccessorImpl::GrabSubTask(SubTaskGrabbedCallback onSubTaskGrabbedCallback)

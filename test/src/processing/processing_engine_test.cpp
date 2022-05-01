@@ -29,9 +29,18 @@ namespace
                 std::bind(&SubTaskQueueAccessorMock::OnTimerEvent, this, std::placeholders::_1));
         }
 
+        void ConnectToSubTaskQueue(std::function<void()> onSubTaskQueueConnectedEventSink)
+        {
+            m_onSubTaskQueueConnectedEventSink = onSubTaskQueueConnectedEventSink;
+        }
+
         void AssignSubTasks(std::list<SGProcessing::SubTask>& subTasks)
         {
             m_subTasks.swap(subTasks);
+            if (m_onSubTaskQueueConnectedEventSink)
+            {
+                m_onSubTaskQueueConnectedEventSink();
+            }
         }
 
         void GrabSubTask(SubTaskGrabbedCallback onSubTaskGrabbedCallback) override
@@ -62,6 +71,8 @@ namespace
 
         boost::asio::io_context& m_context;
         boost::asio::deadline_timer m_timerToKeepContext;
+
+        std::function<void()> m_onSubTaskQueueConnectedEventSink;
     };
 
     class ProcessingCoreImpl : public ProcessingCore

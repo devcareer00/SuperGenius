@@ -37,12 +37,10 @@ public:
         std::function<void(const SGProcessing::TaskResult&)> taskResultProcessingSink);
     virtual ~SubTaskQueueAccessorImpl();
     
-    /** Start listening to results channel
-    */
-    void ConnectToResultChannel();
 
     /** SubTaskQueueAccessor overrides
     */
+    void ConnectToSubTaskQueue(std::function<void()> onSubTaskQueueConnectedEventSink);
     void AssignSubTasks(std::list<SGProcessing::SubTask>& subTasks) override;
     void GrabSubTask(SubTaskGrabbedCallback onSubTaskGrabbedCallback) override;
     void CompleteSubTask(const std::string& subTaskId, const SGProcessing::SubTaskResult& subTaskResult) override;
@@ -54,7 +52,10 @@ public:
 
 private:
     void OnResultReceived(SGProcessing::SubTaskResult&& subTaskResult);
-    void OnSubTaskQueueAssigned(const std::vector<std::string>& subTaskIds, std::set<std::string>& processedSubTaskIds);
+    void OnSubTaskQueueAssigned(
+        const std::vector<std::string>& subTaskIds,
+        std::set<std::string>& processedSubTaskIds,
+        std::function<void()> onSubTaskQueueConnectedEventSink);
     void UpdateResultsFromStorage(const std::vector<std::string>& subTaskIds);
     
     static void OnResultChannelMessage(

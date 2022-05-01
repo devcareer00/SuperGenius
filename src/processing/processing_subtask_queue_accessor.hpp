@@ -19,6 +19,11 @@ public:
     typedef std::function<void(boost::optional<const SGProcessing::SubTask&>)> SubTaskGrabbedCallback;
     virtual ~SubTaskQueueAccessor() = default;
 
+    /** Starts a waiting for subtasks queue 
+    * @param onSubTaskQueueConnectedEventSink hadnler which is called when subtask queue is connected
+    */
+    virtual void ConnectToSubTaskQueue(std::function<void()> onSubTaskQueueConnectedEventSink) = 0;
+
     /** Assigns a subtask list to processing queue
     * @param subTasks - a list of enqueued subtasks
     */
