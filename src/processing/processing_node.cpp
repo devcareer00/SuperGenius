@@ -78,14 +78,16 @@ void ProcessingNode::AttachTo(const std::string& processingQueueChannelId, size_
 {
     Initialize(processingQueueChannelId, msSubscriptionWaitingDuration);
 
-    m_subTaskQueueAccessor->ConnectToSubTaskQueue(
-        [engineWeak(std::weak_ptr<ProcessingEngine>(m_processingEngine)), accessor(m_subTaskQueueAccessor)]() {
-        auto engine = engineWeak.lock();
-        if (engine)
-        {
-            engine->StartQueueProcessing(accessor);
-        }
-    });
+    m_subTaskQueueAccessor->ConnectToSubTaskQueue([
+        engineWeak(std::weak_ptr<ProcessingEngine>(m_processingEngine)), 
+        accessorWeak(std::weak_ptr<SubTaskQueueAccessor>(m_subTaskQueueAccessor))]() {
+            auto engine = engineWeak.lock();
+            auto accessor = accessorWeak.lock();
+            if (engine && accessor)
+            {
+                engine->StartQueueProcessing(accessor);
+            }
+        });
 
     // @todo Set timer to handle queue request timeout
 }
@@ -97,10 +99,12 @@ void ProcessingNode::CreateProcessingHost(
 {
     Initialize(processingQueueChannelId, msSubscriptionWaitingDuration);
 
-    m_subTaskQueueAccessor->ConnectToSubTaskQueue(
-        [engineWeak(std::weak_ptr<ProcessingEngine>(m_processingEngine)), accessor(m_subTaskQueueAccessor)]() {
+    m_subTaskQueueAccessor->ConnectToSubTaskQueue([
+        engineWeak(std::weak_ptr<ProcessingEngine>(m_processingEngine)),
+        accessorWeak(std::weak_ptr<SubTaskQueueAccessor>(m_subTaskQueueAccessor))]() {
             auto engine = engineWeak.lock();
-            if (engine)
+            auto accessor = accessorWeak.lock();
+            if (engine && accessor)
             {
                 engine->StartQueueProcessing(accessor);
             }
