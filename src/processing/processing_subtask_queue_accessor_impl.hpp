@@ -57,6 +57,9 @@ private:
         std::set<std::string>& processedSubTaskIds,
         std::function<void()> onSubTaskQueueConnectedEventSink);
     void UpdateResultsFromStorage(const std::vector<std::string>& subTaskIds);
+    bool FinalizeQueueProcessing(
+        const SGProcessing::SubTaskCollection& subTasks,
+        std::set<std::string>& invalidSubTaskIds);
     
     static void OnResultChannelMessage(
         std::weak_ptr<SubTaskQueueAccessorImpl> weakThis,

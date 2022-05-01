@@ -140,48 +140,52 @@ void SubTaskQueueAccessorImpl::OnResultReceived(SGProcessing::SubTaskResult&& su
     if (m_subTaskQueueManager->IsProcessed()) 
     {
         std::set<std::string> invalidSubTaskIds;
-
         auto queue = m_subTaskQueueManager->GetQueueSnapshot();
-        std::list<SGProcessing::SubTask> subTasks;
-        for (size_t subTaskIdx = 0; subTaskIdx < queue->subtasks().items_size(); ++subTaskIdx)
+
+        if (!FinalizeQueueProcessing(queue->subtasks(), invalidSubTaskIds))
         {
-            subTasks.push_back(queue->subtasks().items(subTaskIdx));
+            m_subTaskQueueManager->ChangeSubTaskProcessingStates(invalidSubTaskIds, false);
         }
+    }
+}
 
-        bool valid = m_validationCore.ValidateResults(queue->subtasks(), m_results, invalidSubTaskIds);
+bool SubTaskQueueAccessorImpl::FinalizeQueueProcessing(
+    const SGProcessing::SubTaskCollection& subTasks,
+    std::set<std::string>& invalidSubTaskIds)
+{
+    bool valid = m_validationCore.ValidateResults(subTasks, m_results, invalidSubTaskIds);
 
-        m_logger->debug("RESULTS_VALIDATED: {}", valid ? "VALID" : "INVALID");
-        if (valid)
+    bool isFinalized = false;
+    m_logger->debug("RESULTS_VALIDATED: {}", valid ? "VALID" : "INVALID");
+    if (valid)
+    {
+        // @todo Add a test where the owner disconnected, but the last valid result is received by slave nodes
+        // @todo Request the ownership instead of just checking
+        if (m_subTaskQueueManager->HasOwnership())
         {
-            // @todo Add a test where the owner disconnected, but the last valid result is received by slave nodes
-            // @todo Request the ownership instead of just checking
-            if (m_subTaskQueueManager->HasOwnership())
+            SGProcessing::TaskResult taskResult;
+            auto results = taskResult.mutable_subtask_results();
+            for (const auto& r : m_results)
             {
-                SGProcessing::TaskResult taskResult;
-                auto results = taskResult.mutable_subtask_results();
-                for (const auto& r : m_results)
-                {
-                    auto result = results->Add();
-                    result->CopyFrom(r.second);
-                }
-                m_taskResultProcessingSink(taskResult);
-                // @todo Notify other nodes that the task is finalized
+                auto result = results->Add();
+                result->CopyFrom(r.second);
             }
-            else
-            {
-                // @todo Process task finalization expiration
-            }
+            m_taskResultProcessingSink(taskResult);
         }
         else
         {
-            m_subTaskQueueManager->ChangeSubTaskProcessingStates(invalidSubTaskIds, false);
-            for (const auto& subTaskId : invalidSubTaskIds)
-            {
-                m_results.erase(subTaskId);
-            }
+            // @todo Process task finalization expiration
+        }
+        isFinalized = true;
+    }
+    else
+    {
+        for (const auto& subTaskId : invalidSubTaskIds)
+        {
+            m_results.erase(subTaskId);
         }
     }
-    // @todo Check that the queue processing is continued when subtasks invalidated
+    return isFinalized;
 }
 
 std::vector<std::tuple<std::string, SGProcessing::SubTaskResult>> SubTaskQueueAccessorImpl::GetResults() const
